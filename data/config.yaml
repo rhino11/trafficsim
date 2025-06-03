@@ -1,0 +1,434 @@
+# Global Traffic Simulator Configuration
+# This file defines platform types (the "database") and scenarios (instances)
+
+simulation:
+  update_interval: "1s"
+  time_scale: 1.0
+  max_duration: "30m"
+  bounding_box:
+    north: 50.0
+    south: 20.0
+    east: -60.0
+    west: -130.0
+
+server:
+  port: 8080
+  host: "localhost"
+  web_root: "web"
+
+output:
+  cot:
+    enabled: true
+    endpoint: "udp://239.2.3.1:6969"
+    update_rate: "5s"
+  logging:
+    level: "info"
+    format: "text"
+
+platforms:
+  # Airborne Platform Type Definitions (Database Table)
+  airborne_types:
+    boeing_737_800:
+      name: "Boeing 737-800"
+      class: "Boeing 737-800"
+      type: "airborne"
+      category: "commercial"
+      max_speed: 257.0      # m/s (500 kts)
+      cruise_speed: 230.0   # m/s (447 kts)
+      max_altitude: 12500.0 # meters (41,000 ft)
+      service_ceiling: 12500.0
+      length: 39.5
+      width: 35.8           # wingspan
+      height: 12.5
+      mass: 79010.0
+      fuel_capacity: 26020  # liters
+      range: 5665000        # meters (3,060 nm)
+      callsign_prefix: ""   # Commercial flights use flight numbers
+      
+    airbus_a320:
+      name: "Airbus A320"
+      class: "Airbus A320"
+      type: "airborne"
+      category: "commercial"
+      max_speed: 257.0
+      cruise_speed: 230.0
+      max_altitude: 12000.0
+      service_ceiling: 12000.0
+      length: 37.6
+      width: 36.0
+      height: 11.8
+      mass: 78000.0
+      fuel_capacity: 24210
+      range: 5700000
+      callsign_prefix: ""
+      
+    f16_falcon:
+      name: "F-16 Fighting Falcon"
+      class: "F-16 Fighting Falcon"
+      type: "airborne"
+      category: "military"
+      max_speed: 617.0      # m/s (Mach 2.0+ at altitude)
+      cruise_speed: 257.0   # m/s (500 kts)
+      max_altitude: 15240.0 # meters (50,000 ft)
+      service_ceiling: 15240.0
+      length: 15.0
+      width: 10.0
+      height: 5.1
+      mass: 19187.0
+      fuel_capacity: 3200
+      range: 4220000
+      callsign_prefix: "VIPER"
+      callsign_format: "{prefix}{id}"
+      
+    c130_hercules:
+      name: "C-130 Hercules"
+      class: "C-130 Hercules"
+      type: "airborne"
+      category: "military"
+      max_speed: 190.0
+      cruise_speed: 160.0
+      max_altitude: 10060.0
+      service_ceiling: 10060.0
+      length: 29.8
+      width: 40.4
+      height: 11.7
+      mass: 70300.0
+      fuel_capacity: 9300
+      range: 3800000
+      callsign_prefix: "HERKY"
+      callsign_format: "{prefix}{id}"
+
+  # Maritime Platform Type Definitions
+  maritime_types:
+    arleigh_burke_ddg:
+      name: "Arleigh Burke-class Destroyer"
+      class: "Arleigh Burke-class"
+      type: "maritime"
+      category: "military"
+      max_speed: 15.4       # m/s (30+ knots)
+      cruise_speed: 10.3    # m/s (20 knots)
+      max_altitude: 0.0
+      length: 155.0
+      width: 20.0           # beam
+      height: 18.0
+      mass: 9200000.0       # kg
+      draft: 6.3
+      displacement: 9200.0  # tonnes
+      callsign_prefix: "NAVY"
+      callsign_format: "{prefix}{id}"
+      
+    container_ship_ulcv:
+      name: "Ultra Large Container Vessel"
+      class: "Ultra Large Container Vessel"
+      type: "maritime"
+      category: "commercial"
+      max_speed: 12.9       # m/s (25 knots)
+      cruise_speed: 10.3    # m/s (20 knots)
+      max_altitude: 0.0
+      length: 400.0
+      width: 59.0
+      height: 73.0
+      mass: 200000000.0
+      draft: 16.0
+      displacement: 200000.0
+      callsign_prefix: "CARGO"
+      callsign_format: "{prefix}{id}"
+      
+    oil_tanker_vlcc:
+      name: "Very Large Crude Carrier"
+      class: "Very Large Crude Carrier"
+      type: "maritime"
+      category: "commercial"
+      max_speed: 8.2        # m/s (16 knots)
+      cruise_speed: 6.7     # m/s (13 knots)
+      max_altitude: 0.0
+      length: 330.0
+      width: 60.0
+      height: 35.0
+      mass: 320000000.0
+      draft: 22.0
+      displacement: 320000.0
+      callsign_prefix: "TANKER"
+      callsign_format: "{prefix}{id}"
+
+  # Land Platform Type Definitions
+  land_types:
+    m1a2_abrams:
+      name: "M1A2 Abrams Main Battle Tank"
+      class: "M1A2 Abrams MBT"
+      type: "land"
+      category: "military"
+      max_speed: 20.0       # m/s (45 mph)
+      cruise_speed: 13.4    # m/s (30 mph)
+      max_altitude: 0.0
+      length: 9.8
+      width: 3.7
+      height: 2.4
+      mass: 62000.0
+      fuel_capacity: 1900.0
+      range: 426000.0       # meters (265 miles)
+      max_gradient: 30.0    # degrees
+      callsign_prefix: "ARMOR"
+      callsign_format: "{prefix}{id}"
+      
+    hmmwv:
+      name: "High Mobility Multipurpose Wheeled Vehicle"
+      class: "HMMWV"
+      type: "land"
+      category: "military"
+      max_speed: 31.0       # m/s (70 mph)
+      cruise_speed: 22.4    # m/s (50 mph)
+      max_altitude: 0.0
+      length: 4.6
+      width: 2.2
+      height: 1.8
+      mass: 5900.0
+      fuel_capacity: 95.0
+      range: 480000.0
+      max_gradient: 40.0
+      callsign_prefix: "HUMVEE"
+      callsign_format: "{prefix}{id}"
+      
+    police_interceptor:
+      name: "Police Patrol Vehicle"
+      class: "Ford Police Interceptor"
+      type: "land"
+      category: "civilian"
+      max_speed: 50.0       # m/s (112 mph)
+      cruise_speed: 26.8    # m/s (60 mph)
+      max_altitude: 0.0
+      length: 5.2
+      width: 1.9
+      height: 1.5
+      mass: 2000.0
+      fuel_capacity: 68.0
+      range: 640000.0
+      max_gradient: 25.0
+      callsign_prefix: "PATROL"
+      callsign_format: "{prefix}{id}"
+
+  # Space Platform Type Definitions
+  space_types:
+    iss_module:
+      name: "International Space Station Module"
+      class: "ISS Module"
+      type: "space"
+      category: "civilian"
+      max_speed: 7660.0     # m/s (orbital velocity)
+      cruise_speed: 7660.0
+      max_altitude: 420000.0
+      length: 73.0          # full ISS
+      width: 109.0          # solar array span
+      height: 20.0
+      mass: 420000.0
+      orbital_period: 5520.0 # seconds (92 minutes)
+      apogee: 420000.0
+      perigee: 408000.0
+      inclination: 51.6
+      callsign_prefix: "ISS"
+      callsign_format: "{prefix}{id}"
+      
+    starlink_sat:
+      name: "Starlink Communication Satellite"
+      class: "Starlink Satellite"
+      type: "space"
+      category: "commercial"
+      max_speed: 7590.0
+      cruise_speed: 7590.0
+      max_altitude: 550000.0
+      length: 2.8
+      width: 1.9
+      height: 0.32
+      mass: 260.0
+      orbital_period: 5760.0
+      apogee: 550000.0
+      perigee: 550000.0
+      inclination: 53.0
+      callsign_prefix: "STARLINK"
+      callsign_format: "{prefix}{id}"
+      
+    gps_satellite:
+      name: "GPS Navigation Satellite"
+      class: "GPS Block III"
+      type: "space"
+      category: "military"
+      max_speed: 3870.0
+      cruise_speed: 3870.0
+      max_altitude: 20200000.0
+      length: 3.0
+      width: 2.0
+      height: 1.7
+      mass: 2000.0
+      orbital_period: 43200.0  # 12 hours
+      apogee: 20200000.0
+      perigee: 20200000.0
+      inclination: 55.0
+      callsign_prefix: "GPS"
+      callsign_format: "{prefix}{id}"
+
+  # Scenario Definitions (Platform Instances)
+  scenarios:
+    east_coast_demo:
+      name: "East Coast Traffic Demo"
+      description: "Demonstration scenario with mixed traffic around the US East Coast"
+      duration: "30m"
+      instances:
+        # Commercial Aviation
+        - id: "AA1234"
+          type_id: "boeing_737_800"
+          name: "American 1234"
+          callsign: "AAL1234"
+          start_position:
+            latitude: 40.7128   # JFK area
+            longitude: -74.0060
+            altitude: 10000
+          destination:
+            latitude: 25.7617   # Miami
+            longitude: -80.1918
+            altitude: 11000
+            
+        - id: "UA5678"
+          type_id: "airbus_a320"
+          name: "United 5678"
+          callsign: "UAL5678"
+          start_position:
+            latitude: 38.9445   # DCA area
+            longitude: -77.4558
+            altitude: 9000
+          destination:
+            latitude: 42.3656   # Boston
+            longitude: -71.0096
+            altitude: 10000
+            
+        # Military Aviation
+        - id: "VIPER01"
+          type_id: "f16_falcon"
+          name: "Viper Flight Lead"
+          start_position:
+            latitude: 35.3333   # Edwards AFB area
+            longitude: -117.8667
+            altitude: 8000
+          destination:
+            latitude: 36.0000
+            longitude: -115.0000
+            altitude: 12000
+            
+        # Naval Operations
+        - id: "DDG051"
+          type_id: "arleigh_burke_ddg"
+          name: "USS Cole"
+          start_position:
+            latitude: 36.8467   # Norfolk Naval Base
+            longitude: -76.2950
+            altitude: 0
+          destination:
+            latitude: 25.7617   # Miami patrol
+            longitude: -80.1918
+            altitude: 0
+            
+        - id: "CARGO001"
+          type_id: "container_ship_ulcv"
+          name: "Ever Given"
+          start_position:
+            latitude: 40.6892   # New York Harbor
+            longitude: -74.0445
+            altitude: 0
+          destination:
+            latitude: 25.7753   # Port of Miami
+            longitude: -80.1659
+            altitude: 0
+            
+        # Ground Operations
+        - id: "TANK001"
+          type_id: "m1a2_abrams"
+          name: "Alpha Company Lead"
+          start_position:
+            latitude: 31.1354   # Fort Hood
+            longitude: -97.7841
+            altitude: 300
+          destination:
+            latitude: 31.1500
+            longitude: -97.7700
+            altitude: 310
+            
+        - id: "PATROL01"
+          type_id: "police_interceptor"
+          name: "Unit 23"
+          start_position:
+            latitude: 40.7589   # Times Square
+            longitude: -73.9851
+            altitude: 10
+          destination:
+            latitude: 40.7831   # Central Park
+            longitude: -73.9712
+            altitude: 15
+            
+        # Space Assets
+        - id: "ISS001"
+          type_id: "iss_module"
+          name: "ISS Harmony"
+          start_position:
+            latitude: 0.0
+            longitude: 0.0
+            altitude: 408000
+            
+        - id: "SAT001"
+          type_id: "starlink_sat"
+          name: "Starlink-2547"
+          start_position:
+            latitude: 45.0
+            longitude: -120.0
+            altitude: 550000
+            
+        - id: "GPS01"
+          type_id: "gps_satellite"
+          name: "GPS III-05"
+          start_position:
+            latitude: 39.0
+            longitude: -100.0
+            altitude: 20200000
+
+    # Additional scenario for larger scale testing
+    global_operations:
+      name: "Global Operations"
+      description: "Large-scale global simulation with multiple theaters"
+      duration: "2h"
+      instances:
+        # Pacific Theater
+        - id: "CARGO_PAC_01"
+          type_id: "container_ship_ulcv"
+          name: "Pacific Trader"
+          start_position:
+            latitude: 35.6762   # Tokyo Bay
+            longitude: 139.6503
+            altitude: 0
+          destination:
+            latitude: 34.0522   # LA Harbor
+            longitude: -118.2437
+            altitude: 0
+            
+        # Atlantic Theater
+        - id: "TANKER_ATL_01"
+          type_id: "oil_tanker_vlcc"
+          name: "Atlantic Voyager"
+          start_position:
+            latitude: 26.1224   # Persian Gulf
+            longitude: 50.5577
+            altitude: 0
+          destination:
+            latitude: 29.7604   # Houston
+            longitude: -95.3698
+            altitude: 0
+            
+        # Military exercises
+        - id: "HERKY01"
+          type_id: "c130_hercules"
+          name: "Reach 001"
+          start_position:
+            latitude: 39.7391   # Dover AFB
+            longitude: -75.4664
+            altitude: 5000
+          destination:
+            latitude: 32.3668   # Charleston AFB
+            longitude: -80.0470
+            altitude: 7000
