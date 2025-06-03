@@ -1,0 +1,118 @@
+# Maritime Platform Definitions
+platform_types:
+  arleigh_burke_ddg:
+    class: "Arleigh Burke-class Destroyer"
+    category: "guided_missile_destroyer"
+    performance:
+      max_speed: 15.4           # m/s (30+ knots)
+      cruise_speed: 10.3        # m/s (20 knots)
+      fuel_consumption: 0.8     # kg/s at cruise
+      turning_radius: 500       # meters
+      acceleration: 0.5         # m/s²
+    physical:
+      length: 155.0
+      width: 20.4               # beam
+      height: 63.0              # height above waterline
+      mass: 9200000             # kg (9,200 tons)
+      fuel_capacity: 1400000    # kg
+      draft: 9.3                # meters
+    operational:
+      range: 8334000            # meters (4,500 nm)
+      crew_capacity: 323
+      weapon_systems: ["Mk 41 VLS", "Mk 45 5-inch gun", "Phalanx CIWS", "Harpoon SSM", "Tomahawk"]
+      sensor_range: 185000      # meters (radar range)
+    callsign_config:
+      prefix: "USS"
+      format: "{name}"
+      names: ["Cole", "McCain", "Fitzgerald", "Mustin", "Ramage", "Gonzalez"]
+
+  gerald_ford_cvn:
+    class: "Gerald R. Ford-class Aircraft Carrier"
+    category: "aircraft_carrier"
+    performance:
+      max_speed: 15.4           # m/s (30+ knots)
+      cruise_speed: 12.9        # m/s (25 knots)
+      fuel_consumption: 3.5     # kg/s at cruise
+      turning_radius: 1200      # meters
+      acceleration: 0.2         # m/s²
+    physical:
+      length: 337.0
+      width: 78.0               # beam
+      height: 76.0              # flight deck above waterline
+      mass: 100000000           # kg (100,000 tons)
+      fuel_capacity: 8000000    # kg
+      draft: 12.0               # meters
+    operational:
+      range: 9260000            # meters (unlimited with nuclear power)
+      crew_capacity: 4539
+      passenger_capacity: 75    # aircrew
+      cargo_capacity: 10000000  # kg (aircraft and supplies)
+      weapon_systems: ["RIM-162 ESSM", "RIM-116 RAM", "Phalanx CIWS"]
+      sensor_range: 300000      # meters
+    callsign_config:
+      prefix: "USS"
+      format: "{name}"
+      names: ["Gerald R. Ford", "John F. Kennedy", "Enterprise"]
+
+  cargo_vessel:
+    class: "Container Ship"
+    category: "commercial_cargo"
+    performance:
+      max_speed: 12.9           # m/s (25 knots)
+      cruise_speed: 10.8        # m/s (21 knots)
+      fuel_consumption: 1.5     # kg/s at cruise
+      turning_radius: 800       # meters
+      acceleration: 0.1         # m/s²
+    physical:
+      length: 400.0
+      width: 59.0               # beam
+      height: 73.0              # height above waterline
+      mass: 220000000           # kg (220,000 tons loaded)
+      fuel_capacity: 4500000    # kg
+      draft: 16.0               # meters
+    operational:
+      range: 12963000           # meters (7,000 nm)
+      crew_capacity: 25
+      cargo_capacity: 200000000 # kg (20,000 TEU)
+    callsign_config:
+      prefix: "MV"
+      format: "MV {name}"
+      names: ["Ever Given", "OOCL Hong Kong", "Madrid Maersk", "MSC Gulsun"]
+
+platforms:
+  - id: "DDG51"
+    type: "arleigh_burke_ddg"
+    name: "USS Arleigh Burke"
+    start_position:
+      latitude: 36.8468
+      longitude: -76.2951
+      altitude: 0
+    mission:
+      type: "patrol"
+      area: "Norfolk Operating Area"
+      duration: 72.0
+      
+  - id: "CVN78"
+    type: "gerald_ford_cvn"
+    name: "USS Gerald R. Ford"
+    start_position:
+      latitude: 36.9336
+      longitude: -76.3274
+      altitude: 0
+    mission:
+      type: "carrier_operations"
+      area: "Atlantic Fleet"
+      flight_operations: true
+      
+  - id: "CARGO001"
+    type: "cargo_vessel"
+    name: "MV Ever Forward"
+    start_position:
+      latitude: 39.2704
+      longitude: -76.6122
+      altitude: 0
+    mission:
+      type: "cargo_transit"
+      origin: "Baltimore"
+      destination: "Norfolk"
+      cargo_manifest: "containers"
