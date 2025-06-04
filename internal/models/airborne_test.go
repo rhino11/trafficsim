@@ -308,7 +308,9 @@ func TestAircraftUpdate(t *testing.T) {
 
 	// Set destination
 	dest := Position{Latitude: 40.1, Longitude: -74.0, Altitude: 11000}
-	aircraft.SetDestination(dest)
+	if err := aircraft.SetDestination(dest); err != nil {
+		t.Fatalf("Error setting destination: %v", err)
+	}
 
 	initialTime := aircraft.State.LastUpdated
 
@@ -371,13 +373,17 @@ func BenchmarkAirbornePlatformUpdate(b *testing.B) {
 	aircraft := NewBoeing737_800("BENCH-001", "BENCH123", startPos)
 
 	dest := Position{Latitude: 41.0, Longitude: -73.0, Altitude: 11000}
-	aircraft.SetDestination(dest)
+	if err := aircraft.SetDestination(dest); err != nil {
+		b.Fatalf("Error setting destination: %v", err)
+	}
 
 	deltaTime := 1 * time.Second
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		aircraft.Update(deltaTime)
+		if err := aircraft.Update(deltaTime); err != nil {
+			b.Errorf("Update failed: %v", err)
+		}
 	}
 }
 
@@ -412,13 +418,13 @@ func TestAirbornePlatformUpdate(t *testing.T) {
 
 	// Set a destination
 	destination := Position{Latitude: 41.0, Longitude: -74.0, Altitude: 11000}
-	aircraft.SetDestination(destination)
+	if err := aircraft.SetDestination(destination); err != nil {
+		t.Fatalf("Error setting destination: %v", err)
+	}
 
 	// Convert float64 to time.Duration for Update call
 	dt := time.Duration(1.0 * float64(time.Second))
-	err := aircraft.Update(dt)
-
-	if err != nil {
+	if err := aircraft.Update(dt); err != nil {
 		t.Errorf("Update failed: %v", err)
 	}
 
@@ -430,5 +436,86 @@ func TestAirbornePlatformUpdate(t *testing.T) {
 	// Check that flight phase is appropriate
 	if aircraft.FlightPhase == FlightPhaseParked {
 		t.Error("Aircraft should not be parked when flying")
+	}
+}
+
+func TestBoeing737_800FlightToDestination(t *testing.T) {
+	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000} // NYC
+	dest := Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}    // LA
+
+	aircraft := NewBoeing737_800("UA123", "United 123", startPos)
+	if err := aircraft.SetDestination(dest); err != nil {
+		t.Fatalf("Error setting destination: %v", err)
+	}
+
+	// Simulate flight for a reasonable time period
+	totalTime := 0.0
+	maxTime := 300.0             // 5 minutes maximum simulation time
+	deltaTime := time.Second * 1 // 1 second intervals
+
+	initialDistance := aircraft.UniversalPlatform.calculateGreatCircleDistance(dest)
+	t.Logf("Initial distance to destination: %.2f km", initialDistance/1000)
+
+	// Force the aircraft to be in flight mode
+	aircraft.State.Position.Altitude = 10000 // Ensure we're airborne
+	aircraft.State.Speed = 200               // Set initial cruise speed
+
+	for totalTime < maxTime {
+		if err := aircraft.Update(deltaTime); err != nil {
+			t.Fatalf("Error during update: %v", err)
+		}
+		totalTime += 1.0
+
+		// Check if we're making reasonable progress
+		currentDistance := aircraft.UniversalPlatform.calculateGreatCircleDistance(dest)
+		if currentDistance < initialDistance*0.98 { // Made 2% progress
+			t.Logf("Made progress after %.0f seconds", totalTime)
+			break
+		}
+	}
+
+	// Check final position
+	finalDistance := aircraft.UniversalPlatform.calculateGreatCircleDistance(dest)
+	progressMade := (initialDistance - finalDistance) / initialDistance
+
+	t.Logf("Final position: lat=%.4f, lon=%.4f", aircraft.State.Position.Latitude, aircraft.State.Position.Longitude)
+	t.Logf("Progress made: %.2f%% (%.2f km closer)", progressMade*100, (initialDistance-finalDistance)/1000)
+
+	// Should make at least 1% progress in 5 minutes (very realistic expectation)
+	if progressMade < 0.01 {
+		t.Errorf("Aircraft should make progress towards destination. Progress: %.2f%%", progressMade*100)
+	}
+
+	// Check that aircraft is moving in the right general direction
+	latitudeDiff := aircraft.State.Position.Latitude - startPos.Latitude
+	longitudeDiff := aircraft.State.Position.Longitude - startPos.Longitude
+
+	// For NYC to LA flight, we expect longitude to decrease (moving west)
+	if longitudeDiff >= 0 {
+		t.Errorf("Aircraft should move west towards LA (longitude should decrease), but longitude changed by %.6f", longitudeDiff)
+	}
+
+	// Check that the aircraft is actually moving
+	if math.Abs(latitudeDiff) < 0.0001 && math.Abs(longitudeDiff) < 0.0001 {
+		t.Error("Aircraft should move from its starting position")
+	}
+
+	// Verify flight phase is appropriate
+	if aircraft.FlightPhase == FlightPhaseParked {
+		t.Error("Aircraft should not be parked when flying")
+	}
+
+	// Verify the aircraft is heading in roughly the right direction (southwest)
+	// The bearing from NYC to LA is roughly 260-280 degrees
+	expectedBearing := aircraft.UniversalPlatform.calculateBearing(dest)
+	t.Logf("Expected bearing to destination: %.1f°, Current heading: %.1f°", expectedBearing, aircraft.State.Heading)
+
+	// Allow for some variation as the aircraft turns towards the destination
+	bearingDiff := math.Abs(aircraft.State.Heading - expectedBearing)
+	if bearingDiff > 180 {
+		bearingDiff = 360 - bearingDiff // Handle wrap-around
+	}
+	if bearingDiff > 90 { // Very lenient - just check it's not completely wrong
+		t.Errorf("Aircraft heading %.1f° should be closer to destination bearing %.1f°", aircraft.State.Heading, expectedBearing)
 	}
 }

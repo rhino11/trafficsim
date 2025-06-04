@@ -88,6 +88,7 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config) {
 
 	// Load platforms from configuration or create examples
 	if err := engine.LoadPlatformsFromConfig(); err != nil {
+		cancel() // Cancel context before fatal exit
 		log.Fatalf("Failed to load platforms: %v", err)
 	}
 

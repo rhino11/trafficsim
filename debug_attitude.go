@@ -13,7 +13,10 @@ func main() {
 	dest := models.Position{Latitude: 40.1, Longitude: -74.0, Altitude: 10000}
 
 	aircraft := models.NewBoeing737_800("TEST-004", "TEST101", startPos)
-	aircraft.SetDestination(dest)
+	if err := aircraft.SetDestination(dest); err != nil {
+		fmt.Printf("Error setting destination: %v\n", err)
+		return
+	}
 	aircraft.UniversalPlatform.State.Speed = 200
 
 	fmt.Printf("Initial heading: %.1f°\n", aircraft.UniversalPlatform.State.Heading)
@@ -39,7 +42,10 @@ func main() {
 	fmt.Printf("Initial roll: %.3f°\n", aircraft.UniversalPlatform.State.Physics.Attitude.Roll)
 
 	// Test what happens during a full Update call
-	aircraft.Update(time.Second)
+	if err := aircraft.Update(time.Second); err != nil {
+		fmt.Printf("Error updating aircraft: %v\n", err)
+		return
+	}
 	fmt.Printf("Roll after Update: %.3f°\n", aircraft.UniversalPlatform.State.Physics.Attitude.Roll)
 	fmt.Printf("Heading after Update: %.1f°\n", aircraft.UniversalPlatform.State.Heading)
 }

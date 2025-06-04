@@ -232,7 +232,9 @@ func (e *Engine) createExamplePlatforms() error {
 		"United 123",
 		models.Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}, // NYC
 	)
-	boeing737.SetDestination(models.Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}) // LA
+	if err := boeing737.SetDestination(models.Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}); err != nil {
+		log.Printf("Error setting Boeing 737 destination: %v", err)
+	}
 
 	if err := e.AddPlatform(boeing737); err != nil {
 		return err
@@ -244,7 +246,9 @@ func (e *Engine) createExamplePlatforms() error {
 		"Mustin",
 		models.Position{Latitude: 36.8485, Longitude: -76.2951, Altitude: 0}, // Norfolk, VA
 	)
-	destroyer.SetDestination(models.Position{Latitude: 25.7617, Longitude: -80.1918, Altitude: 0}) // Miami
+	if err := destroyer.SetDestination(models.Position{Latitude: 25.7617, Longitude: -80.1918, Altitude: 0}); err != nil {
+		log.Printf("Error setting destroyer destination: %v", err)
+	}
 
 	if err := e.AddPlatform(destroyer); err != nil {
 		return err
@@ -256,7 +260,9 @@ func (e *Engine) createExamplePlatforms() error {
 		"Alpha Company",
 		models.Position{Latitude: 31.8720, Longitude: -106.3744, Altitude: 1200}, // El Paso, TX
 	)
-	tank.SetDestination(models.Position{Latitude: 31.8800, Longitude: -106.3600, Altitude: 1250})
+	if err := tank.SetDestination(models.Position{Latitude: 31.8800, Longitude: -106.3600, Altitude: 1250}); err != nil {
+		log.Printf("Error setting tank destination: %v", err)
+	}
 
 	if err := e.AddPlatform(tank); err != nil {
 		return err
@@ -347,7 +353,9 @@ func (e *Engine) SetUpdateInterval(interval time.Duration) {
 	if e.IsRunning() {
 		e.Stop()
 		time.Sleep(100 * time.Millisecond) // Brief pause
-		e.Start()
+		if err := e.Start(); err != nil {
+			log.Printf("Error restarting simulation with new interval: %v", err)
+		}
 	}
 }
 
@@ -426,7 +434,9 @@ func (e *Engine) SetDestinationForPlatform(id string, destination models.Positio
 	}
 
 	if universalPlatform, ok := platform.(*models.UniversalPlatform); ok {
-		universalPlatform.SetDestination(destination)
+		if err := universalPlatform.SetDestination(destination); err != nil {
+			return fmt.Errorf("failed to set destination for platform %s: %w", id, err)
+		}
 		logPlatformOperation("SET_DESTINATION", id, destination)
 		return nil
 	}

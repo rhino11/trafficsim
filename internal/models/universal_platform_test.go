@@ -18,7 +18,9 @@ func TestUniversalPlatform_Update(t *testing.T) {
 
 	// Update the platform
 	dt := 1 * time.Second
-	aircraft.Update(dt)
+	if err := aircraft.Update(dt); err != nil {
+		t.Errorf("Update failed: %v", err)
+	}
 
 	// Check that position has been updated
 	if aircraft.State.Position.Latitude == startPos.Latitude {
@@ -322,7 +324,9 @@ func TestPhysicsIntegration(t *testing.T) {
 
 	// Update physics
 	dt := 1 * time.Second
-	aircraft.Update3DPhysics(dt)
+	if err := aircraft.Update3DPhysics(dt); err != nil {
+		t.Errorf("Update3DPhysics failed: %v", err)
+	}
 
 	// Check that physics state changed
 	if aircraft.State.Physics.Velocity.North <= 100 {
@@ -365,7 +369,9 @@ func BenchmarkPhysicsUpdate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		aircraft.ApplyForce(forces)
-		aircraft.Update3DPhysics(1 * time.Second)
+		if err := aircraft.Update3DPhysics(1 * time.Second); err != nil {
+			b.Errorf("Update3DPhysics failed: %v", err)
+		}
 	}
 }
 

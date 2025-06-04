@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -170,7 +172,18 @@ type RandomWalkBehavior struct {
 
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(filename string) (*Config, error) {
-	data, err := os.ReadFile(filename)
+	// Validate filename to prevent path traversal attacks
+	if filepath.IsAbs(filename) {
+		return nil, fmt.Errorf("absolute paths not allowed for config files")
+	}
+
+	// Clean the path to prevent directory traversal
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return nil, fmt.Errorf("path traversal not allowed in config filename")
+	}
+
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}

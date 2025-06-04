@@ -187,17 +187,28 @@ func (s *Server) Start(port string) error {
 	// Start simulation updates if simulation is running
 	go s.streamSimulationUpdates()
 
-	return http.ListenAndServe(":"+port, s.router)
+	// Create HTTP server with proper timeouts for security
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      s.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	return server.ListenAndServe()
 }
 
 // Stop stops the web server
 func (s *Server) Stop() {
 	s.cancel()
 
-	// Close all WebSocket connections
+	// Close all WebSocket connections with proper error handling
 	s.clientsMux.Lock()
 	for client := range s.clients {
-		client.Close()
+		if err := client.Close(); err != nil {
+			log.Printf("Error closing WebSocket connection: %v", err)
+		}
 	}
 	s.clientsMux.Unlock()
 }
@@ -294,7 +305,9 @@ func (s *Server) handleStartSimulation(w http.ResponseWriter, r *http.Request) {
 	s.broadcastSimulationStatus()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "started"}); err != nil {
+		logWebError("Start simulation response encoding", err)
+	}
 }
 
 // handleStopSimulation stops the simulation
@@ -303,7 +316,9 @@ func (s *Server) handleStopSimulation(w http.ResponseWriter, r *http.Request) {
 	s.broadcastSimulationStatus()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "stopped"}); err != nil {
+		logWebError("Stop simulation response encoding", err)
+	}
 }
 
 // handleResetSimulation resets the simulation
@@ -316,7 +331,9 @@ func (s *Server) handleResetSimulation(w http.ResponseWriter, r *http.Request) {
 	s.broadcastSimulationStatus()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "reset"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "reset"}); err != nil {
+		logWebError("Reset simulation response encoding", err)
+	}
 }
 
 // handleSimulationStatus returns simulation status
@@ -329,7 +346,11 @@ func (s *Server) handleSimulationStatus(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		log.Printf("Error encoding status response: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // handleSSEPlatforms handles Server-Sent Events for platform updates
@@ -481,7 +502,9 @@ func (s *Server) handleBroadcast() {
 				s.clientsMux.Lock()
 				for _, client := range clientsToRemove {
 					delete(s.clients, client)
-					client.Close()
+					if err := client.Close(); err != nil {
+						log.Printf("Error closing failed WebSocket client: %v", err)
+					}
 				}
 				s.clientsMux.Unlock()
 				logWebSocket("Removed failed clients", len(s.clients))
@@ -498,13 +521,19 @@ func (c *Client) readPump() {
 		c.server.clientsMux.Lock()
 		delete(c.server.clients, c.conn)
 		c.server.clientsMux.Unlock()
-		c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			log.Printf("Error closing WebSocket connection in readPump: %v", err)
+		}
 	}()
 
 	c.conn.SetReadLimit(512)
-	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		log.Printf("Error setting read deadline: %v", err)
+	}
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+			log.Printf("Error setting pong read deadline: %v", err)
+		}
 		return nil
 	})
 
@@ -527,15 +556,21 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(54 * time.Second)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		if err := c.conn.Close(); err != nil {
+			log.Printf("Error closing WebSocket connection in writePump: %v", err)
+		}
 	}()
 
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+				log.Printf("Error setting write deadline: %v", err)
+			}
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				if err := c.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
+					log.Printf("Error sending close message: %v", err)
+				}
 				return
 			}
 
@@ -544,7 +579,9 @@ func (c *Client) writePump() {
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+				log.Printf("Error setting ping write deadline: %v", err)
+			}
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

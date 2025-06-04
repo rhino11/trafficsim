@@ -191,10 +191,10 @@ func TestUniversalPlatformBasicOperations(t *testing.T) {
 
 	// Test destination setting
 	dest := Position{Latitude: 41.0, Longitude: -73.0, Altitude: 1000.0}
-	err := platform.SetDestination(dest)
-	if err != nil {
+	if err := platform.SetDestination(dest); err != nil {
 		t.Errorf("Unexpected error setting destination: %v", err)
 	}
+
 	if platform.Destination == nil {
 		t.Error("Destination should not be nil after setting")
 	}
@@ -330,13 +330,15 @@ func TestUniversalPlatformUpdate(t *testing.T) {
 
 	// Set a destination
 	dest := Position{Latitude: 40.01, Longitude: -74.0, Altitude: 1000.0}
-	platform.SetDestination(dest)
+	if err := platform.SetDestination(dest); err != nil {
+		t.Errorf("Unexpected error setting destination: %v", err)
+	}
 
 	// Update for 10 seconds
 	deltaTime := 10 * time.Second
-	platform.Update(deltaTime)
-
-	// No error check needed as Update doesn't return an error
+	if err := platform.Update(deltaTime); err != nil {
+		t.Errorf("Unexpected error during update: %v", err)
+	}
 
 	// Check that fuel was consumed
 	expectedFuelRemaining := 1000.0 - (0.1 * 10.0) // 999.0 kg
@@ -449,11 +451,15 @@ func BenchmarkUniversalPlatformUpdate(b *testing.B) {
 	}
 
 	dest := Position{Latitude: 40.1, Longitude: -74.0, Altitude: 1000.0}
-	platform.SetDestination(dest)
+	if err := platform.SetDestination(dest); err != nil {
+		b.Fatalf("Error setting destination: %v", err)
+	}
 
 	deltaTime := 1 * time.Second
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		platform.Update(deltaTime)
+		if err := platform.Update(deltaTime); err != nil {
+			b.Errorf("Update failed: %v", err)
+		}
 	}
 }
