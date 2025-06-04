@@ -78,20 +78,20 @@ func calculateMomentOfInertia(mass float64, platformType PlatformType) MomentOfI
 func createSystemStatus(platformType PlatformType, class string) SystemStatus {
 	// Determine if this is a civilian/commercial platform
 	isCivilian := isCivilianPlatform(class)
-	
+
 	switch platformType {
 	case PlatformTypeAirborne, PlatformTypeLand, PlatformTypeMaritime:
 		weaponStatus := WeaponStatusArmed
 		weaponSystemOperational := true
 		weaponSystemEfficiency := 1.0
-		
+
 		// Civilian platforms should not be armed
 		if isCivilian {
 			weaponStatus = WeaponStatusNA
 			weaponSystemOperational = false
 			weaponSystemEfficiency = 0.0
 		}
-		
+
 		return SystemStatus{
 			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
 			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
@@ -131,14 +131,14 @@ func createSystemStatus(platformType PlatformType, class string) SystemStatus {
 func isCivilianPlatform(class string) bool {
 	civilianClasses := []string{
 		"Civilian Car",
-		"Commercial Aircraft", 
+		"Commercial Aircraft",
 		"Commercial Ship",
 		"Cargo Aircraft",
 		"Passenger Aircraft",
 		"Commercial Truck",
 		"Civilian Vehicle",
 	}
-	
+
 	for _, civilianClass := range civilianClasses {
 		if class == civilianClass {
 			return true

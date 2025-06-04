@@ -63,7 +63,7 @@
 				
 				<option value="file3">github.com/rhino11/trafficsim/internal/config/factory.go (0.0%)</option>
 				
-				<option value="file4">github.com/rhino11/trafficsim/internal/models/airborne.go (76.0%)</option>
+				<option value="file4">github.com/rhino11/trafficsim/internal/models/airborne.go (76.1%)</option>
 				
 				<option value="file5">github.com/rhino11/trafficsim/internal/models/factory.go (91.7%)</option>
 				
@@ -71,7 +71,7 @@
 				
 				<option value="file7">github.com/rhino11/trafficsim/internal/models/maritime.go (0.0%)</option>
 				
-				<option value="file8">github.com/rhino11/trafficsim/internal/models/platform.go (47.3%)</option>
+				<option value="file8">github.com/rhino11/trafficsim/internal/models/platform.go (47.9%)</option>
 				
 				<option value="file9">github.com/rhino11/trafficsim/internal/models/space.go (0.0%)</option>
 				
@@ -100,6 +100,7 @@ import (
         "flag"
         "fmt"
         "log"
+        "net"
         "os"
         "os/signal"
         "syscall"
@@ -114,17 +115,26 @@ import (
 func main() <span class="cov0" title="0">{
         // Command line flags
         var (
-                configPath = flag.String("config", "data/config.yaml", "Path to configuration file")
-                webMode    = flag.Bool("web", false, "Run in web server mode")
-                port       = flag.String("port", "8080", "Port for web server")
+                configPath    = flag.String("config", "data/config.yaml", "Path to configuration file")
+                webMode       = flag.Bool("web", false, "Run in web server mode")
+                headlessMode  = flag.Bool("headless", false, "Run in headless mode (command-line only, no web interface)")
+                port          = flag.String("port", "8080", "Port for web server")
+                multicast     = flag.Bool("multicast", false, "Enable multicast transmission of platform updates")
+                multicastAddr = flag.String("multicast-addr", "239.255.42.99", "Multicast address for platform updates")
+                multicastPort = flag.String("multicast-port", "9999", "Multicast port for platform updates")
         )
         flag.Parse()
 
         fmt.Println("Global Traffic Simulator - Configuration-Driven Demo")
         fmt.Println("====================================================")
 
+        // Validate flag combinations
+        if *webMode &amp;&amp; *headlessMode </span><span class="cov0" title="0">{
+                log.Fatal("Error: Cannot specify both -web and -headless modes")
+        }</span>
+
         // Load configuration
-        fmt.Printf("Loading configuration from: %s\n", *configPath)
+        <span class="cov0" title="0">fmt.Printf("Loading configuration from: %s\n", *configPath)
         cfg, err := config.LoadConfig(*configPath)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("Failed to load configuration: %v", err)
@@ -133,7 +143,18 @@ func main() <span class="cov0" title="0">{
         // Create simulation engine
         <span class="cov0" title="0">engine := sim.NewEngine(cfg)
 
-        if *webMode </span><span class="cov0" title="0">{
+        // Setup multicast if enabled
+        var multicastConn *net.UDPConn
+        if *multicast </span><span class="cov0" title="0">{
+                multicastConn, err = setupMulticast(*multicastAddr, *multicastPort)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to setup multicast: %v", err)
+                }</span>
+                <span class="cov0" title="0">defer multicastConn.Close()
+                fmt.Printf("Multicast transmission enabled on %s:%s\n", *multicastAddr, *multicastPort)</span>
+        }
+
+        <span class="cov0" title="0">if *webMode </span><span class="cov0" title="0">{
                 // Run web server mode
                 fmt.Printf("Starting web server on port %s...\n", *port)
 
@@ -159,12 +180,31 @@ func main() <span class="cov0" title="0">{
                         log.Fatalf("Failed to start server: %v", err)
                 }</span>
         } else<span class="cov0" title="0"> {
-                // Run command-line mode
-                runCLISimulation(engine, cfg)
-        }</span>
+                // Run command-line mode (headless or regular CLI)
+                if *headlessMode </span><span class="cov0" title="0">{
+                        fmt.Println("Running in headless mode...")
+                }</span>
+                <span class="cov0" title="0">runCLISimulation(engine, cfg, multicastConn)</span>
+        }
 }
 
-func runCLISimulation(engine *sim.Engine, cfg *config.Config) <span class="cov0" title="0">{
+func setupMulticast(addr, port string) (*net.UDPConn, error) <span class="cov0" title="0">{
+        // Parse multicast address
+        multicastAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", addr, port))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to resolve multicast address: %v", err)
+        }</span>
+
+        // Create UDP connection
+        <span class="cov0" title="0">conn, err := net.DialUDP("udp", nil, multicastAddr)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create multicast connection: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">return conn, nil</span>
+}
+
+func runCLISimulation(engine *sim.Engine, cfg *config.Config, multicastConn *net.UDPConn) <span class="cov0" title="0">{
         fmt.Println("Starting traffic simulation...")
 
         // Create context for graceful shutdown
@@ -224,7 +264,35 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config) <span class="cov0"
                         if len(platforms) &gt; 0 </span><span class="cov0" title="0">{
                                 displayPlatformStatus(platforms)
                         }</span>
+
+                        // Send multicast updates if enabled
+                        <span class="cov0" title="0">if multicastConn != nil </span><span class="cov0" title="0">{
+                                sendMulticastUpdates(multicastConn, platforms)
+                        }</span>
                 }
+        }
+}
+
+func sendMulticastUpdates(conn *net.UDPConn, platforms []models.Platform) <span class="cov0" title="0">{
+        for _, platform := range platforms </span><span class="cov0" title="0">{
+                state := platform.GetState()
+                // Create a simple JSON message with platform update
+                message := fmt.Sprintf(`{"callsign":"%s","type":"%s","timestamp":"%s","position":{"lat":%.6f,"lon":%.6f,"alt":%.1f},"speed":%.2f,"heading":%.1f}`,
+                        platform.GetCallSign(),
+                        platform.GetType(),
+                        time.Now().UTC().Format(time.RFC3339),
+                        state.Position.Latitude,
+                        state.Position.Longitude,
+                        state.Position.Altitude,
+                        state.Speed,
+                        state.Heading,
+                )
+
+                // Send the message
+                _, err := conn.Write([]byte(message + "\n"))
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to send multicast update for %s: %v", platform.GetCallSign(), err)
+                }</span>
         }
 }
 
@@ -625,6 +693,15 @@ import (
         "time"
 
         "github.com/rhino11/trafficsim/internal/models"
+)
+
+// Platform type constants
+const (
+        PlatformTypeAirborne = "airborne"
+        PlatformTypeMaritime = "maritime"
+        PlatformTypeLand     = "land"
+        PlatformTypeSpace    = "space"
+        CategoryMilitary     = "military"
 )
 
 // PlatformFactory creates platform instances from configuration data
@@ -1323,7 +1400,10 @@ func (a *AirbornePlatform) updatePosition(deltaSeconds float64) <span class="cov
 
         // Calculate new position
         deltaLat := (distance * math.Cos(headingRad)) / earthRadius * 180.0 / math.Pi
-        deltaLon := (distance * math.Sin(headingRad)) / earthRadius * 180.0 / math.Pi / math.Cos(a.UniversalPlatform.State.Position.Latitude*math.Pi/180.0)
+
+        // Split long calculation for longitude delta
+        latRad := a.UniversalPlatform.State.Position.Latitude * math.Pi / 180.0
+        deltaLon := (distance * math.Sin(headingRad)) / earthRadius * 180.0 / math.Pi / math.Cos(latRad)
 
         a.UniversalPlatform.State.Position.Latitude += deltaLat
         a.UniversalPlatform.State.Position.Longitude += deltaLon
@@ -1670,6 +1750,145 @@ import (
 // UnifiedPlatformFactory provides factory functions for creating UniversalPlatform instances
 // with realistic configurations for different platform types
 
+// Helper function to create base platform structure
+func createBasePlatform(id string, platformType PlatformType, typeDef *PlatformTypeDefinition,
+        config *PlatformConfiguration, startPos Position, callSign string, fuelRemaining float64) *UniversalPlatform <span class="cov8" title="1">{
+        return &amp;UniversalPlatform{
+                ID:           id,
+                PlatformType: platformType,
+                TypeDef:      typeDef,
+                Config:       config,
+                State: PlatformState{
+                        ID:          id,
+                        Position:    startPos,
+                        Velocity:    Velocity{},
+                        Heading:     0,
+                        Speed:       0,
+                        LastUpdated: time.Now(),
+                        Physics: PhysicsState{
+                                Position:        startPos,
+                                Mass:            typeDef.Physical.Mass,
+                                MomentOfInertia: calculateMomentOfInertia(typeDef.Physical.Mass, platformType),
+                        },
+                },
+                CallSign:      callSign,
+                FuelRemaining: fuelRemaining,
+                MissionTime:   0,
+                SystemStatus:  createSystemStatus(platformType, typeDef.Class),
+                lastPosition:  startPos,
+                acceleration:  0,
+        }
+}</span>
+
+// Helper function to calculate moment of inertia based on platform type
+func calculateMomentOfInertia(mass float64, platformType PlatformType) MomentOfInertia <span class="cov8" title="1">{
+        switch platformType </span>{
+        case PlatformTypeAirborne:<span class="cov8" title="1">
+                return MomentOfInertia{
+                        Ixx: mass * 5.0 * 5.0,
+                        Iyy: mass * 7.5 * 7.5,
+                        Izz: mass * 7.5 * 7.5,
+                }</span>
+        case PlatformTypeLand:<span class="cov8" title="1">
+                return MomentOfInertia{
+                        Ixx: mass * 1.8 * 1.8,
+                        Iyy: mass * 4.9 * 4.9,
+                        Izz: mass * 4.9 * 4.9,
+                }</span>
+        case PlatformTypeMaritime:<span class="cov8" title="1">
+                return MomentOfInertia{
+                        Ixx: mass * 10.0 * 10.0,
+                        Iyy: mass * 77.5 * 77.5,
+                        Izz: mass * 77.5 * 77.5,
+                }</span>
+        case PlatformTypeSpace:<span class="cov8" title="1">
+                return MomentOfInertia{
+                        Ixx: mass * 2.5 * 2.5,
+                        Iyy: mass * 2.5 * 2.5,
+                        Izz: mass * 2.5 * 2.5,
+                }</span>
+        default:<span class="cov0" title="0">
+                return MomentOfInertia{
+                        Ixx: mass * 5.0 * 5.0,
+                        Iyy: mass * 5.0 * 5.0,
+                        Izz: mass * 5.0 * 5.0,
+                }</span>
+        }
+}
+
+// Helper function to create system status based on platform type and class
+func createSystemStatus(platformType PlatformType, class string) SystemStatus <span class="cov8" title="1">{
+        // Determine if this is a civilian/commercial platform
+        isCivilian := isCivilianPlatform(class)
+
+        switch platformType </span>{
+        case PlatformTypeAirborne, PlatformTypeLand, PlatformTypeMaritime:<span class="cov8" title="1">
+                weaponStatus := WeaponStatusArmed
+                weaponSystemOperational := true
+                weaponSystemEfficiency := 1.0
+
+                // Civilian platforms should not be armed
+                if isCivilian </span><span class="cov8" title="1">{
+                        weaponStatus = WeaponStatusNA
+                        weaponSystemOperational = false
+                        weaponSystemEfficiency = 0.0
+                }</span>
+
+                <span class="cov8" title="1">return SystemStatus{
+                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
+                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
+                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
+                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.99},
+                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.95},
+                        WeaponSystem:        SystemState{Operational: weaponSystemOperational, Efficiency: weaponSystemEfficiency},
+                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
+                        WeaponStatus:        weaponStatus,
+                }</span>
+        case PlatformTypeSpace:<span class="cov8" title="1">
+                return SystemStatus{
+                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
+                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
+                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
+                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
+                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.97},
+                        WeaponSystem:        SystemState{Operational: false, Efficiency: 0.0},
+                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
+                        WeaponStatus:        WeaponStatusNA,
+                }</span>
+        default:<span class="cov0" title="0">
+                return SystemStatus{
+                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
+                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 1.0},
+                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
+                        CommunicationSystem: SystemState{Operational: true, Efficiency: 1.0},
+                        SensorSystem:        SystemState{Operational: true, Efficiency: 1.0},
+                        WeaponSystem:        SystemState{Operational: false, Efficiency: 0.0},
+                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
+                        WeaponStatus:        WeaponStatusNA,
+                }</span>
+        }
+}
+
+// Helper function to determine if a platform class represents a civilian platform
+func isCivilianPlatform(class string) bool <span class="cov8" title="1">{
+        civilianClasses := []string{
+                "Civilian Car",
+                "Commercial Aircraft",
+                "Commercial Ship",
+                "Cargo Aircraft",
+                "Passenger Aircraft",
+                "Commercial Truck",
+                "Civilian Vehicle",
+        }
+
+        for _, civilianClass := range civilianClasses </span><span class="cov8" title="1">{
+                if class == civilianClass </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
 // Aircraft Factories
 
 // NewBoeing737_800Universal creates a Boeing 737-800 using UniversalPlatform
@@ -1730,43 +1949,7 @@ func NewBoeing737_800Universal(id, flightNumber string, startPos Position) *Univ
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeAirborne,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                                MomentOfInertia: MomentOfInertia{
-                                        Ixx: mass * 15.0 * 15.0, // wingspan
-                                        Iyy: mass * 20.0 * 20.0, // length
-                                        Izz: mass * 20.0 * 20.0, // length
-                                },
-                        },
-                },
-                CallSign:      flightNumber,
-                FuelRemaining: 26000,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.99},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "N/A", // Civilian aircraft
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeAirborne, typeDef, config, startPos, flightNumber, 26000)
 
         return platform
 }</span>
@@ -1825,44 +2008,7 @@ func NewF16FightingFalconUniversal(id, tailNumber string, startPos Position) *Un
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeAirborne,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                                MomentOfInertia: MomentOfInertia{
-                                        Ixx: mass * 5.0 * 5.0,
-                                        Iyy: mass * 7.5 * 7.5,
-                                        Izz: mass * 7.5 * 7.5,
-                                },
-                        },
-                },
-                CallSign:      fmt.Sprintf("VIPER%s", tailNumber[len(tailNumber)-3:]),
-                FuelRemaining: 3200,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.99},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.95},
-                        WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "ARMED", // Military fighter
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeAirborne, typeDef, config, startPos, fmt.Sprintf("VIPER%s", tailNumber[len(tailNumber)-3:]), 3200)
 
         return platform
 }</span>
@@ -1914,44 +2060,7 @@ func NewM1A2AbramsUniversal(id, unitDesignation string, startPos Position) *Univ
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeLand,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                                MomentOfInertia: MomentOfInertia{
-                                        Ixx: mass * 1.8 * 1.8, // width
-                                        Iyy: mass * 4.9 * 4.9, // length
-                                        Izz: mass * 4.9 * 4.9, // length
-                                },
-                        },
-                },
-                CallSign:      fmt.Sprintf("ARMOR%s", id[len(id)-2:]),
-                FuelRemaining: 1900,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.90},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.95},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.92},
-                        WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "ARMED", // Military tank
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeLand, typeDef, config, startPos, fmt.Sprintf("ARMOR%s", id[len(id)-2:]), 1900)
 
         return platform
 }</span>
@@ -2003,44 +2112,7 @@ func NewArleighBurkeDestroyerUniversal(id, shipName string, startPos Position) *
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeMaritime,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                                MomentOfInertia: MomentOfInertia{
-                                        Ixx: mass * 10.0 * 10.0, // beam
-                                        Iyy: mass * 77.5 * 77.5, // length
-                                        Izz: mass * 77.5 * 77.5, // length
-                                },
-                        },
-                },
-                CallSign:      fmt.Sprintf("NAVY%s", id[len(id)-3:]),
-                FuelRemaining: 1200000,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.96},
-                        WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "ARMED", // Naval destroyer
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeMaritime, typeDef, config, startPos, fmt.Sprintf("NAVY%s", id[len(id)-3:]), 1200000)
 
         return platform
 }</span>
@@ -2095,43 +2167,7 @@ func NewStarlinkSatelliteUniversal(id, satelliteNumber string, startPos Position
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeSpace,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     90, // Eastward orbital motion
-                        Speed:       7590,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                                MomentOfInertia: MomentOfInertia{
-                                        Ixx: mass * 0.95 * 0.95, // width
-                                        Iyy: mass * 1.4 * 1.4,   // length
-                                        Izz: mass * 1.4 * 1.4,   // length
-                                },
-                        },
-                },
-                CallSign:      fmt.Sprintf("STARLINK%s", id[len(id)-3:]),
-                FuelRemaining: 50,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 1.0},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.99},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "N/A", // Civilian satellite
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeSpace, typeDef, config, startPos, fmt.Sprintf("STARLINK%s", id[len(id)-3:]), 50)
 
         return platform
 }</span>
@@ -2143,7 +2179,7 @@ func NewCivilianCarUniversal(id, model string, startPos Position) *UniversalPlat
         mass := 1500.0 // kg typical passenger car
 
         typeDef := &amp;PlatformTypeDefinition{
-                Class:    model,
+                Class:    "Civilian Car", // Changed from model to "Civilian Car"
                 Category: "civilian",
                 Physical: PhysicalCharacteristics{
                         Length:       4.5,
@@ -2180,38 +2216,7 @@ func NewCivilianCarUniversal(id, model string, startPos Position) *UniversalPlat
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeLand,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                        },
-                },
-                CallSign:      fmt.Sprintf("CAR%s", id[len(id)-3:]),
-                FuelRemaining: 60,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.99},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "N/A", // Civilian vehicle
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeLand, typeDef, config, startPos, fmt.Sprintf("CAR%s", id[len(id)-3:]), 60)
 
         return platform
 }</span>
@@ -2222,7 +2227,7 @@ func NewContainerShipUniversal(id, shipName string, startPos Position) *Universa
         mass := 200000000.0   // kg (200,000 tonnes)
 
         typeDef := &amp;PlatformTypeDefinition{
-                Class:    "Ultra Large Container Vessel",
+                Class:    "Commercial Ship", // Changed from "Ultra Large Container Vessel" to "Commercial Ship"
                 Category: "commercial",
                 Physical: PhysicalCharacteristics{
                         Length:       400,
@@ -2262,38 +2267,7 @@ func NewContainerShipUniversal(id, shipName string, startPos Position) *Universa
                 StartPosition: startPos,
         }
 
-        platform := &amp;UniversalPlatform{
-                ID:           id,
-                PlatformType: PlatformTypeMaritime,
-                TypeDef:      typeDef,
-                Config:       config,
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                        Physics: PhysicsState{
-                                Position: startPos,
-                                Mass:     mass,
-                        },
-                },
-                CallSign:      fmt.Sprintf("CARGO%s", id[len(id)-3:]),
-                FuelRemaining: 15000000,
-                MissionTime:   0,
-                SystemStatus: SystemStatus{
-                        PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.92},
-                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-                        CommunicationSystem: SystemState{Operational: true, Efficiency: 0.96},
-                        SensorSystem:        SystemState{Operational: true, Efficiency: 0.98},
-                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-                        WeaponStatus:        "N/A", // Commercial vessel
-                },
-                lastPosition: startPos,
-                acceleration: 0,
-        }
+        platform := createBasePlatform(id, PlatformTypeMaritime, typeDef, config, startPos, fmt.Sprintf("CARGO%s", id[len(id)-3:]), 15000000)
 
         return platform
 }</span>
@@ -2349,325 +2323,525 @@ func CreatePlatformFromConfig(config map[string]interface{}) (*UniversalPlatform
 
 import (
         "fmt"
-        "math"
         "time"
+)
+
+// Constants to reduce string duplication
+const (
+        DefaultHeading       = 0
+        DefaultSpeed         = 0
+        ArmorCallsignPrefix  = "ARMOR"
+        HumveeCallsignPrefix = "HUMVEE"
+        TruckCallsignPrefix  = "TRUCK"
+        PatrolCallsignPrefix = "PATROL"
 )
 
 // LandPlatform represents ground vehicles and installations
 type LandPlatform struct {
-        // Base identification
-        ID       string
-        Class    string // Vehicle/platform type
-        Name     string // Unit designation
-        CallSign string
+        // Embed UniversalPlatform for base functionality
+        UniversalPlatform
 
-        // Current state
-        State PlatformState
+        // Land-specific characteristics
+        MaxGradient     float64 // degrees (max slope)
+        GroundClearance float64 // meters
+        TurningRadius   float64 // meters
+        FuelConsumption float64 // liters per km
+        CargoCapacity   float64 // kg
+        CrewCapacity    int
 
-        // Land characteristics
-        MaxSpeed     float64 // m/s
-        CruiseSpeed  float64 // m/s
-        MaxGradient  float64 // degrees (max slope)
-        FuelCapacity float64 // liters
-        Range        float64 // meters
-
-        // Physical characteristics
-        Length float64 // meters
-        Width  float64 // meters
-        Height float64 // meters
-        Mass   float64 // kg
-
-        // Navigation
-        Destination *Position
-        Route       []Position
+        // Terrain capabilities
+        OffRoadCapable bool
+        WaterFording   float64 // max depth in meters
+        ClimbAngle     float64 // degrees
 }
 
-// Core Platform interface implementation
-func (l *LandPlatform) GetID() string           <span class="cov0" title="0">{ return l.ID }</span>
-func (l *LandPlatform) GetType() PlatformType   <span class="cov0" title="0">{ return PlatformTypeLand }</span>
-func (l *LandPlatform) GetClass() string        <span class="cov0" title="0">{ return l.Class }</span>
-func (l *LandPlatform) GetName() string         <span class="cov0" title="0">{ return l.Name }</span>
-func (l *LandPlatform) GetCallSign() string     <span class="cov0" title="0">{ return l.CallSign }</span>
-func (l *LandPlatform) GetState() PlatformState <span class="cov0" title="0">{ return l.State }</span>
-func (l *LandPlatform) GetMaxSpeed() float64    <span class="cov0" title="0">{ return l.MaxSpeed }</span>
-func (l *LandPlatform) GetMaxAltitude() float64 <span class="cov0" title="0">{ return 0 }</span> // Ground vehicles
-func (l *LandPlatform) GetLength() float64      <span class="cov0" title="0">{ return l.Length }</span>
-func (l *LandPlatform) GetWidth() float64       <span class="cov0" title="0">{ return l.Width }</span>
-func (l *LandPlatform) GetHeight() float64      <span class="cov0" title="0">{ return l.Height }</span>
-func (l *LandPlatform) GetMass() float64        <span class="cov0" title="0">{ return l.Mass }</span>
+// Core Platform interface implementation - delegate to embedded UniversalPlatform
+func (l *LandPlatform) GetID() string           <span class="cov0" title="0">{ return l.UniversalPlatform.GetID() }</span>
+func (l *LandPlatform) GetType() PlatformType   <span class="cov0" title="0">{ return l.UniversalPlatform.GetType() }</span>
+func (l *LandPlatform) GetClass() string        <span class="cov0" title="0">{ return l.UniversalPlatform.GetClass() }</span>
+func (l *LandPlatform) GetName() string         <span class="cov0" title="0">{ return l.UniversalPlatform.GetName() }</span>
+func (l *LandPlatform) GetCallSign() string     <span class="cov0" title="0">{ return l.UniversalPlatform.GetCallSign() }</span>
+func (l *LandPlatform) GetState() PlatformState <span class="cov0" title="0">{ return l.UniversalPlatform.GetState() }</span>
+func (l *LandPlatform) GetMaxSpeed() float64    <span class="cov0" title="0">{ return l.UniversalPlatform.GetMaxSpeed() }</span>
+func (l *LandPlatform) GetMaxAltitude() float64 <span class="cov0" title="0">{ return l.UniversalPlatform.GetMaxAltitude() }</span>
+func (l *LandPlatform) GetLength() float64      <span class="cov0" title="0">{ return l.UniversalPlatform.GetLength() }</span>
+func (l *LandPlatform) GetWidth() float64       <span class="cov0" title="0">{ return l.UniversalPlatform.GetWidth() }</span>
+func (l *LandPlatform) GetHeight() float64      <span class="cov0" title="0">{ return l.UniversalPlatform.GetHeight() }</span>
+func (l *LandPlatform) GetMass() float64        <span class="cov0" title="0">{ return l.UniversalPlatform.GetMass() }</span>
 
 func (l *LandPlatform) UpdateState(state PlatformState) <span class="cov0" title="0">{
-        l.State = state
+        l.UniversalPlatform.UpdateState(state)
 }</span>
 
 func (l *LandPlatform) SetDestination(pos Position) error <span class="cov0" title="0">{
-        l.Destination = &amp;pos
-        return nil
+        return l.UniversalPlatform.SetDestination(pos)
 }</span>
 
+// Enhanced 3D physics methods
+func (l *LandPlatform) Initialize3DPhysics() <span class="cov0" title="0">{
+        l.UniversalPlatform.Initialize3DPhysics()
+}</span>
+
+func (l *LandPlatform) Update3DPhysics(deltaTime time.Duration) error <span class="cov0" title="0">{
+        return l.UniversalPlatform.Update3DPhysics(deltaTime)
+}</span>
+
+func (l *LandPlatform) GetPhysicsState() PhysicsState <span class="cov0" title="0">{
+        return l.UniversalPlatform.GetPhysicsState()
+}</span>
+
+func (l *LandPlatform) SetPhysicsState(physics PhysicsState) <span class="cov0" title="0">{
+        l.UniversalPlatform.SetPhysicsState(physics)
+}</span>
+
+// Update uses the base UniversalPlatform movement but can be enhanced with land-specific logic
 func (l *LandPlatform) Update(deltaTime time.Duration) error <span class="cov0" title="0">{
-        if l.Destination == nil </span><span class="cov0" title="0">{
-                return nil
+        // Use enhanced land movement from UniversalPlatform
+        return l.UniversalPlatform.Update(deltaTime)
+}</span>
+
+// createLandPlatformBase creates a base UniversalPlatform for land vehicles
+func createLandPlatformBase(id, name, platformType, callsign string, startPos Position, typeDef *PlatformTypeDefinition) UniversalPlatform <span class="cov0" title="0">{
+        return UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeLand,
+                TypeDef:      typeDef,
+                Config: &amp;PlatformConfiguration{
+                        ID:            id,
+                        Type:          platformType,
+                        Name:          name,
+                        StartPosition: startPos,
+                },
+                State: PlatformState{
+                        ID:          id,
+                        Position:    startPos,
+                        Velocity:    Velocity{},
+                        Heading:     0,
+                        Speed:       0,
+                        LastUpdated: time.Now(),
+                        Physics: PhysicsState{
+                                Position:        startPos,
+                                Mass:            typeDef.Physical.Mass,
+                                MomentOfInertia: calculateMomentOfInertia(typeDef.Physical.Mass, PlatformTypeLand),
+                        },
+                },
+                CallSign:      callsign,
+                FuelRemaining: typeDef.Physical.FuelCapacity,
+                MissionTime:   0,
+                SystemStatus: SystemStatus{
+                        PropulsionSystem:    SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+                        NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+                        CommunicationSystem: SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+                        SensorSystem:        SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+                        FuelSystem:          SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+                        WeaponStatus:        WeaponStatusSafe,
+                },
+                lastPosition: startPos,
+                acceleration: 0,
+        }
+}</span>
+
+// CreateM1A2Tank creates an M1A2 Abrams main battle tank
+func CreateM1A2Tank(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
         }</span>
 
-        // Simple movement towards destination
-        <span class="cov0" title="0">dt := deltaTime.Seconds()
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Main Battle Tank",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      18.6, // m/s (67 km/h)
+                        CruiseSpeed:   11.1, // m/s (40 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 8.4,  // meters
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 9.77,  // meters
+                        Width:  3.66,  // meters
+                        Height: 2.44,  // meters
+                        Mass:   62000, // kg
+                },
+        }
 
-        // Calculate distance and bearing to destination
-        deltaLat := l.Destination.Latitude - l.State.Position.Latitude
-        deltaLon := l.Destination.Longitude - l.State.Position.Longitude
+        base := createLandPlatformBase(id, "M1A2 Abrams", "Main Battle Tank", callsign, startPos, typeDef)
 
-        distance := math.Sqrt(deltaLat*deltaLat + deltaLon*deltaLon)
-
-        if distance &lt; 0.00001 </span><span class="cov0" title="0">{ // Close enough (very small threshold for ground vehicles)
-                l.Destination = nil
-                return nil
+        return &amp;LandPlatform{
+                UniversalPlatform: base,
+                MaxGradient:       60,    // degrees
+                GroundClearance:   0.432, // meters
+                TurningRadius:     8.4,   // meters
+                FuelConsumption:   2.6,   // liters per km
+                CargoCapacity:     1000,  // kg
+                CrewCapacity:      4,
+                OffRoadCapable:    true,
+                WaterFording:      1.2, // meters
+                ClimbAngle:        60,  // degrees
         }</span>
-
-        // Move towards destination at cruise speed
-        <span class="cov0" title="0">speed := math.Min(l.CruiseSpeed, l.MaxSpeed)
-
-        // Update position
-        factor := (speed * dt) / (distance * 111320) // rough meters per degree
-        l.State.Position.Latitude += deltaLat * factor
-        l.State.Position.Longitude += deltaLon * factor
-        // Note: Altitude changes would be based on terrain, keeping simple for now
-
-        // Update heading and speed
-        l.State.Heading = math.Atan2(deltaLon, deltaLat) * 180 / math.Pi
-        if l.State.Heading &lt; 0 </span><span class="cov0" title="0">{
-                l.State.Heading += 360
-        }</span>
-        <span class="cov0" title="0">l.State.Speed = speed
-        l.State.LastUpdated = time.Now()
-
-        return nil</span>
 }
 
-// Land platform factory functions for real-world platforms
+// CreateM2Bradley creates an M2 Bradley Infantry Fighting Vehicle
+func CreateM2Bradley(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+        }</span>
 
-// NewM1A2Abrams creates an M1A2 Abrams main battle tank
-func NewM1A2Abrams(id, unitDesignation string, startPos Position) *LandPlatform <span class="cov0" title="0">{
-        return &amp;LandPlatform{
-                ID:       id,
-                Class:    "M1A2 Abrams MBT",
-                Name:     unitDesignation,
-                CallSign: fmt.Sprintf("ARMOR%s", id[len(id)-2:]),
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Infantry Fighting Vehicle",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      18.3, // m/s (66 km/h)
+                        CruiseSpeed:   11.1, // m/s (40 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 6.0,  // meters
                 },
-                MaxSpeed:     20,     // m/s (45 mph)
-                CruiseSpeed:  13.4,   // m/s (30 mph)
-                MaxGradient:  30,     // degrees
-                FuelCapacity: 1900,   // liters
-                Range:        426000, // meters (265 miles)
-                Length:       9.8,    // meters
-                Width:        3.7,    // meters
-                Height:       2.4,    // meters
-                Mass:         62000,  // kg
+                Physical: PhysicalCharacteristics{
+                        Length: 6.55,  // meters
+                        Width:  3.6,   // meters
+                        Height: 2.98,  // meters
+                        Mass:   27600, // kg
+                },
         }
-}</span>
 
-// NewHMMWV creates a High Mobility Multipurpose Wheeled Vehicle (Humvee)
-func NewHMMWV(id, unitDesignation string, startPos Position) *LandPlatform <span class="cov0" title="0">{
-        return &amp;LandPlatform{
-                ID:       id,
-                Class:    "HMMWV",
-                Name:     unitDesignation,
-                CallSign: fmt.Sprintf("HUMVEE%s", id[len(id)-2:]),
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                },
-                MaxSpeed:     31,     // m/s (70 mph)
-                CruiseSpeed:  22.4,   // m/s (50 mph)
-                MaxGradient:  40,     // degrees
-                FuelCapacity: 95,     // liters
-                Range:        480000, // meters (300 miles)
-                Length:       4.6,    // meters
-                Width:        2.2,    // meters
-                Height:       1.8,    // meters
-                Mass:         5900,   // kg
-        }
-}</span>
+        base := createLandPlatformBase(id, "M2 Bradley", "Infantry Fighting Vehicle", callsign, startPos, typeDef)
 
-// NewFreightlinerCascadia creates a commercial freight truck
-func NewFreightlinerCascadia(id, truckNumber string, startPos Position) *LandPlatform <span class="cov0" title="0">{
         return &amp;LandPlatform{
-                ID:       id,
-                Class:    "Freightliner Cascadia",
-                Name:     truckNumber,
-                CallSign: fmt.Sprintf("TRUCK%s", id[len(id)-3:]),
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
-                },
-                MaxSpeed:     33.5,    // m/s (75 mph)
-                CruiseSpeed:  29.1,    // m/s (65 mph)
-                MaxGradient:  15,      // degrees
-                FuelCapacity: 1135,    // liters (300 gallons)
-                Range:        1600000, // meters (1000 miles)
-                Length:       6.1,     // meters (tractor only)
-                Width:        2.6,     // meters
-                Height:       4.0,     // meters
-                Mass:         16000,   // kg (tractor only)
-        }
-}</span>
+                UniversalPlatform: base,
+                MaxGradient:       60,    // degrees
+                GroundClearance:   0.432, // meters
+                TurningRadius:     6.0,   // meters
+                FuelConsumption:   1.5,   // liters per km
+                CargoCapacity:     2000,  // kg
+                CrewCapacity:      9,     // 3 crew + 6 infantry
+                OffRoadCapable:    true,
+                WaterFording:      1.0, // meters
+                ClimbAngle:        60,  // degrees
+        }</span>
+}
 
-// NewPolicePatrolCar creates a police patrol vehicle
-func NewPolicePatrolCar(id, unitNumber string, startPos Position) *LandPlatform <span class="cov0" title="0">{
-        return &amp;LandPlatform{
-                ID:       id,
-                Class:    "Ford Police Interceptor",
-                Name:     fmt.Sprintf("Unit %s", unitNumber),
-                CallSign: fmt.Sprintf("PATROL%s", unitNumber),
-                State: PlatformState{
-                        ID:          id,
-                        Position:    startPos,
-                        Velocity:    Velocity{},
-                        Heading:     0,
-                        Speed:       0,
-                        LastUpdated: time.Now(),
+// CreateHumvee creates a High Mobility Multipurpose Wheeled Vehicle
+func CreateHumvee(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", HumveeCallsignPrefix, id)
+        }</span>
+
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Utility Vehicle",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      31.4, // m/s (113 km/h)
+                        CruiseSpeed:   19.4, // m/s (70 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 7.6,  // meters
                 },
-                MaxSpeed:     50,     // m/s (112 mph)
-                CruiseSpeed:  26.8,   // m/s (60 mph)
-                MaxGradient:  25,     // degrees
-                FuelCapacity: 68,     // liters (18 gallons)
-                Range:        640000, // meters (400 miles)
-                Length:       5.2,    // meters
-                Width:        1.9,    // meters
-                Height:       1.5,    // meters
-                Mass:         2000,   // kg
+                Physical: PhysicalCharacteristics{
+                        Length: 4.57, // meters
+                        Width:  2.16, // meters
+                        Height: 1.75, // meters
+                        Mass:   2359, // kg
+                },
         }
-}</span>
+
+        base := createLandPlatformBase(id, "HMMWV", "Utility Vehicle", callsign, startPos, typeDef)
+
+        return &amp;LandPlatform{
+                UniversalPlatform: base,
+                MaxGradient:       60,    // degrees
+                GroundClearance:   0.406, // meters
+                TurningRadius:     7.6,   // meters
+                FuelConsumption:   0.8,   // liters per km
+                CargoCapacity:     1200,  // kg
+                CrewCapacity:      4,
+                OffRoadCapable:    true,
+                WaterFording:      0.76, // meters
+                ClimbAngle:        60,   // degrees
+        }</span>
+}
+
+// CreateLAV25 creates a Light Armored Vehicle-25
+func CreateLAV25(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+        }</span>
+
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Light Armored Vehicle",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      27.8, // m/s (100 km/h)
+                        CruiseSpeed:   16.7, // m/s (60 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 5.5,  // meters
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 6.39,  // meters
+                        Width:  2.5,   // meters
+                        Height: 2.69,  // meters
+                        Mass:   12900, // kg
+                },
+        }
+
+        base := createLandPlatformBase(id, "LAV-25", "Light Armored Vehicle", callsign, startPos, typeDef)
+
+        return &amp;LandPlatform{
+                UniversalPlatform: base,
+                MaxGradient:       60,   // degrees
+                GroundClearance:   0.5,  // meters
+                TurningRadius:     5.5,  // meters
+                FuelConsumption:   1.2,  // liters per km
+                CargoCapacity:     1500, // kg
+                CrewCapacity:      6,    // 3 crew + 3 marines
+                OffRoadCapable:    true,
+                WaterFording:      1.5, // meters (amphibious)
+                ClimbAngle:        60,  // degrees
+        }</span>
+}
+
+// CreateM35Truck creates an M35 2.5-ton cargo truck
+func CreateM35Truck(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", TruckCallsignPrefix, id)
+        }</span>
+
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Cargo Truck",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      25.0, // m/s (90 km/h)
+                        CruiseSpeed:   16.7, // m/s (60 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 8.7,  // meters
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 6.71, // meters
+                        Width:  2.44, // meters
+                        Height: 2.94, // meters
+                        Mass:   6350, // kg empty
+                },
+        }
+
+        base := createLandPlatformBase(id, "M35 Truck", "Cargo Truck", callsign, startPos, typeDef)
+
+        return &amp;LandPlatform{
+                UniversalPlatform: base,
+                MaxGradient:       30,    // degrees
+                GroundClearance:   0.279, // meters
+                TurningRadius:     8.7,   // meters
+                FuelConsumption:   0.6,   // liters per km
+                CargoCapacity:     2268,  // kg (5000 lbs)
+                CrewCapacity:      3,     // driver + 2 passengers
+                OffRoadCapable:    true,
+                WaterFording:      0.76, // meters
+                ClimbAngle:        30,   // degrees
+        }</span>
+}
+
+// CreateM1126Stryker creates an M1126 Stryker Infantry Carrier Vehicle
+func CreateM1126Stryker(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+        }</span>
+
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Infantry Carrier Vehicle",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      27.8, // m/s (100 km/h)
+                        CruiseSpeed:   19.4, // m/s (70 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 7.0,  // meters
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 6.95,  // meters
+                        Width:  2.72,  // meters
+                        Height: 2.64,  // meters
+                        Mass:   16470, // kg
+                },
+        }
+
+        base := createLandPlatformBase(id, "M1126 Stryker", "Infantry Carrier Vehicle", callsign, startPos, typeDef)
+
+        return &amp;LandPlatform{
+                UniversalPlatform: base,
+                MaxGradient:       60,    // degrees
+                GroundClearance:   0.533, // meters
+                TurningRadius:     7.0,   // meters
+                FuelConsumption:   1.1,   // liters per km
+                CargoCapacity:     1800,  // kg
+                CrewCapacity:      11,    // 2 crew + 9 infantry
+                OffRoadCapable:    true,
+                WaterFording:      1.0, // meters
+                ClimbAngle:        60,  // degrees
+        }</span>
+}
+
+// CreateMRAP creates a Mine-Resistant Ambush Protected vehicle
+func CreateMRAP(id string, callsign string, startPos Position) *LandPlatform <span class="cov0" title="0">{
+        if callsign == "" </span><span class="cov0" title="0">{
+                callsign = fmt.Sprintf("%s-%s", PatrolCallsignPrefix, id)
+        }</span>
+
+        <span class="cov0" title="0">typeDef := &amp;PlatformTypeDefinition{
+                Class:    "Mine-Resistant Vehicle",
+                Category: "military",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      29.2, // m/s (105 km/h)
+                        CruiseSpeed:   19.4, // m/s (70 km/h)
+                        MaxAltitude:   4267, // meters
+                        TurningRadius: 8.0,  // meters
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 6.7,   // meters
+                        Width:  2.7,   // meters
+                        Height: 2.7,   // meters
+                        Mass:   14500, // kg
+                },
+        }
+
+        base := createLandPlatformBase(id, "MRAP", "Mine-Resistant Vehicle", callsign, startPos, typeDef)
+
+        return &amp;LandPlatform{
+                UniversalPlatform: base,
+                MaxGradient:       30,    // degrees
+                GroundClearance:   0.406, // meters
+                TurningRadius:     8.0,   // meters
+                FuelConsumption:   1.0,   // liters per km
+                CargoCapacity:     1000,  // kg
+                CrewCapacity:      6,     // crew + passengers
+                OffRoadCapable:    true,
+                WaterFording:      0.6, // meters
+                ClimbAngle:        30,  // degrees
+        }</span>
+}
 </pre>
 		
 		<pre class="file" id="file7" style="display: none">package models
 
 import (
         "fmt"
-        "math"
         "time"
 )
 
 // MaritimePlatform represents naval and commercial vessels
 type MaritimePlatform struct {
-        // Base identification
-        ID       string
-        Class    string // Ship class/model
-        Name     string // Ship name
-        CallSign string
+        // Embed UniversalPlatform for base functionality
+        UniversalPlatform
 
-        // Current state
-        State PlatformState
+        // Maritime-specific characteristics
+        Draft         float64 // meters (depth below waterline)
+        Displacement  float64 // tonnes
+        Beam          float64 // width at widest point
+        CrewSize      int
+        CargoCapacity float64 // tonnes
 
-        // Maritime characteristics
-        MaxSpeed     float64 // m/s
-        CruiseSpeed  float64 // m/s
-        Draft        float64 // meters (depth below waterline)
-        Displacement float64 // tonnes
-        Range        float64 // nautical miles (required by tests)
+        // Naval capabilities
+        SonarRange     float64 // meters
+        RadarRange     float64 // meters
+        WeaponSystems  []string
+        ArmorThickness float64 // mm
 
-        // Physical characteristics
-        Length float64 // meters
-        Width  float64 // beam in meters
-        Height float64 // meters (above waterline)
-        Mass   float64 // kg
-
-        // Navigation
-        Destination *Position
-        Route       []Position
+        // Propulsion
+        PropulsionType string // diesel, gas turbine, nuclear, etc.
+        Screws         int    // number of propellers
+        Rudders        int    // number of rudders
 }
 
-// Core Platform interface implementation
-func (m *MaritimePlatform) GetID() string           <span class="cov0" title="0">{ return m.ID }</span>
-func (m *MaritimePlatform) GetType() PlatformType   <span class="cov0" title="0">{ return PlatformTypeMaritime }</span>
-func (m *MaritimePlatform) GetClass() string        <span class="cov0" title="0">{ return m.Class }</span>
-func (m *MaritimePlatform) GetName() string         <span class="cov0" title="0">{ return m.Name }</span>
-func (m *MaritimePlatform) GetCallSign() string     <span class="cov0" title="0">{ return m.CallSign }</span>
-func (m *MaritimePlatform) GetState() PlatformState <span class="cov0" title="0">{ return m.State }</span>
-func (m *MaritimePlatform) GetMaxSpeed() float64    <span class="cov0" title="0">{ return m.MaxSpeed }</span>
+// Core Platform interface implementation - delegate to embedded UniversalPlatform
+func (m *MaritimePlatform) GetID() string           <span class="cov0" title="0">{ return m.UniversalPlatform.GetID() }</span>
+func (m *MaritimePlatform) GetType() PlatformType   <span class="cov0" title="0">{ return m.UniversalPlatform.GetType() }</span>
+func (m *MaritimePlatform) GetClass() string        <span class="cov0" title="0">{ return m.UniversalPlatform.GetClass() }</span>
+func (m *MaritimePlatform) GetName() string         <span class="cov0" title="0">{ return m.UniversalPlatform.GetName() }</span>
+func (m *MaritimePlatform) GetCallSign() string     <span class="cov0" title="0">{ return m.UniversalPlatform.GetCallSign() }</span>
+func (m *MaritimePlatform) GetState() PlatformState <span class="cov0" title="0">{ return m.UniversalPlatform.GetState() }</span>
+func (m *MaritimePlatform) GetMaxSpeed() float64    <span class="cov0" title="0">{ return m.UniversalPlatform.GetMaxSpeed() }</span>
 func (m *MaritimePlatform) GetMaxAltitude() float64 <span class="cov0" title="0">{ return 0 }</span> // Ships don't fly
-func (m *MaritimePlatform) GetLength() float64      <span class="cov0" title="0">{ return m.Length }</span>
-func (m *MaritimePlatform) GetWidth() float64       <span class="cov0" title="0">{ return m.Width }</span>
-func (m *MaritimePlatform) GetHeight() float64      <span class="cov0" title="0">{ return m.Height }</span>
-func (m *MaritimePlatform) GetMass() float64        <span class="cov0" title="0">{ return m.Mass }</span>
+func (m *MaritimePlatform) GetLength() float64      <span class="cov0" title="0">{ return m.UniversalPlatform.GetLength() }</span>
+func (m *MaritimePlatform) GetWidth() float64       <span class="cov0" title="0">{ return m.UniversalPlatform.GetWidth() }</span>
+func (m *MaritimePlatform) GetHeight() float64      <span class="cov0" title="0">{ return m.UniversalPlatform.GetHeight() }</span>
+func (m *MaritimePlatform) GetMass() float64        <span class="cov0" title="0">{ return m.UniversalPlatform.GetMass() }</span>
 
 func (m *MaritimePlatform) UpdateState(state PlatformState) <span class="cov0" title="0">{
-        m.State = state
         // Keep ships at sea level
-        m.State.Position.Altitude = 0
+        state.Position.Altitude = 0
+        m.UniversalPlatform.UpdateState(state)
 }</span>
 
 func (m *MaritimePlatform) SetDestination(pos Position) error <span class="cov0" title="0">{
         // Force maritime platforms to sea level
         pos.Altitude = 0
-        m.Destination = &amp;pos
-        return nil
+        return m.UniversalPlatform.SetDestination(pos)
 }</span>
 
+// Enhanced 3D physics methods
+func (m *MaritimePlatform) Initialize3DPhysics() <span class="cov0" title="0">{
+        m.UniversalPlatform.Initialize3DPhysics()
+        // Ensure ship stays at sea level
+        m.UniversalPlatform.State.Position.Altitude = 0
+        m.UniversalPlatform.State.Physics.Position.Altitude = 0
+}</span>
+
+func (m *MaritimePlatform) Update3DPhysics(deltaTime time.Duration) error <span class="cov0" title="0">{
+        err := m.UniversalPlatform.Update3DPhysics(deltaTime)
+        // Ensure ship stays at sea level
+        m.UniversalPlatform.State.Position.Altitude = 0
+        m.UniversalPlatform.State.Physics.Position.Altitude = 0
+        return err
+}</span>
+
+func (m *MaritimePlatform) GetPhysicsState() PhysicsState <span class="cov0" title="0">{
+        return m.UniversalPlatform.GetPhysicsState()
+}</span>
+
+func (m *MaritimePlatform) SetPhysicsState(physics PhysicsState) <span class="cov0" title="0">{
+        // Ensure ship stays at sea level
+        physics.Position.Altitude = 0
+        m.UniversalPlatform.SetPhysicsState(physics)
+}</span>
+
+// Update uses the base UniversalPlatform movement with maritime constraints
 func (m *MaritimePlatform) Update(deltaTime time.Duration) error <span class="cov0" title="0">{
-        if m.Destination == nil </span><span class="cov0" title="0">{
-                return nil
-        }</span>
+        err := m.UniversalPlatform.Update(deltaTime)
+        // Ensure ship stays at sea level
+        m.UniversalPlatform.State.Position.Altitude = 0
+        return err
+}</span>
 
-        // Simple movement towards destination
-        <span class="cov0" title="0">dt := deltaTime.Seconds()
-
-        // Calculate distance and bearing to destination
-        deltaLat := m.Destination.Latitude - m.State.Position.Latitude
-        deltaLon := m.Destination.Longitude - m.State.Position.Longitude
-
-        distance := math.Sqrt(deltaLat*deltaLat + deltaLon*deltaLon)
-
-        if distance &lt; 0.0001 </span><span class="cov0" title="0">{ // Close enough (smaller threshold for ships)
-                m.Destination = nil
-                return nil
-        }</span>
-
-        // Move towards destination at cruise speed
-        <span class="cov0" title="0">speed := math.Min(m.CruiseSpeed, m.MaxSpeed)
-
-        // Update position
-        factor := (speed * dt) / (distance * 111320) // rough meters per degree
-        m.State.Position.Latitude += deltaLat * factor
-        m.State.Position.Longitude += deltaLon * factor
-        m.State.Position.Altitude = 0 // Always at sea level
-
-        // Update heading and speed
-        m.State.Heading = math.Atan2(deltaLon, deltaLat) * 180 / math.Pi
-        if m.State.Heading &lt; 0 </span><span class="cov0" title="0">{
-                m.State.Heading += 360
-        }</span>
-        <span class="cov0" title="0">m.State.Speed = speed
-        m.State.LastUpdated = time.Now()
-
-        return nil</span>
-}
-
-// Ship factory functions for real-world platforms
+// Ship factory functions using UniversalPlatform base
 
 // NewArleighBurkeDestroyer creates an Arleigh Burke-class destroyer (US Navy)
 func NewArleighBurkeDestroyer(id, shipName string, startPos Position) *MaritimePlatform <span class="cov0" title="0">{
         startPos.Altitude = 0 // Ensure at sea level
-        return &amp;MaritimePlatform{
-                ID:       id,
-                Class:    "Arleigh Burke-class",
-                Name:     fmt.Sprintf("USS %s", shipName),
-                CallSign: fmt.Sprintf("NAVY%s", id[len(id)-3:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Arleigh Burke-class",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      15.4,    // m/s (30+ knots)
+                        CruiseSpeed:   10.3,    // m/s (20 knots)
+                        Acceleration:  0.5,     // m/s²
+                        TurningRadius: 800,     // meters
+                        Range:         7400000, // meters (4000 nautical miles)
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 155,     // meters
+                        Width:  20,      // meters
+                        Height: 18,      // meters
+                        Mass:   9200000, // kg
+                        Draft:  6.3,     // meters
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("USS %s", shipName),
+                Type: "Arleigh Burke-class",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeMaritime,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("NAVY%s", id[len(id)-3:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
@@ -2676,26 +2850,59 @@ func NewArleighBurkeDestroyer(id, shipName string, startPos Position) *MaritimeP
                         Speed:       0,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:     15.4,    // m/s (30+ knots)
-                CruiseSpeed:  10.3,    // m/s (20 knots)
-                Draft:        6.3,     // meters
-                Displacement: 9200,    // tonnes
-                Length:       155,     // meters
-                Width:        20,      // meters
-                Height:       18,      // meters
-                Mass:         9200000, // kg
-                Range:        4000,    // nautical miles
+        }
+
+        return &amp;MaritimePlatform{
+                UniversalPlatform: universalPlatform,
+                Draft:             6.3,  // meters
+                Displacement:      9200, // tonnes
+                Beam:              20,   // meters
+                CrewSize:          330,
+                CargoCapacity:     0,      // combat vessel
+                SonarRange:        50000,  // meters
+                RadarRange:        180000, // meters
+                WeaponSystems:     []string{"Aegis Combat System", "VLS Missiles", "5-inch Gun"},
+                ArmorThickness:    25, // mm
+                PropulsionType:    "Gas Turbine",
+                Screws:            2,
+                Rudders:           1,
         }
 }</span>
 
 // NewTiconderogaCruiser creates a Ticonderoga-class cruiser (US Navy)
 func NewTiconderogaCruiser(id, shipName string, startPos Position) *MaritimePlatform <span class="cov0" title="0">{
         startPos.Altitude = 0
-        return &amp;MaritimePlatform{
-                ID:       id,
-                Class:    "Ticonderoga-class",
-                Name:     fmt.Sprintf("USS %s", shipName),
-                CallSign: fmt.Sprintf("NAVY%s", id[len(id)-3:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Ticonderoga-class",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      15.4,    // m/s (30+ knots)
+                        CruiseSpeed:   10.3,    // m/s (20 knots)
+                        Acceleration:  0.5,     // m/s²
+                        TurningRadius: 900,     // meters
+                        Range:         9250000, // meters (5000 nautical miles)
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 173,     // meters
+                        Width:  16.8,    // meters
+                        Height: 20,      // meters
+                        Mass:   9800000, // kg
+                        Draft:  10.2,    // meters
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("USS %s", shipName),
+                Type: "Ticonderoga-class",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeMaritime,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("NAVY%s", id[len(id)-3:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
@@ -2704,26 +2911,59 @@ func NewTiconderogaCruiser(id, shipName string, startPos Position) *MaritimePlat
                         Speed:       0,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:     15.4,    // m/s (30+ knots)
-                CruiseSpeed:  10.3,    // m/s (20 knots)
-                Draft:        10.2,    // meters
-                Displacement: 9800,    // tonnes
-                Length:       173,     // meters
-                Width:        16.8,    // meters
-                Height:       20,      // meters
-                Mass:         9800000, // kg
-                Range:        5000,    // nautical miles
+        }
+
+        return &amp;MaritimePlatform{
+                UniversalPlatform: universalPlatform,
+                Draft:             10.2, // meters
+                Displacement:      9800, // tonnes
+                Beam:              16.8, // meters
+                CrewSize:          400,
+                CargoCapacity:     0,      // combat vessel
+                SonarRange:        50000,  // meters
+                RadarRange:        200000, // meters
+                WeaponSystems:     []string{"Aegis Combat System", "VLS Missiles", "5-inch Gun", "Tomahawk Missiles"},
+                ArmorThickness:    30, // mm
+                PropulsionType:    "Gas Turbine",
+                Screws:            2,
+                Rudders:           1,
         }
 }</span>
 
 // NewContainerShip creates a large container vessel (commercial)
 func NewContainerShip(id, shipName string, startPos Position) *MaritimePlatform <span class="cov0" title="0">{
         startPos.Altitude = 0
-        return &amp;MaritimePlatform{
-                ID:       id,
-                Class:    "Ultra Large Container Vessel",
-                Name:     shipName,
-                CallSign: fmt.Sprintf("CARGO%s", id[len(id)-3:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Ultra Large Container Vessel",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      12.9,     // m/s (25 knots)
+                        CruiseSpeed:   10.3,     // m/s (20 knots)
+                        Acceleration:  0.1,      // m/s²
+                        TurningRadius: 2000,     // meters
+                        Range:         18500000, // meters (10000 nautical miles)
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 400,       // meters
+                        Width:  59,        // meters
+                        Height: 73,        // meters
+                        Mass:   200000000, // kg
+                        Draft:  16,        // meters
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: shipName,
+                Type: "Ultra Large Container Vessel",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeMaritime,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("CARGO%s", id[len(id)-3:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
@@ -2732,26 +2972,59 @@ func NewContainerShip(id, shipName string, startPos Position) *MaritimePlatform 
                         Speed:       0,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:     12.9,      // m/s (25 knots)
-                CruiseSpeed:  10.3,      // m/s (20 knots)
-                Draft:        16,        // meters
-                Displacement: 200000,    // tonnes
-                Length:       400,       // meters
-                Width:        59,        // meters
-                Height:       73,        // meters
-                Mass:         200000000, // kg
-                Range:        10000,     // nautical miles
+        }
+
+        return &amp;MaritimePlatform{
+                UniversalPlatform: universalPlatform,
+                Draft:             16,     // meters
+                Displacement:      200000, // tonnes
+                Beam:              59,     // meters
+                CrewSize:          25,
+                CargoCapacity:     200000,     // tonnes
+                SonarRange:        5000,       // meters
+                RadarRange:        50000,      // meters
+                WeaponSystems:     []string{}, // unarmed commercial vessel
+                ArmorThickness:    0,          // mm
+                PropulsionType:    "Diesel",
+                Screws:            1,
+                Rudders:           1,
         }
 }</span>
 
 // NewOilTanker creates a large crude oil tanker (commercial)
 func NewOilTanker(id, shipName string, startPos Position) *MaritimePlatform <span class="cov0" title="0">{
         startPos.Altitude = 0
-        return &amp;MaritimePlatform{
-                ID:       id,
-                Class:    "Very Large Crude Carrier",
-                Name:     shipName,
-                CallSign: fmt.Sprintf("TANKER%s", id[len(id)-2:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Very Large Crude Carrier",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      8.2,      // m/s (16 knots)
+                        CruiseSpeed:   6.7,      // m/s (13 knots)
+                        Acceleration:  0.05,     // m/s²
+                        TurningRadius: 3000,     // meters
+                        Range:         22200000, // meters (12000 nautical miles)
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 330,       // meters
+                        Width:  60,        // meters
+                        Height: 35,        // meters
+                        Mass:   320000000, // kg
+                        Draft:  22,        // meters
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: shipName,
+                Type: "Very Large Crude Carrier",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeMaritime,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("TANKER%s", id[len(id)-2:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
@@ -2760,26 +3033,59 @@ func NewOilTanker(id, shipName string, startPos Position) *MaritimePlatform <spa
                         Speed:       0,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:     8.2,       // m/s (16 knots)
-                CruiseSpeed:  6.7,       // m/s (13 knots)
-                Draft:        22,        // meters
-                Displacement: 320000,    // tonnes
-                Length:       330,       // meters
-                Width:        60,        // meters
-                Height:       35,        // meters
-                Mass:         320000000, // kg
-                Range:        12000,     // nautical miles
+        }
+
+        return &amp;MaritimePlatform{
+                UniversalPlatform: universalPlatform,
+                Draft:             22,     // meters
+                Displacement:      320000, // tonnes
+                Beam:              60,     // meters
+                CrewSize:          30,
+                CargoCapacity:     320000,     // tonnes
+                SonarRange:        2000,       // meters
+                RadarRange:        25000,      // meters
+                WeaponSystems:     []string{}, // unarmed commercial vessel
+                ArmorThickness:    0,          // mm
+                PropulsionType:    "Diesel",
+                Screws:            1,
+                Rudders:           1,
         }
 }</span>
 
 // NewCoastGuardCutter creates a Coast Guard cutter
 func NewCoastGuardCutter(id, shipName string, startPos Position) *MaritimePlatform <span class="cov0" title="0">{
         startPos.Altitude = 0
-        return &amp;MaritimePlatform{
-                ID:       id,
-                Class:    "Legend-class Cutter",
-                Name:     fmt.Sprintf("USCGC %s", shipName),
-                CallSign: fmt.Sprintf("COASTGUARD%s", id[len(id)-2:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Legend-class Cutter",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      14.4,    // m/s (28 knots)
+                        CruiseSpeed:   10.3,    // m/s (20 knots)
+                        Acceleration:  0.8,     // m/s²
+                        TurningRadius: 600,     // meters
+                        Range:         5550000, // meters (3000 nautical miles)
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 127,     // meters
+                        Width:  16.4,    // meters
+                        Height: 15,      // meters
+                        Mass:   4500000, // kg
+                        Draft:  6.7,     // meters
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("USCGC %s", shipName),
+                Type: "Legend-class Cutter",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeMaritime,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("COASTGUARD%s", id[len(id)-2:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
@@ -2788,15 +3094,22 @@ func NewCoastGuardCutter(id, shipName string, startPos Position) *MaritimePlatfo
                         Speed:       0,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:     14.4,    // m/s (28 knots)
-                CruiseSpeed:  10.3,    // m/s (20 knots)
-                Draft:        6.7,     // meters
-                Displacement: 4500,    // tonnes
-                Length:       127,     // meters
-                Width:        16.4,    // meters
-                Height:       15,      // meters
-                Mass:         4500000, // kg
-                Range:        3000,    // nautical miles
+        }
+
+        return &amp;MaritimePlatform{
+                UniversalPlatform: universalPlatform,
+                Draft:             6.7,  // meters
+                Displacement:      4500, // tonnes
+                Beam:              16.4, // meters
+                CrewSize:          150,
+                CargoCapacity:     500,    // tonnes
+                SonarRange:        20000,  // meters
+                RadarRange:        100000, // meters
+                WeaponSystems:     []string{"57mm Gun", "Close-in Weapons System"},
+                ArmorThickness:    15, // mm
+                PropulsionType:    "Diesel",
+                Screws:            2,
+                Rudders:           1,
         }
 }</span>
 </pre>
@@ -2807,6 +3120,24 @@ import (
         "fmt"
         "math"
         "time"
+)
+
+// String constants to fix linting issues
+const (
+        WeaponStatusArmed = "ARMED"
+        WeaponStatusSafe  = "SAFE"
+        WeaponStatusNA    = "N/A"
+
+        PlatformTypeMilitary   = "military"
+        PlatformTypeCommercial = "commercial"
+        PlatformTypeCivilian   = "civilian"
+
+        TestPlatformID = "TEST001"
+
+        Boeing737Class  = "Boeing 737-800"
+        AirbusA320Class = "Airbus A320"
+        F16Class        = "F-16 Fighting Falcon"
+        C130Class       = "C-130 Hercules"
 )
 
 // PlatformType represents the category of platform
@@ -3712,30 +4043,6 @@ func (up *UniversalPlatform) Update3DPhysics(deltaTime time.Duration) error <spa
         return nil</span>
 }
 
-// updateAircraft3DPhysics applies aircraft-specific physics
-func (up *UniversalPlatform) updateAircraft3DPhysics(deltaTime float64) <span class="cov0" title="0">{
-        // For aircraft, update position based on speed and heading
-        up.updatePositionFromHeadingAndSpeed(deltaTime)
-}</span>
-
-// updateLand3DPhysics applies land vehicle physics
-func (up *UniversalPlatform) updateLand3DPhysics(deltaTime float64) <span class="cov0" title="0">{
-        // For land vehicles, update position based on speed and heading
-        up.updatePositionFromHeadingAndSpeed(deltaTime)
-}</span>
-
-// updateMaritime3DPhysics applies maritime vehicle physics
-func (up *UniversalPlatform) updateMaritime3DPhysics(deltaTime float64) <span class="cov0" title="0">{
-        // For maritime vehicles, update position based on speed and heading
-        up.updatePositionFromHeadingAndSpeed(deltaTime)
-}</span>
-
-// updateSpace3DPhysics applies space vehicle physics
-func (up *UniversalPlatform) updateSpace3DPhysics(deltaTime float64) <span class="cov0" title="0">{
-        // For space vehicles, update position based on speed and heading
-        up.updatePositionFromHeadingAndSpeed(deltaTime)
-}</span>
-
 // Force represents a 3D force vector
 type Force struct {
         X float64 `json:"x"` // Forward/backward force (N)
@@ -3918,8 +4225,8 @@ func (up *UniversalPlatform) ApplyForce(force Force) <span class="cov8" title="1
         up.State.Physics.Forces.Lift += force.Z
 }</span>
 
-// calculateTurningRate calculates the turning rate for the platform
-func (p *UniversalPlatform) calculateTurningRate(deltaTime time.Duration) float64 <span class="cov0" title="0">{
+// calculateTurningRate calculates the turning rate for the platform in radians per second
+func (p *UniversalPlatform) calculateTurningRate(_ time.Duration) float64 <span class="cov0" title="0">{
         // Get turning radius from performance characteristics
         turningRadius := p.TypeDef.Performance.TurningRadius
         if turningRadius == 0 </span><span class="cov0" title="0">{
@@ -3956,63 +4263,78 @@ import (
 
 // SpacePlatform represents satellites and spacecraft
 type SpacePlatform struct {
-        // Base identification
-        ID       string
-        Class    string // Spacecraft/satellite type
-        Name     string // Mission designation
-        CallSign string
+        // Embed UniversalPlatform for base functionality
+        UniversalPlatform
 
-        // Current state
-        State PlatformState
-
-        // Orbital characteristics
-        MaxSpeed      float64 // m/s (orbital velocity)
+        // Space-specific characteristics
         OrbitalPeriod float64 // seconds (time for one orbit)
         Apogee        float64 // meters (highest point)
         Perigee       float64 // meters (lowest point)
         Inclination   float64 // degrees (orbital plane angle)
+        Eccentricity  float64 // orbital eccentricity (0 = circular)
 
-        // Physical characteristics
-        Length float64 // meters
-        Width  float64 // meters
-        Height float64 // meters
-        Mass   float64 // kg
+        // Mission characteristics
+        MissionType     string // communication, navigation, observation, etc.
+        LaunchDate      time.Time
+        MissionDuration time.Duration // expected mission lifetime
 
-        // Navigation (simplified orbital mechanics)
-        Destination *Position
-        OrbitCenter Position // Usually Earth center for LEO/GEO
+        // Space environment
+        SolarPanelArea  float64 // square meters
+        PowerGeneration float64 // watts
+        FuelRemaining   float64 // kg
+        RadiationShield bool
 }
 
-// Core Platform interface implementation
-func (s *SpacePlatform) GetID() string           <span class="cov0" title="0">{ return s.ID }</span>
-func (s *SpacePlatform) GetType() PlatformType   <span class="cov0" title="0">{ return PlatformTypeSpace }</span>
-func (s *SpacePlatform) GetClass() string        <span class="cov0" title="0">{ return s.Class }</span>
-func (s *SpacePlatform) GetName() string         <span class="cov0" title="0">{ return s.Name }</span>
-func (s *SpacePlatform) GetCallSign() string     <span class="cov0" title="0">{ return s.CallSign }</span>
-func (s *SpacePlatform) GetState() PlatformState <span class="cov0" title="0">{ return s.State }</span>
-func (s *SpacePlatform) GetMaxSpeed() float64    <span class="cov0" title="0">{ return s.MaxSpeed }</span>
+// Core Platform interface implementation - delegate to embedded UniversalPlatform
+func (s *SpacePlatform) GetID() string           <span class="cov0" title="0">{ return s.UniversalPlatform.GetID() }</span>
+func (s *SpacePlatform) GetType() PlatformType   <span class="cov0" title="0">{ return s.UniversalPlatform.GetType() }</span>
+func (s *SpacePlatform) GetClass() string        <span class="cov0" title="0">{ return s.UniversalPlatform.GetClass() }</span>
+func (s *SpacePlatform) GetName() string         <span class="cov0" title="0">{ return s.UniversalPlatform.GetName() }</span>
+func (s *SpacePlatform) GetCallSign() string     <span class="cov0" title="0">{ return s.UniversalPlatform.GetCallSign() }</span>
+func (s *SpacePlatform) GetState() PlatformState <span class="cov0" title="0">{ return s.UniversalPlatform.GetState() }</span>
+func (s *SpacePlatform) GetMaxSpeed() float64    <span class="cov0" title="0">{ return s.UniversalPlatform.GetMaxSpeed() }</span>
 func (s *SpacePlatform) GetMaxAltitude() float64 <span class="cov0" title="0">{ return s.Apogee }</span>
-func (s *SpacePlatform) GetLength() float64      <span class="cov0" title="0">{ return s.Length }</span>
-func (s *SpacePlatform) GetWidth() float64       <span class="cov0" title="0">{ return s.Width }</span>
-func (s *SpacePlatform) GetHeight() float64      <span class="cov0" title="0">{ return s.Height }</span>
-func (s *SpacePlatform) GetMass() float64        <span class="cov0" title="0">{ return s.Mass }</span>
+func (s *SpacePlatform) GetLength() float64      <span class="cov0" title="0">{ return s.UniversalPlatform.GetLength() }</span>
+func (s *SpacePlatform) GetWidth() float64       <span class="cov0" title="0">{ return s.UniversalPlatform.GetWidth() }</span>
+func (s *SpacePlatform) GetHeight() float64      <span class="cov0" title="0">{ return s.UniversalPlatform.GetHeight() }</span>
+func (s *SpacePlatform) GetMass() float64        <span class="cov0" title="0">{ return s.UniversalPlatform.GetMass() }</span>
 
 func (s *SpacePlatform) UpdateState(state PlatformState) <span class="cov0" title="0">{
-        s.State = state
+        s.UniversalPlatform.UpdateState(state)
 }</span>
 
 func (s *SpacePlatform) SetDestination(pos Position) error <span class="cov0" title="0">{
-        s.Destination = &amp;pos
-        return nil
+        return s.UniversalPlatform.SetDestination(pos)
 }</span>
 
+// Enhanced 3D physics methods
+func (s *SpacePlatform) Initialize3DPhysics() <span class="cov0" title="0">{
+        s.UniversalPlatform.Initialize3DPhysics()
+}</span>
+
+func (s *SpacePlatform) Update3DPhysics(deltaTime time.Duration) error <span class="cov0" title="0">{
+        return s.UniversalPlatform.Update3DPhysics(deltaTime)
+}</span>
+
+func (s *SpacePlatform) GetPhysicsState() PhysicsState <span class="cov0" title="0">{
+        return s.UniversalPlatform.GetPhysicsState()
+}</span>
+
+func (s *SpacePlatform) SetPhysicsState(physics PhysicsState) <span class="cov0" title="0">{
+        s.UniversalPlatform.SetPhysicsState(physics)
+}</span>
+
+// Update implements simplified orbital mechanics
 func (s *SpacePlatform) Update(deltaTime time.Duration) error <span class="cov0" title="0">{
+        // Use enhanced orbital mechanics from UniversalPlatform base
+        // but can override for specialized space platform behavior
+
         // Simplified orbital mechanics - circular orbit approximation
         dt := deltaTime.Seconds()
 
         // Calculate orbital velocity based on altitude
         earthRadius := 6371000.0 // meters
-        altitude := s.State.Position.Altitude
+        altitude := s.UniversalPlatform.State.Position.Altitude
         orbitalRadius := earthRadius + altitude
 
         // Simplified orbital velocity: v = sqrt(GM/r)
@@ -4025,7 +4347,7 @@ func (s *SpacePlatform) Update(deltaTime time.Duration) error <span class="cov0"
 
         // Update position in simplified circular orbit
         // Convert lat/lon to radians for calculation
-        lonRad := s.State.Position.Longitude * math.Pi / 180
+        lonRad := s.UniversalPlatform.State.Position.Longitude * math.Pi / 180
 
         // Simple eastward progression (simplified)
         lonRad += angularVelocity * dt
@@ -4039,44 +4361,76 @@ func (s *SpacePlatform) Update(deltaTime time.Duration) error <span class="cov0"
         }</span>
 
         // Convert back to degrees
-        <span class="cov0" title="0">s.State.Position.Longitude = lonRad * 180 / math.Pi
+        <span class="cov0" title="0">s.UniversalPlatform.State.Position.Longitude = lonRad * 180 / math.Pi
 
         // Update speed and heading
-        s.State.Speed = orbitalVelocity
-        s.State.Heading = 90 // Eastward movement
-        s.State.LastUpdated = time.Now()
+        s.UniversalPlatform.State.Speed = orbitalVelocity
+        s.UniversalPlatform.State.Heading = 90 // Eastward movement
+        s.UniversalPlatform.State.LastUpdated = time.Now()
 
         return nil</span>
 }
 
-// Space platform factory functions for real-world platforms
+// Space platform factory functions using UniversalPlatform base
 
 // NewISSModule creates an International Space Station module
 func NewISSModule(id, moduleName string, startPos Position) *SpacePlatform <span class="cov0" title="0">{
         // ISS orbits at approximately 408 km altitude
         startPos.Altitude = 408000
-        return &amp;SpacePlatform{
-                ID:       id,
-                Class:    "ISS Module",
-                Name:     fmt.Sprintf("ISS %s", moduleName),
-                CallSign: fmt.Sprintf("ISS%s", id[len(id)-2:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "ISS Module",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:      7660, // m/s (ISS orbital velocity)
+                        CruiseSpeed:   7660, // m/s
+                        Acceleration:  0,    // orbital mechanics
+                        TurningRadius: 0,    // not applicable
+                        Range:         0,    // unlimited in orbit
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 73,     // meters (full ISS)
+                        Width:  109,    // meters (solar array span)
+                        Height: 20,     // meters
+                        Mass:   420000, // kg
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("ISS %s", moduleName),
+                Type: "ISS Module",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeSpace,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("ISS%s", id[len(id)-2:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
                         Velocity:    Velocity{},
                         Heading:     90,   // Eastward
-                        Speed:       7660, // m/s (ISS orbital velocity)
+                        Speed:       7660, // m/s
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:      7660,   // m/s
-                OrbitalPeriod: 5520,   // seconds (92 minutes)
-                Apogee:        420000, // meters
-                Perigee:       408000, // meters
-                Inclination:   51.6,   // degrees
-                Length:        73,     // meters (full ISS)
-                Width:         109,    // meters (solar array span)
-                Height:        20,     // meters
-                Mass:          420000, // kg
+        }
+
+        return &amp;SpacePlatform{
+                UniversalPlatform: universalPlatform,
+                OrbitalPeriod:     5520,   // seconds (92 minutes)
+                Apogee:            420000, // meters
+                Perigee:           408000, // meters
+                Inclination:       51.6,   // degrees
+                Eccentricity:      0.0001, // nearly circular
+                MissionType:       "space station",
+                LaunchDate:        time.Date(1998, 11, 20, 0, 0, 0, 0, time.UTC),
+                MissionDuration:   time.Hour * 24 * 365 * 30, // 30 years planned
+                SolarPanelArea:    2500,                      // square meters
+                PowerGeneration:   84000,                     // watts
+                FuelRemaining:     1000,                      // kg (for reboost)
+                RadiationShield:   true,
         }
 }</span>
 
@@ -4084,28 +4438,59 @@ func NewISSModule(id, moduleName string, startPos Position) *SpacePlatform <span
 func NewStarlinkSatellite(id, satelliteNumber string, startPos Position) *SpacePlatform <span class="cov0" title="0">{
         // Starlink operates at ~550 km altitude
         startPos.Altitude = 550000
-        return &amp;SpacePlatform{
-                ID:       id,
-                Class:    "Starlink Satellite",
-                Name:     fmt.Sprintf("Starlink-%s", satelliteNumber),
-                CallSign: fmt.Sprintf("STARLINK%s", id[len(id)-3:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Starlink Satellite",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:     7590, // m/s
+                        CruiseSpeed:  7590,
+                        Acceleration: 0,
+                        Range:        0,
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 2.8,  // meters
+                        Width:  1.9,  // meters
+                        Height: 0.32, // meters
+                        Mass:   260,  // kg
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("Starlink-%s", satelliteNumber),
+                Type: "Starlink Satellite",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeSpace,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("STARLINK%s", id[len(id)-3:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
                         Velocity:    Velocity{},
                         Heading:     90,
-                        Speed:       7590, // m/s
+                        Speed:       7590,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:      7590,   // m/s
-                OrbitalPeriod: 5760,   // seconds (96 minutes)
-                Apogee:        550000, // meters
-                Perigee:       550000, // meters (circular orbit)
-                Inclination:   53.0,   // degrees
-                Length:        2.8,    // meters
-                Width:         1.9,    // meters
-                Height:        0.32,   // meters
-                Mass:          260,    // kg
+        }
+
+        return &amp;SpacePlatform{
+                UniversalPlatform: universalPlatform,
+                OrbitalPeriod:     5760,   // seconds (96 minutes)
+                Apogee:            550000, // meters
+                Perigee:           550000, // meters
+                Inclination:       53.0,   // degrees
+                Eccentricity:      0.0,    // circular orbit
+                MissionType:       "communication",
+                LaunchDate:        time.Now(),
+                MissionDuration:   time.Hour * 24 * 365 * 5, // 5 years
+                SolarPanelArea:    8.0,                      // square meters
+                PowerGeneration:   4000,                     // watts
+                FuelRemaining:     50,                       // kg
+                RadiationShield:   false,
         }
 }</span>
 
@@ -4113,28 +4498,59 @@ func NewStarlinkSatellite(id, satelliteNumber string, startPos Position) *SpaceP
 func NewGPSSatellite(id, satelliteNumber string, startPos Position) *SpacePlatform <span class="cov0" title="0">{
         // GPS operates at ~20,200 km altitude
         startPos.Altitude = 20200000
-        return &amp;SpacePlatform{
-                ID:       id,
-                Class:    "GPS Block III",
-                Name:     fmt.Sprintf("GPS III-%s", satelliteNumber),
-                CallSign: fmt.Sprintf("GPS%s", satelliteNumber),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "GPS Block III",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:     3870, // m/s
+                        CruiseSpeed:  3870,
+                        Acceleration: 0,
+                        Range:        0,
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 3.0,  // meters
+                        Width:  2.0,  // meters
+                        Height: 1.7,  // meters
+                        Mass:   2000, // kg
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("GPS III-%s", satelliteNumber),
+                Type: "GPS Block III",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeSpace,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("GPS%s", satelliteNumber),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
                         Velocity:    Velocity{},
                         Heading:     90,
-                        Speed:       3870, // m/s
+                        Speed:       3870,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:      3870,     // m/s
-                OrbitalPeriod: 43200,    // seconds (12 hours)
-                Apogee:        20200000, // meters
-                Perigee:       20200000, // meters
-                Inclination:   55.0,     // degrees
-                Length:        3.0,      // meters
-                Width:         2.0,      // meters
-                Height:        1.7,      // meters
-                Mass:          2000,     // kg
+        }
+
+        return &amp;SpacePlatform{
+                UniversalPlatform: universalPlatform,
+                OrbitalPeriod:     43200,    // seconds (12 hours)
+                Apogee:            20200000, // meters
+                Perigee:           20200000, // meters
+                Inclination:       55.0,     // degrees
+                Eccentricity:      0.0,      // circular orbit
+                MissionType:       "navigation",
+                LaunchDate:        time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC),
+                MissionDuration:   time.Hour * 24 * 365 * 15, // 15 years
+                SolarPanelArea:    22.0,                      // square meters
+                PowerGeneration:   2900,                      // watts
+                FuelRemaining:     200,                       // kg
+                RadiationShield:   true,
         }
 }</span>
 
@@ -4142,28 +4558,59 @@ func NewGPSSatellite(id, satelliteNumber string, startPos Position) *SpacePlatfo
 func NewHubbleTelescope(id string, startPos Position) *SpacePlatform <span class="cov0" title="0">{
         // Hubble orbits at ~547 km altitude
         startPos.Altitude = 547000
-        return &amp;SpacePlatform{
-                ID:       id,
-                Class:    "Space Telescope",
-                Name:     "Hubble Space Telescope",
-                CallSign: "HUBBLE",
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Space Telescope",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:     7590, // m/s
+                        CruiseSpeed:  7590,
+                        Acceleration: 0,
+                        Range:        0,
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 13.3,  // meters
+                        Width:  4.3,   // meters (diameter)
+                        Height: 4.3,   // meters
+                        Mass:   11110, // kg
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: "Hubble Space Telescope",
+                Type: "Space Telescope",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeSpace,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     "HUBBLE",
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
                         Velocity:    Velocity{},
                         Heading:     90,
-                        Speed:       7590, // m/s
+                        Speed:       7590,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:      7590,   // m/s
-                OrbitalPeriod: 5730,   // seconds (95.5 minutes)
-                Apogee:        547000, // meters
-                Perigee:       547000, // meters
-                Inclination:   28.5,   // degrees
-                Length:        13.3,   // meters
-                Width:         4.3,    // meters (diameter)
-                Height:        4.3,    // meters
-                Mass:          11110,  // kg
+        }
+
+        return &amp;SpacePlatform{
+                UniversalPlatform: universalPlatform,
+                OrbitalPeriod:     5730,   // seconds (95.5 minutes)
+                Apogee:            547000, // meters
+                Perigee:           547000, // meters
+                Inclination:       28.5,   // degrees
+                Eccentricity:      0.0003, // nearly circular
+                MissionType:       "observation",
+                LaunchDate:        time.Date(1990, 4, 24, 0, 0, 0, 0, time.UTC),
+                MissionDuration:   time.Hour * 24 * 365 * 35, // extended mission
+                SolarPanelArea:    50.0,                      // square meters
+                PowerGeneration:   2800,                      // watts
+                FuelRemaining:     0,                         // no fuel, uses reaction wheels
+                RadiationShield:   true,
         }
 }</span>
 
@@ -4171,28 +4618,59 @@ func NewHubbleTelescope(id string, startPos Position) *SpacePlatform <span class
 func NewDragonCapsule(id, missionName string, startPos Position) *SpacePlatform <span class="cov0" title="0">{
         // Dragon typically operates at ISS altitude
         startPos.Altitude = 408000
-        return &amp;SpacePlatform{
-                ID:       id,
-                Class:    "Dragon 2 Capsule",
-                Name:     fmt.Sprintf("Dragon %s", missionName),
-                CallSign: fmt.Sprintf("DRAGON%s", id[len(id)-2:]),
+
+        typeDef := &amp;PlatformTypeDefinition{
+                Class: "Dragon 2 Capsule",
+                Performance: PerformanceCharacteristics{
+                        MaxSpeed:     7660, // m/s
+                        CruiseSpeed:  7660,
+                        Acceleration: 0,
+                        Range:        0,
+                },
+                Physical: PhysicalCharacteristics{
+                        Length: 8.1,   // meters (with trunk)
+                        Width:  3.7,   // meters (diameter)
+                        Height: 3.7,   // meters
+                        Mass:   12055, // kg (fully loaded)
+                },
+        }
+
+        config := &amp;PlatformConfiguration{
+                ID:   id,
+                Name: fmt.Sprintf("Dragon %s", missionName),
+                Type: "Dragon 2 Capsule",
+        }
+
+        universalPlatform := UniversalPlatform{
+                ID:           id,
+                PlatformType: PlatformTypeSpace,
+                TypeDef:      typeDef,
+                Config:       config,
+                CallSign:     fmt.Sprintf("DRAGON%s", id[len(id)-2:]),
                 State: PlatformState{
                         ID:          id,
                         Position:    startPos,
                         Velocity:    Velocity{},
                         Heading:     90,
-                        Speed:       7660, // m/s
+                        Speed:       7660,
                         LastUpdated: time.Now(),
                 },
-                MaxSpeed:      7660,   // m/s
-                OrbitalPeriod: 5520,   // seconds
-                Apogee:        420000, // meters
-                Perigee:       408000, // meters
-                Inclination:   51.6,   // degrees
-                Length:        8.1,    // meters (with trunk)
-                Width:         3.7,    // meters (diameter)
-                Height:        3.7,    // meters
-                Mass:          12055,  // kg (fully loaded)
+        }
+
+        return &amp;SpacePlatform{
+                UniversalPlatform: universalPlatform,
+                OrbitalPeriod:     5520,   // seconds
+                Apogee:            420000, // meters
+                Perigee:           408000, // meters
+                Inclination:       51.6,   // degrees
+                Eccentricity:      0.001,  // nearly circular
+                MissionType:       "crew transport",
+                LaunchDate:        time.Now(),
+                MissionDuration:   time.Hour * 24 * 180, // 6 months typical
+                SolarPanelArea:    15.0,                 // square meters
+                PowerGeneration:   3000,                 // watts
+                FuelRemaining:     400,                  // kg
+                RadiationShield:   true,
         }
 }</span>
 </pre>
@@ -5471,6 +5949,14 @@ import (
         "github.com/rhino11/trafficsim/internal/models"
 )
 
+// Platform type constants
+const (
+        PlatformTypeAircraft = "aircraft"
+        PlatformTypeLand     = "land"
+        PlatformTypeMaritime = "maritime"
+        PlatformTypeSpace    = "space"
+)
+
 // PhysicsEngine handles realistic movement calculations for all platform types
 type PhysicsEngine struct {
         // Environmental constants
@@ -5500,8 +5986,8 @@ func NewPhysicsEngine() *PhysicsEngine <span class="cov0" title="0">{
 
 // CalculateMovement performs physics-based movement calculation for a platform
 func (pe *PhysicsEngine) CalculateMovement(platform models.Platform, deltaTime time.Duration) error <span class="cov0" title="0">{
-        // Try to cast directly to UniversalPlatform for enhanced physics
-        if universalPlatform, isUniversal := platform.(*models.UniversalPlatform); isUniversal </span><span class="cov0" title="0">{
+        // Try to cast to UniversalPlatform for enhanced physics
+        if universalPlatform, ok := platform.(*models.UniversalPlatform); ok </span><span class="cov0" title="0">{
                 return pe.updateUniversalPlatform(universalPlatform, deltaTime)
         }</span>
 
@@ -5552,7 +6038,7 @@ func (pe *PhysicsEngine) updateUniversalPlatform(platform *models.UniversalPlatf
 }
 
 // updateAircraftPhysics implements realistic aircraft movement
-func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatform, bearing, distance, deltaSeconds float64) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov0" title="0">{
         // Get performance characteristics
         maxSpeed := platform.TypeDef.Performance.MaxSpeed
         cruiseSpeed := platform.TypeDef.Performance.CruiseSpeed
@@ -5609,7 +6095,7 @@ func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatfor
 }
 
 // updateMaritimePhysics implements realistic ship movement
-func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatform, bearing, distance, deltaSeconds float64) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov0" title="0">{
         // Ships have different characteristics
         cruiseSpeed := platform.TypeDef.Performance.CruiseSpeed
 
@@ -5652,115 +6138,188 @@ func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatfor
         return nil</span>
 }
 
-// updateLandPhysics implements realistic ground vehicle movement
+// updateLandPhysics implements realistic land vehicle movement
 func (pe *PhysicsEngine) updateLandPhysics(platform *models.UniversalPlatform, bearing, distance, deltaSeconds float64) error <span class="cov0" title="0">{
+        // Land vehicles have terrain constraints
         cruiseSpeed := platform.TypeDef.Performance.CruiseSpeed
 
-        // Land vehicles have small turning radii
-        turningRadius := platform.TypeDef.Performance.TurningRadius
-        if turningRadius == 0 </span><span class="cov0" title="0">{
-                turningRadius = platform.TypeDef.Physical.Length * 1.5 // 1.5x vehicle length
-        }</span>
-
-        // Apply heading change
-        <span class="cov0" title="0">newHeading := pe.applyTurningConstraints(
+        // Apply turning constraints
+        newHeading := pe.applyTurningConstraints(
                 platform.State.Heading,
                 bearing,
                 platform.State.Speed,
-                turningRadius,
+                platform.TypeDef.Performance.TurningRadius,
                 deltaSeconds,
         )
         platform.State.Heading = newHeading
 
-        // Handle terrain constraints
-        targetSpeed := cruiseSpeed
+        // Apply gradient constraints
         if pe.EnableTerrain </span><span class="cov0" title="0">{
-                targetSpeed = pe.applyTerrainConstraints(platform, targetSpeed)
+                pe.applyGradientConstraints(platform, distance)
         }</span>
 
         // Apply acceleration
-        <span class="cov0" title="0">acceleration := platform.TypeDef.Performance.Acceleration
-        if acceleration == 0 </span><span class="cov0" title="0">{
-                acceleration = 2.5 // Default acceleration for land vehicles
-        }</span>
-
         <span class="cov0" title="0">platform.State.Speed = pe.applyAcceleration(
                 platform.State.Speed,
-                targetSpeed,
-                acceleration,
+                cruiseSpeed,
+                platform.TypeDef.Performance.Acceleration,
                 deltaSeconds,
         )
 
-        // Update position with terrain following
+        // Update position
         pe.updatePosition(&amp;platform.State, deltaSeconds)
         platform.State.LastUpdated = time.Now()
 
         return nil</span>
 }
 
-// updateSpacePhysics implements orbital mechanics
+// updateSpacePhysics implements orbital mechanics for satellites
 func (pe *PhysicsEngine) updateSpacePhysics(platform *models.UniversalPlatform, deltaSeconds float64) error <span class="cov0" title="0">{
-        orbitalPeriod := platform.TypeDef.Performance.OrbitalPeriod
-        if orbitalPeriod &lt;= 0 </span><span class="cov0" title="0">{
-                return nil // No orbital motion defined
+        // Space platforms have orbital characteristics
+        orbitalVelocity := platform.TypeDef.Performance.OrbitalVelocity
+        if orbitalVelocity == 0 </span><span class="cov0" title="0">{
+                // Calculate orbital velocity based on altitude
+                altitude := platform.State.Position.Altitude
+                orbitalVelocity = math.Sqrt(pe.GravityAccel * pe.EarthRadius * pe.EarthRadius / (pe.EarthRadius + altitude))
         }</span>
 
-        // Calculate angular velocity (radians per second)
-        <span class="cov0" title="0">angularVelocity := 2 * math.Pi / orbitalPeriod
-        deltaAngle := angularVelocity * deltaSeconds
+        // Maintain orbital velocity
+        <span class="cov0" title="0">platform.State.Speed = orbitalVelocity
 
-        // Update longitude (eastward motion)
-        currentLon := platform.State.Position.Longitude * math.Pi / 180.0
-        newLon := currentLon + deltaAngle
-
-        // Normalize longitude
-        for newLon &gt; math.Pi </span><span class="cov0" title="0">{
-                newLon -= 2 * math.Pi
-        }</span>
-        <span class="cov0" title="0">for newLon &lt; -math.Pi </span><span class="cov0" title="0">{
-                newLon += 2 * math.Pi
-        }</span>
-
-        <span class="cov0" title="0">platform.State.Position.Longitude = newLon * 180.0 / math.Pi
-
-        // Calculate latitude oscillation based on orbital inclination
-        inclination := platform.TypeDef.Performance.Inclination * math.Pi / 180.0
-        platform.MissionTime += time.Duration(deltaSeconds * float64(time.Second))
-        timeInOrbit := platform.MissionTime.Seconds()
-        latitudePhase := 2 * math.Pi * timeInOrbit / orbitalPeriod
-
-        maxLatitude := inclination
-        platform.State.Position.Latitude = maxLatitude * math.Sin(latitudePhase) * 180.0 / math.Pi
-
-        // Maintain orbital altitude
-        if platform.TypeDef.Performance.OrbitalAltitude &gt; 0 </span><span class="cov0" title="0">{
-                platform.State.Position.Altitude = platform.TypeDef.Performance.OrbitalAltitude
-        }</span>
-
-        // Set orbital velocity
-        <span class="cov0" title="0">platform.State.Speed = platform.TypeDef.Performance.OrbitalVelocity
-        platform.State.Heading = 90 // Generally eastward
-
+        // Update position in orbit
+        pe.updateOrbitalPosition(&amp;platform.State, deltaSeconds)
         platform.State.LastUpdated = time.Now()
+
         return nil</span>
 }
 
-// updateGenericPhysics provides fallback movement calculations
-func (pe *PhysicsEngine) updateGenericPhysics(platform *models.UniversalPlatform, bearing, distance, deltaSeconds float64) error <span class="cov0" title="0">{
-        // Simple point-to-point movement
+// updateGenericPhysics provides basic movement for unknown platform types
+func (pe *PhysicsEngine) updateGenericPhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov0" title="0">{
+        // Basic movement
         platform.State.Heading = bearing
         platform.State.Speed = platform.TypeDef.Performance.CruiseSpeed
 
+        // Update position
         pe.updatePosition(&amp;platform.State, deltaSeconds)
         platform.State.LastUpdated = time.Now()
 
         return nil
 }</span>
 
-// Physics calculation helper functions
+// Helper methods
+
+func (pe *PhysicsEngine) getArrivalThreshold(platformType models.PlatformType) float64 <span class="cov0" title="0">{
+        switch platformType </span>{
+        case models.PlatformTypeAirborne:<span class="cov0" title="0">
+                return 100.0</span> // 100 meters
+        case models.PlatformTypeMaritime:<span class="cov0" title="0">
+                return 50.0</span> // 50 meters
+        case models.PlatformTypeLand:<span class="cov0" title="0">
+                return 10.0</span> // 10 meters
+        case models.PlatformTypeSpace:<span class="cov0" title="0">
+                return 1000.0</span> // 1 km for satellites
+        default:<span class="cov0" title="0">
+                return 50.0</span> // Default threshold
+        }
+}
+
+func (pe *PhysicsEngine) applyTurningConstraints(currentHeading, targetHeading, speed, turningRadius, deltaTime float64) float64 <span class="cov0" title="0">{
+        if turningRadius &lt;= 0 || speed &lt;= 0 </span><span class="cov0" title="0">{
+                return targetHeading
+        }</span>
+
+        // Calculate heading difference
+        <span class="cov0" title="0">headingDiff := targetHeading - currentHeading
+        for headingDiff &gt; 180 </span><span class="cov0" title="0">{
+                headingDiff -= 360
+        }</span>
+        <span class="cov0" title="0">for headingDiff &lt; -180 </span><span class="cov0" title="0">{
+                headingDiff += 360
+        }</span>
+
+        // Calculate maximum turn rate
+        <span class="cov0" title="0">maxTurnRate := speed / turningRadius * 180.0 / math.Pi // degrees per second
+        maxTurnChange := maxTurnRate * deltaTime
+
+        // Apply turn constraint
+        if math.Abs(headingDiff) &lt;= maxTurnChange </span><span class="cov0" title="0">{
+                return targetHeading
+        }</span> else<span class="cov0" title="0"> if headingDiff &gt; 0 </span><span class="cov0" title="0">{
+                return math.Mod(currentHeading+maxTurnChange, 360)
+        }</span> else<span class="cov0" title="0"> {
+                return math.Mod(currentHeading-maxTurnChange+360, 360)
+        }</span>
+}
+
+func (pe *PhysicsEngine) applyAcceleration(currentSpeed, targetSpeed, acceleration, deltaTime float64) float64 <span class="cov0" title="0">{
+        if acceleration &lt;= 0 </span><span class="cov0" title="0">{
+                return targetSpeed
+        }</span>
+
+        <span class="cov0" title="0">speedDiff := targetSpeed - currentSpeed
+        maxSpeedChange := acceleration * deltaTime
+
+        if math.Abs(speedDiff) &lt;= maxSpeedChange </span><span class="cov0" title="0">{
+                return targetSpeed
+        }</span> else<span class="cov0" title="0"> if speedDiff &gt; 0 </span><span class="cov0" title="0">{
+                return currentSpeed + maxSpeedChange
+        }</span> else<span class="cov0" title="0"> {
+                return currentSpeed - maxSpeedChange
+        }</span>
+}
+
+func (pe *PhysicsEngine) applyGradientConstraints(platform *models.UniversalPlatform, _ /* distance */ float64) <span class="cov0" title="0">{
+        // Apply terrain gradient constraints for land vehicles
+        maxGradient := platform.TypeDef.Performance.MaxGradient
+        if maxGradient &gt; 0 </span>{<span class="cov0" title="0">
+                // Implement gradient checking logic here
+                // For now, this is a placeholder
+        }</span>
+}
+
+func (pe *PhysicsEngine) updatePosition(state *models.PlatformState, deltaTime float64) <span class="cov0" title="0">{
+        // Convert heading to radians
+        headingRad := state.Heading * math.Pi / 180.0
+
+        // Calculate distance moved
+        distance := state.Speed * deltaTime
+
+        // Calculate new position
+        deltaLat := distance * math.Cos(headingRad) / pe.EarthRadius * 180.0 / math.Pi
+        deltaLon := distance * math.Sin(headingRad) / pe.EarthRadius * 180.0 / math.Pi / math.Cos(state.Position.Latitude*math.Pi/180.0)
+
+        state.Position.Latitude += deltaLat
+        state.Position.Longitude += deltaLon
+
+        // Update velocity components
+        state.Velocity.North = state.Speed * math.Cos(headingRad)
+        state.Velocity.East = state.Speed * math.Sin(headingRad)
+}</span>
+
+func (pe *PhysicsEngine) updateOrbitalPosition(state *models.PlatformState, deltaTime float64) <span class="cov0" title="0">{
+        // Simplified orbital mechanics
+        orbitalPeriod := 90.0 * 60.0 // 90 minutes in seconds
+        angularVelocity := 2.0 * math.Pi / orbitalPeriod
+
+        // Update orbital position
+        currentAngle := angularVelocity * deltaTime
+
+        // Move eastward along the equator (simplified)
+        deltaLon := currentAngle * 180.0 / math.Pi
+        state.Position.Longitude += deltaLon
+
+        // Normalize longitude
+        for state.Position.Longitude &gt; 180 </span><span class="cov0" title="0">{
+                state.Position.Longitude -= 360
+        }</span>
+        <span class="cov0" title="0">for state.Position.Longitude &lt; -180 </span><span class="cov0" title="0">{
+                state.Position.Longitude += 360
+        }</span>
+}
 
 // CalculateGreatCircleDistance calculates the distance between two positions
 func (pe *PhysicsEngine) CalculateGreatCircleDistance(pos1, pos2 models.Position) float64 <span class="cov0" title="0">{
+        // Haversine formula
         lat1 := pos1.Latitude * math.Pi / 180.0
         lat2 := pos2.Latitude * math.Pi / 180.0
         deltaLat := (pos2.Latitude - pos1.Latitude) * math.Pi / 180.0
@@ -5777,947 +6336,18 @@ func (pe *PhysicsEngine) CalculateGreatCircleDistance(pos1, pos2 models.Position
         return math.Sqrt(distance*distance + altDiff*altDiff)
 }</span>
 
-// CalculateBearing calculates the bearing from pos1 to pos2
-func (pe *PhysicsEngine) CalculateBearing(pos1, pos2 models.Position) float64 <span class="cov0" title="0">{
-        lat1 := pos1.Latitude * math.Pi / 180.0
-        lat2 := pos2.Latitude * math.Pi / 180.0
-        deltaLon := (pos2.Longitude - pos1.Longitude) * math.Pi / 180.0
+// CalculateBearing calculates the bearing from one position to another
+func (pe *PhysicsEngine) CalculateBearing(from, to models.Position) float64 <span class="cov0" title="0">{
+        lat1 := from.Latitude * math.Pi / 180.0
+        lat2 := to.Latitude * math.Pi / 180.0
+        deltaLon := (to.Longitude - from.Longitude) * math.Pi / 180.0
 
         y := math.Sin(deltaLon) * math.Cos(lat2)
         x := math.Cos(lat1)*math.Sin(lat2) - math.Sin(lat1)*math.Cos(lat2)*math.Cos(deltaLon)
 
         bearing := math.Atan2(y, x) * 180.0 / math.Pi
-        return math.Mod(bearing+360, 360) // Normalize to 0-360
+        return math.Mod(bearing+360, 360)
 }</span>
-
-// applyTurningConstraints applies realistic turning limitations
-func (pe *PhysicsEngine) applyTurningConstraints(currentHeading, desiredHeading, speed, turningRadius, deltaSeconds float64) float64 <span class="cov0" title="0">{
-        if turningRadius &lt;= 0 || speed &lt;= 0 </span><span class="cov0" title="0">{
-                return desiredHeading
-        }</span>
-
-        // Calculate heading difference
-        <span class="cov0" title="0">headingDiff := desiredHeading - currentHeading
-
-        // Normalize to -180 to 180
-        for headingDiff &gt; 180 </span><span class="cov0" title="0">{
-                headingDiff -= 360
-        }</span>
-        <span class="cov0" title="0">for headingDiff &lt; -180 </span><span class="cov0" title="0">{
-                headingDiff += 360
-        }</span>
-
-        // Calculate maximum turn rate based on turning radius and speed
-        <span class="cov0" title="0">maxTurnRate := (speed / turningRadius) * 180.0 / math.Pi // degrees per second
-        maxTurnChange := maxTurnRate * deltaSeconds
-
-        // Apply turn rate limitation
-        if math.Abs(headingDiff) &lt;= maxTurnChange </span><span class="cov0" title="0">{
-                return desiredHeading
-        }</span> else<span class="cov0" title="0"> if headingDiff &gt; 0 </span><span class="cov0" title="0">{
-                return math.Mod(currentHeading+maxTurnChange, 360)
-        }</span> else<span class="cov0" title="0"> {
-                return math.Mod(currentHeading-maxTurnChange+360, 360)
-        }</span>
-}
-
-// applyAcceleration applies realistic acceleration constraints
-func (pe *PhysicsEngine) applyAcceleration(currentSpeed, targetSpeed, acceleration, deltaSeconds float64) float64 <span class="cov0" title="0">{
-        if acceleration &lt;= 0 </span><span class="cov0" title="0">{
-                return targetSpeed
-        }</span>
-
-        <span class="cov0" title="0">speedDiff := targetSpeed - currentSpeed
-        maxSpeedChange := acceleration * deltaSeconds
-
-        if math.Abs(speedDiff) &lt;= maxSpeedChange </span><span class="cov0" title="0">{
-                return targetSpeed
-        }</span> else<span class="cov0" title="0"> if speedDiff &gt; 0 </span><span class="cov0" title="0">{
-                return currentSpeed + maxSpeedChange
-        }</span> else<span class="cov0" title="0"> {
-                return math.Max(0, currentSpeed-maxSpeedChange)
-        }</span>
-}
-
-// applyTerrainConstraints modifies speed based on terrain conditions
-func (pe *PhysicsEngine) applyTerrainConstraints(platform *models.UniversalPlatform, targetSpeed float64) float64 <span class="cov0" title="0">{
-        if platform.Destination == nil </span><span class="cov0" title="0">{
-                return targetSpeed
-        }</span>
-
-        // Calculate gradient
-        <span class="cov0" title="0">altDiff := platform.Destination.Altitude - platform.State.Position.Altitude
-        horizontalDist := pe.CalculateGreatCircleDistance(
-                platform.State.Position,
-                models.Position{
-                        Latitude:  platform.Destination.Latitude,
-                        Longitude: platform.Destination.Longitude,
-                        Altitude:  platform.State.Position.Altitude,
-                },
-        )
-
-        if horizontalDist &gt; 0 </span><span class="cov0" title="0">{
-                gradient := math.Atan(altDiff/horizontalDist) * 180.0 / math.Pi
-                maxGradient := platform.TypeDef.Performance.MaxGradient
-                if maxGradient == 0 </span><span class="cov0" title="0">{
-                        maxGradient = 30.0 // Default max gradient
-                }</span>
-
-                <span class="cov0" title="0">if math.Abs(gradient) &gt; maxGradient </span><span class="cov0" title="0">{
-                        // Reduce speed on steep gradients
-                        speedReduction := math.Abs(gradient) / maxGradient
-                        return targetSpeed / speedReduction
-                }</span>
-        }
-
-        <span class="cov0" title="0">return targetSpeed</span>
-}
-
-// updatePosition updates the platform position based on heading and speed
-func (pe *PhysicsEngine) updatePosition(state *models.PlatformState, deltaSeconds float64) <span class="cov0" title="0">{
-        // Convert heading to radians (0° = North, 90° = East)
-        headingRad := (90 - state.Heading) * math.Pi / 180.0
-
-        // Calculate distance moved
-        distance := state.Speed * deltaSeconds
-
-        // Calculate position change
-        deltaLat := distance * math.Cos(headingRad) / pe.EarthRadius * 180.0 / math.Pi
-        deltaLon := distance * math.Sin(headingRad) / pe.EarthRadius * 180.0 / math.Pi / math.Cos(state.Position.Latitude*math.Pi/180.0)
-
-        // Update position
-        state.Position.Latitude += deltaLat
-        state.Position.Longitude += deltaLon
-
-        // Update velocity components
-        state.Velocity.North = state.Speed * math.Cos(headingRad)
-        state.Velocity.East = state.Speed * math.Sin(headingRad)
-        state.Velocity.Up = 0 // Will be calculated separately for altitude changes
-}</span>
-
-// getArrivalThreshold returns the appropriate arrival threshold for each platform type
-func (pe *PhysicsEngine) getArrivalThreshold(platformType models.PlatformType) float64 <span class="cov0" title="0">{
-        switch platformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
-                return 100.0</span> // 100 meters for aircraft
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
-                return 50.0</span> // 50 meters for ships
-        case models.PlatformTypeLand:<span class="cov0" title="0">
-                return 10.0</span> // 10 meters for land vehicles
-        case models.PlatformTypeSpace:<span class="cov0" title="0">
-                return 1000.0</span> // 1 km for satellites
-        default:<span class="cov0" title="0">
-                return 50.0</span>
-        }
-}
-
-// Enhanced 3D Physics Methods
-
-// UpdatePhysics3D performs comprehensive 3D physics update including rotational dynamics
-func (pe *PhysicsEngine) UpdatePhysics3D(platform *models.UniversalPlatform, deltaTime time.Duration) error <span class="cov0" title="0">{
-        deltaSeconds := deltaTime.Seconds()
-
-        // Update translational motion
-        if err := pe.updateTranslationalMotion(platform, deltaSeconds); err != nil </span><span class="cov0" title="0">{
-                return err
-        }</span>
-
-        // Update rotational motion
-        <span class="cov0" title="0">pe.updateRotationalMotion(platform, deltaSeconds)
-
-        // Apply environmental forces
-        pe.applyEnvironmentalForces(platform, deltaSeconds)
-
-        // Update derived parameters
-        pe.updateDerivedParameters(platform)
-
-        platform.State.LastUpdated = time.Now()
-        return nil</span>
-}
-
-// updateTranslationalMotion handles 3D position and velocity updates
-func (pe *PhysicsEngine) updateTranslationalMotion(platform *models.UniversalPlatform, deltaSeconds float64) error <span class="cov0" title="0">{
-        // Apply forces to calculate acceleration
-        totalForce := pe.calculateTotalForces(platform)
-
-        // F = ma, so a = F/m
-        mass := platform.TypeDef.Physical.Mass
-        if mass &lt;= 0 </span><span class="cov0" title="0">{
-                mass = 1000.0 // Default mass if not specified
-        }</span>
-
-        // Update acceleration in physics state
-        <span class="cov0" title="0">platform.State.Physics.Acceleration.North = totalForce.North / mass
-        platform.State.Physics.Acceleration.East = totalForce.East / mass
-        platform.State.Physics.Acceleration.Up = totalForce.Up / mass
-
-        // Update velocity using acceleration
-        platform.State.Physics.Velocity.North += platform.State.Physics.Acceleration.North * deltaSeconds
-        platform.State.Physics.Velocity.East += platform.State.Physics.Acceleration.East * deltaSeconds
-        platform.State.Physics.Velocity.Up += platform.State.Physics.Acceleration.Up * deltaSeconds
-
-        // Apply velocity limits
-        pe.applyVelocityLimits(platform)
-
-        // Update position using velocity
-        return pe.updatePositionFromVelocity(platform, deltaSeconds)</span>
-}
-
-// updateRotationalMotion handles angular velocity and orientation updates
-func (pe *PhysicsEngine) updateRotationalMotion(platform *models.UniversalPlatform, deltaSeconds float64) <span class="cov0" title="0">{
-        // Apply torques to calculate angular acceleration
-        totalTorque := pe.calculateTotalTorques(platform)
-
-        // Apply moment of inertia (simplified as uniform values)
-        momentOfInertia := pe.calculateMomentOfInertia(platform)
-
-        // Update angular acceleration (τ = Iα, so α = τ/I)
-        platform.State.Physics.AngularAcceleration.RollAccel = totalTorque.RollAccel / momentOfInertia.RollAccel
-        platform.State.Physics.AngularAcceleration.PitchAccel = totalTorque.PitchAccel / momentOfInertia.PitchAccel
-        platform.State.Physics.AngularAcceleration.YawAccel = totalTorque.YawAccel / momentOfInertia.YawAccel
-
-        // Update angular velocity
-        platform.State.Physics.AngularVelocity.RollRate += platform.State.Physics.AngularAcceleration.RollAccel * deltaSeconds
-        platform.State.Physics.AngularVelocity.PitchRate += platform.State.Physics.AngularAcceleration.PitchAccel * deltaSeconds
-        platform.State.Physics.AngularVelocity.YawRate += platform.State.Physics.AngularAcceleration.YawAccel * deltaSeconds
-
-        // Apply angular velocity limits
-        pe.applyAngularVelocityLimits(platform)
-
-        // Update orientation using angular velocity
-        platform.State.Physics.Attitude.Roll += platform.State.Physics.AngularVelocity.RollRate * deltaSeconds
-        platform.State.Physics.Attitude.Pitch += platform.State.Physics.AngularVelocity.PitchRate * deltaSeconds
-        platform.State.Physics.Attitude.Yaw += platform.State.Physics.AngularVelocity.YawRate * deltaSeconds
-
-        // Normalize angles to [-π, π]
-        platform.State.Physics.Attitude.Roll = pe.normalizeAngle(platform.State.Physics.Attitude.Roll*math.Pi/180.0) * 180.0 / math.Pi
-        platform.State.Physics.Attitude.Pitch = pe.normalizeAngle(platform.State.Physics.Attitude.Pitch*math.Pi/180.0) * 180.0 / math.Pi
-        platform.State.Physics.Attitude.Yaw = pe.normalizeAngle(platform.State.Physics.Attitude.Yaw*math.Pi/180.0) * 180.0 / math.Pi
-}</span>
-
-// calculateTotalForces computes the net force acting on the platform
-func (pe *PhysicsEngine) calculateTotalForces(platform *models.UniversalPlatform) models.Acceleration <span class="cov0" title="0">{
-        var totalForce models.Acceleration
-
-        // Thrust force (in body frame, need to convert to world frame)
-        thrust := pe.calculateThrust(platform)
-        worldThrust := pe.bodyToWorldForce(thrust, platform.State.Physics.Attitude)
-        totalForce.North += worldThrust.North
-        totalForce.East += worldThrust.East
-        totalForce.Up += worldThrust.Up
-
-        // Gravity
-        mass := platform.TypeDef.Physical.Mass
-        if mass &lt;= 0 </span><span class="cov0" title="0">{
-                mass = 1000.0
-        }</span>
-        <span class="cov0" title="0">totalForce.Up -= mass * pe.GravityAccel
-
-        // Drag forces
-        drag := pe.calculateDrag(platform)
-        totalForce.North -= drag.North
-        totalForce.East -= drag.East
-        totalForce.Up -= drag.Up
-
-        // Environmental forces (wind, current, etc.)
-        if pe.EnableWeather </span><span class="cov0" title="0">{
-                envForce := pe.calculateEnvironmentalForces(platform)
-                totalForce.North += envForce.North
-                totalForce.East += envForce.East
-                totalForce.Up += envForce.Up
-        }</span>
-
-        <span class="cov0" title="0">return totalForce</span>
-}
-
-// calculateTotalTorques computes the net torque acting on the platform
-func (pe *PhysicsEngine) calculateTotalTorques(platform *models.UniversalPlatform) models.AngularAcceleration <span class="cov0" title="0">{
-        var totalTorque models.AngularAcceleration
-
-        // Control surface torques
-        controlTorque := pe.calculateControlTorques(platform)
-        totalTorque.RollAccel += controlTorque.RollAccel
-        totalTorque.PitchAccel += controlTorque.PitchAccel
-        totalTorque.YawAccel += controlTorque.YawAccel
-
-        // Aerodynamic/hydrodynamic stability torques
-        stabilityTorque := pe.calculateStabilityTorques(platform)
-        totalTorque.RollAccel += stabilityTorque.RollAccel
-        totalTorque.PitchAccel += stabilityTorque.PitchAccel
-        totalTorque.YawAccel += stabilityTorque.YawAccel
-
-        return totalTorque
-}</span>
-
-// Helper methods for force and torque calculations
-
-func (pe *PhysicsEngine) calculateThrust(platform *models.UniversalPlatform) models.Acceleration <span class="cov0" title="0">{
-        // Simplified thrust calculation based on desired speed
-        var thrust models.Acceleration
-
-        // Forward thrust based on throttle setting (assumed to be related to desired speed)
-        maxThrust := platform.TypeDef.Performance.MaxAcceleration
-        if maxThrust &lt;= 0 </span><span class="cov0" title="0">{
-                maxThrust = 2.0 // Default 2 m/s² acceleration capability
-        }</span>
-
-        // Calculate desired thrust based on speed error
-        <span class="cov0" title="0">desiredSpeed := platform.TypeDef.Performance.CruiseSpeed
-        currentSpeed := platform.State.Speed
-        speedError := desiredSpeed - currentSpeed
-
-        // Simple proportional control
-        thrustPercent := math.Max(0, math.Min(1, speedError/desiredSpeed))
-        thrust.North = maxThrust * thrustPercent // Assuming forward is North for simplicity
-
-        return thrust</span>
-}
-
-func (pe *PhysicsEngine) calculateDrag(platform *models.UniversalPlatform) models.Acceleration <span class="cov0" title="0">{
-        // Simplified drag calculation: F_drag = 0.5 * ρ * v² * C_d * A
-        var drag models.Acceleration
-
-        dragCoeff := 0.3 // Default drag coefficient
-        frontalArea := platform.TypeDef.Physical.Length * platform.TypeDef.Physical.Width
-
-        // Get fluid density based on platform type and altitude
-        density := pe.getFluidDensity(platform)
-
-        // Calculate drag force in each direction
-        velocityMag := math.Sqrt(
-                platform.State.Velocity.North*platform.State.Velocity.North +
-                        platform.State.Velocity.East*platform.State.Velocity.East +
-                        platform.State.Velocity.Up*platform.State.Velocity.Up,
-        )
-
-        if velocityMag &gt; 0 </span><span class="cov0" title="0">{
-                dragMagnitude := 0.5 * density * velocityMag * velocityMag * dragCoeff * frontalArea
-
-                // Apply drag opposite to velocity direction
-                drag.North = dragMagnitude * (platform.State.Velocity.North / velocityMag) / platform.TypeDef.Physical.Mass
-                drag.East = dragMagnitude * (platform.State.Velocity.East / velocityMag) / platform.TypeDef.Physical.Mass
-                drag.Up = dragMagnitude * (platform.State.Velocity.Up / velocityMag) / platform.TypeDef.Physical.Mass
-        }</span>
-
-        <span class="cov0" title="0">return drag</span>
-}
-
-func (pe *PhysicsEngine) calculateControlTorques(platform *models.UniversalPlatform) models.AngularAcceleration <span class="cov0" title="0">{
-        // Simplified control torque calculation
-        var torque models.AngularAcceleration
-
-        // Calculate desired orientation based on movement direction
-        if platform.Destination != nil </span><span class="cov0" title="0">{
-                desiredHeading := pe.CalculateBearing(platform.State.Position, *platform.Destination)
-                desiredYaw := desiredHeading * math.Pi / 180.0
-
-                yawError := pe.normalizeAngle(desiredYaw - platform.State.Physics.Attitude.Yaw*math.Pi/180.0)
-
-                // Simple proportional control for yaw
-                yawGain := 1.0
-                torque.YawAccel = yawGain * yawError
-        }</span>
-
-        <span class="cov0" title="0">return torque</span>
-}
-
-func (pe *PhysicsEngine) calculateStabilityTorques(platform *models.UniversalPlatform) models.AngularAcceleration <span class="cov0" title="0">{
-        // Stability torques tend to return the platform to level flight
-        var torque models.AngularAcceleration
-
-        rollDamping := 1.0
-        pitchDamping := 1.0
-        yawDamping := 1.0
-
-        // Apply damping proportional to angular velocity
-        torque.RollAccel = -rollDamping * platform.State.Physics.AngularVelocity.RollRate
-        torque.PitchAccel = -pitchDamping * platform.State.Physics.AngularVelocity.PitchRate
-        torque.YawAccel = -yawDamping * platform.State.Physics.AngularVelocity.YawRate
-
-        // Add restoring torques for roll and pitch
-        torque.RollAccel -= rollDamping * platform.State.Physics.Attitude.Roll * 0.5
-        torque.PitchAccel -= pitchDamping * platform.State.Physics.Attitude.Pitch * 0.5
-
-        return torque
-}</span>
-
-// Utility methods
-
-func (pe *PhysicsEngine) bodyToWorldForce(bodyForce models.Acceleration, orientation models.Attitude) models.Acceleration <span class="cov0" title="0">{
-        // Simplified rotation transformation (assuming small angles)
-        var worldForce models.Acceleration
-
-        // For small angles, we can use simplified rotation
-        yawRad := orientation.Yaw * math.Pi / 180.0
-        worldForce.North = bodyForce.North*math.Cos(yawRad) - bodyForce.East*math.Sin(yawRad)
-        worldForce.East = bodyForce.North*math.Sin(yawRad) + bodyForce.East*math.Cos(yawRad)
-        worldForce.Up = bodyForce.Up
-
-        return worldForce
-}</span>
-
-func (pe *PhysicsEngine) getFluidDensity(platform *models.UniversalPlatform) float64 <span class="cov0" title="0">{
-        switch platform.PlatformType </span>{
-        case models.PlatformTypeAirborne, models.PlatformTypeSpace:<span class="cov0" title="0">
-                // Air density decreases with altitude
-                altitude := platform.State.Position.Altitude
-                if altitude &lt; 11000 </span><span class="cov0" title="0">{ // Troposphere
-                        return pe.AirDensity * math.Pow(1-0.0065*altitude/288.15, 4.255)
-                }</span>
-                <span class="cov0" title="0">return pe.AirDensity * 0.1</span> // Simplified for higher altitudes
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
-                return 1025.0</span> // Seawater density (kg/m³)
-        case models.PlatformTypeLand:<span class="cov0" title="0">
-                return pe.AirDensity</span> // Ground vehicles in air
-        default:<span class="cov0" title="0">
-                return pe.AirDensity</span>
-        }
-}
-
-func (pe *PhysicsEngine) calculateMomentOfInertia(platform *models.UniversalPlatform) models.AngularAcceleration <span class="cov0" title="0">{
-        // Simplified moment of inertia calculation
-        mass := platform.TypeDef.Physical.Mass
-        length := platform.TypeDef.Physical.Length
-        width := platform.TypeDef.Physical.Width
-        height := platform.TypeDef.Physical.Height
-
-        if mass &lt;= 0 </span><span class="cov0" title="0">{
-                mass = 1000.0
-        }</span>
-        <span class="cov0" title="0">if length &lt;= 0 </span><span class="cov0" title="0">{
-                length = 10.0
-        }</span>
-        <span class="cov0" title="0">if width &lt;= 0 </span><span class="cov0" title="0">{
-                width = 2.0
-        }</span>
-        <span class="cov0" title="0">if height &lt;= 0 </span><span class="cov0" title="0">{
-                height = 2.0
-        }</span>
-
-        // Approximate as rectangular solid
-        <span class="cov0" title="0">return models.AngularAcceleration{
-                RollAccel:  mass * (height*height + length*length) / 12.0,
-                PitchAccel: mass * (width*width + height*height) / 12.0,
-                YawAccel:   mass * (length*length + width*width) / 12.0,
-        }</span>
-}
-
-func (pe *PhysicsEngine) applyVelocityLimits(platform *models.UniversalPlatform) <span class="cov0" title="0">{
-        maxSpeed := platform.TypeDef.Performance.MaxSpeed
-        if maxSpeed &lt;= 0 </span><span class="cov0" title="0">{
-                return
-        }</span>
-
-        // Calculate total velocity magnitude
-        <span class="cov0" title="0">velMag := math.Sqrt(
-                platform.State.Velocity.North*platform.State.Velocity.North +
-                        platform.State.Velocity.East*platform.State.Velocity.East +
-                        platform.State.Velocity.Up*platform.State.Velocity.Up,
-        )
-
-        // Scale down if exceeding max speed
-        if velMag &gt; maxSpeed </span><span class="cov0" title="0">{
-                scale := maxSpeed / velMag
-                platform.State.Velocity.North *= scale
-                platform.State.Velocity.East *= scale
-                platform.State.Velocity.Up *= scale
-        }</span>
-}
-
-func (pe *PhysicsEngine) applyAngularVelocityLimits(platform *models.UniversalPlatform) <span class="cov0" title="0">{
-        maxRollRate := platform.TypeDef.Performance.MaxRollRate
-        maxPitchRate := platform.TypeDef.Performance.MaxPitchRate
-        maxYawRate := platform.TypeDef.Performance.MaxYawRate
-
-        if maxRollRate &gt; 0 </span><span class="cov0" title="0">{
-                platform.State.Physics.AngularVelocity.RollRate = math.Max(-maxRollRate, math.Min(maxRollRate, platform.State.Physics.AngularVelocity.RollRate))
-        }</span>
-        <span class="cov0" title="0">if maxPitchRate &gt; 0 </span><span class="cov0" title="0">{
-                platform.State.Physics.AngularVelocity.PitchRate = math.Max(-maxPitchRate, math.Min(maxPitchRate, platform.State.Physics.AngularVelocity.PitchRate))
-        }</span>
-        <span class="cov0" title="0">if maxYawRate &gt; 0 </span><span class="cov0" title="0">{
-                platform.State.Physics.AngularVelocity.YawRate = math.Max(-maxYawRate, math.Min(maxYawRate, platform.State.Physics.AngularVelocity.YawRate))
-        }</span>
-}
-
-func (pe *PhysicsEngine) updatePositionFromVelocity(platform *models.UniversalPlatform, deltaSeconds float64) error <span class="cov0" title="0">{
-        // Convert velocity to position change
-        northDistance := platform.State.Velocity.North * deltaSeconds
-        eastDistance := platform.State.Velocity.East * deltaSeconds
-        upDistance := platform.State.Velocity.Up * deltaSeconds
-
-        // Convert to lat/lon changes
-        deltaLat := northDistance / pe.EarthRadius * 180.0 / math.Pi
-        deltaLon := eastDistance / pe.EarthRadius * 180.0 / math.Pi / math.Cos(platform.State.Position.Latitude*math.Pi/180.0)
-
-        // Update position
-        platform.State.Position.Latitude += deltaLat
-        platform.State.Position.Longitude += deltaLon
-        platform.State.Position.Altitude += upDistance
-
-        // Update speed and heading for compatibility
-        platform.State.Speed = math.Sqrt(
-                platform.State.Velocity.North*platform.State.Velocity.North +
-                        platform.State.Velocity.East*platform.State.Velocity.East,
-        )
-
-        if platform.State.Speed &gt; 0 </span><span class="cov0" title="0">{
-                platform.State.Heading = math.Atan2(platform.State.Velocity.East, platform.State.Velocity.North) * 180.0 / math.Pi
-                platform.State.Heading = math.Mod(platform.State.Heading+360, 360)
-        }</span>
-
-        <span class="cov0" title="0">return nil</span>
-}
-
-// Enhanced physics calculations that integrate with 3D physics state
-
-// Calculate3DForces computes comprehensive forces for any platform type
-func (pe *PhysicsEngine) Calculate3DForces(platform *models.UniversalPlatform) error <span class="cov0" title="0">{
-        physics := &amp;platform.State.Physics
-
-        // Environmental forces
-        physics.Forces.Weight = physics.Mass * pe.GravityAccel
-
-        // Platform-specific force calculations
-        switch platform.PlatformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
-                return pe.calculateAerodynamicForces(platform, physics)</span>
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
-                return pe.calculateHydrodynamicForces(platform, physics)</span>
-        case models.PlatformTypeLand:<span class="cov0" title="0">
-                return pe.calculateGroundForces(platform, physics)</span>
-        case models.PlatformTypeSpace:<span class="cov0" title="0">
-                return pe.calculateOrbitalForces(platform, physics)</span>
-        default:<span class="cov0" title="0">
-                return pe.calculateGenericForces(platform, physics)</span>
-        }
-}
-
-// calculateAerodynamicForces handles aircraft-specific forces
-func (pe *PhysicsEngine) calculateAerodynamicForces(platform *models.UniversalPlatform, physics *models.PhysicsState) error <span class="cov0" title="0">{
-        // Air density at altitude (simplified exponential model)
-        altitude := physics.Position.Altitude
-        airDensity := pe.AirDensity * math.Exp(-altitude/8400) // Scale height ~8.4km
-
-        // Current speed and velocity
-        velocity := math.Sqrt(physics.Velocity.North*physics.Velocity.North +
-                physics.Velocity.East*physics.Velocity.East +
-                physics.Velocity.Up*physics.Velocity.Up)
-
-        // Wing area and aerodynamic coefficients
-        wingArea := platform.TypeDef.Physical.WingArea
-        if wingArea == 0 </span><span class="cov0" title="0">{
-                // Estimate based on mass (rule of thumb)
-                wingArea = platform.TypeDef.Physical.Mass / 500 // kg/m²
-        }</span>
-
-        // Dynamic pressure
-        <span class="cov0" title="0">dynamicPressure := 0.5 * airDensity * velocity * velocity
-
-        // Lift calculation (simplified)
-        angleOfAttack := physics.Attitude.Pitch * math.Pi / 180.0
-        liftCoeff := 2 * math.Pi * math.Sin(angleOfAttack) // Simplified thin airfoil theory
-        physics.Forces.Lift = dynamicPressure * wingArea * liftCoeff
-
-        // Drag calculation
-        inducedDragCoeff := liftCoeff * liftCoeff / (math.Pi * 8) // Simplified induced drag
-        parasiteDragCoeff := 0.02                                 // Typical value
-        totalDragCoeff := parasiteDragCoeff + inducedDragCoeff
-        physics.Forces.Drag = dynamicPressure * wingArea * totalDragCoeff
-
-        // Thrust calculation based on throttle setting
-        maxThrust := physics.Mass * pe.GravityAccel * platform.TypeDef.Performance.MaxThrustToWeight
-        if maxThrust == 0 </span><span class="cov0" title="0">{
-                maxThrust = physics.Mass * pe.GravityAccel * 0.3 // Default T/W ratio
-        }</span>
-
-        // Throttle based on speed error
-        <span class="cov0" title="0">targetSpeed := platform.TypeDef.Performance.CruiseSpeed
-        speedError := targetSpeed - velocity
-        throttle := math.Max(0, math.Min(1, 0.5+speedError/targetSpeed))
-        physics.Forces.Thrust = maxThrust * throttle
-
-        return nil</span>
-}
-
-// calculateHydrodynamicForces handles ship-specific forces
-func (pe *PhysicsEngine) calculateHydrodynamicForces(platform *models.UniversalPlatform, physics *models.PhysicsState) error <span class="cov0" title="0">{
-        // Water density (constant at sea level)
-        waterDensity := 1025.0 // kg/m³
-
-        velocity := math.Sqrt(physics.Velocity.North*physics.Velocity.North +
-                physics.Velocity.East*physics.Velocity.East)
-
-        // Hydrodynamic calculations
-        wetArea := platform.TypeDef.Physical.WetArea
-        if wetArea == 0 </span><span class="cov0" title="0">{
-                // Estimate based on length and beam
-                wetArea = platform.TypeDef.Physical.Length * platform.TypeDef.Physical.Width
-        }</span>
-
-        // Wave resistance (simplified Froude number calculation)
-        <span class="cov0" title="0">froudeNumber := velocity / math.Sqrt(pe.GravityAccel*platform.TypeDef.Physical.Length)
-        waveResistanceCoeff := 0.002 * (1 + 10*froudeNumber*froudeNumber)
-
-        // Total drag
-        viscousDragCoeff := 0.01 // Simplified
-        totalDragCoeff := viscousDragCoeff + waveResistanceCoeff
-        physics.Forces.Drag = 0.5 * waterDensity * velocity * velocity * wetArea * totalDragCoeff
-
-        // Thrust from propulsion
-        targetSpeed := platform.TypeDef.Performance.CruiseSpeed
-        speedError := targetSpeed - velocity
-        maxThrust := physics.Mass * 2.0 // Ships have high thrust capability
-        throttle := math.Max(0, math.Min(1, 0.5+speedError/targetSpeed))
-        physics.Forces.Thrust = maxThrust * throttle
-
-        // Buoyancy equals weight
-        physics.Forces.Normal = physics.Forces.Weight
-
-        return nil</span>
-}
-
-// calculateGroundForces handles land vehicle forces
-func (pe *PhysicsEngine) calculateGroundForces(platform *models.UniversalPlatform, physics *models.PhysicsState) error <span class="cov0" title="0">{
-        velocity := math.Sqrt(physics.Velocity.North*physics.Velocity.North +
-                physics.Velocity.East*physics.Velocity.East)
-
-        // Aerodynamic drag
-        frontalArea := platform.TypeDef.Physical.FrontalArea
-        if frontalArea == 0 </span><span class="cov0" title="0">{
-                frontalArea = platform.TypeDef.Physical.Width * platform.TypeDef.Physical.Height
-        }</span>
-
-        <span class="cov0" title="0">dragCoeff := 0.3 // Typical for vehicles
-        physics.Forces.Drag = 0.5 * pe.AirDensity * velocity * velocity * frontalArea * dragCoeff
-
-        // Rolling resistance
-        rollingResistance := physics.Forces.Weight * 0.01 // 1% of weight
-        physics.Forces.Drag += rollingResistance
-
-        // Traction force from drive system
-        targetSpeed := platform.TypeDef.Performance.CruiseSpeed
-        speedError := targetSpeed - velocity
-        maxTraction := physics.Mass * 5.0 // High traction capability
-        throttle := math.Max(0, math.Min(1, 0.5+speedError/targetSpeed))
-        physics.Forces.Thrust = maxTraction * throttle
-
-        // Normal force from ground
-        physics.Forces.Normal = physics.Forces.Weight
-
-        return nil</span>
-}
-
-// calculateOrbitalForces handles space platform forces
-func (pe *PhysicsEngine) calculateOrbitalForces(platform *models.UniversalPlatform, physics *models.PhysicsState) error <span class="cov0" title="0">{
-        // In orbit, forces are minimal except for station keeping
-        altitude := physics.Position.Altitude
-
-        if altitude &gt; 100000 </span><span class="cov0" title="0">{ // Above atmosphere
-                // Minimal atmospheric drag
-                physics.Forces.Drag = 0
-
-                // Station keeping thrusters (very small)
-                physics.Forces.Thrust = 0.01 // Minimal thrust for attitude control
-
-                // No aerodynamic lift
-                physics.Forces.Lift = 0
-
-                // Gravitational force
-                r := pe.EarthRadius + altitude
-                gravitationalAccel := pe.GravityAccel * (pe.EarthRadius * pe.EarthRadius) / (r * r)
-                physics.Forces.Weight = physics.Mass * gravitationalAccel
-
-                // Centrifugal force balances gravity in circular orbit
-                orbitalSpeed := math.Sqrt(pe.GravityAccel * pe.EarthRadius * pe.EarthRadius / r)
-                centrifugalForce := physics.Mass * orbitalSpeed * orbitalSpeed / r
-                physics.Forces.Normal = centrifugalForce
-        }</span>
-
-        <span class="cov0" title="0">return nil</span>
-}
-
-// calculateGenericForces provides fallback force calculations
-func (pe *PhysicsEngine) calculateGenericForces(platform *models.UniversalPlatform, physics *models.PhysicsState) error <span class="cov0" title="0">{
-        // Basic force model
-        velocity := math.Sqrt(physics.Velocity.North*physics.Velocity.North +
-                physics.Velocity.East*physics.Velocity.East)
-
-        // Simple drag proportional to velocity squared
-        physics.Forces.Drag = 0.5 * pe.AirDensity * velocity * velocity * 10.0
-
-        // Simple thrust control
-        targetSpeed := platform.TypeDef.Performance.CruiseSpeed
-        speedError := targetSpeed - velocity
-        maxThrust := physics.Mass * 3.0
-        throttle := math.Max(0, math.Min(1, 0.5+speedError/targetSpeed))
-        physics.Forces.Thrust = maxThrust * throttle
-
-        return nil
-}</span>
-
-// Calculate3DTorques computes rotational forces for platform control
-func (pe *PhysicsEngine) Calculate3DTorques(platform *models.UniversalPlatform) error <span class="cov0" title="0">{
-        physics := &amp;platform.State.Physics
-
-        // Control torques based on desired vs actual attitude
-        desiredAttitude := pe.calculateDesiredAttitude(platform)
-
-        // PID-like control for each axis
-        rollError := desiredAttitude.Roll - physics.Attitude.Roll
-        pitchError := desiredAttitude.Pitch - physics.Attitude.Pitch
-        yawError := desiredAttitude.Yaw - physics.Attitude.Yaw
-
-        // Normalize yaw error
-        for yawError &gt; 180 </span><span class="cov0" title="0">{
-                yawError -= 360
-        }</span>
-        <span class="cov0" title="0">for yawError &lt; -180 </span><span class="cov0" title="0">{
-                yawError += 360
-        }</span>
-
-        // Control authority based on platform type
-        <span class="cov0" title="0">var maxRollTorque, maxPitchTorque, maxYawTorque float64
-
-        switch platform.PlatformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
-                // Aircraft control surfaces
-                maxRollTorque = physics.Mass * 10.0 // Ailerons
-                maxPitchTorque = physics.Mass * 8.0 // Elevator
-                maxYawTorque = physics.Mass * 5.0</span>   // Rudder
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
-                // Ship rudder (primarily yaw control)
-                maxRollTorque = physics.Mass * 1.0
-                maxPitchTorque = physics.Mass * 1.0
-                maxYawTorque = physics.Mass * 3.0</span>
-        case models.PlatformTypeLand:<span class="cov0" title="0">
-                // Vehicle steering and suspension
-                maxRollTorque = physics.Mass * 2.0
-                maxPitchTorque = physics.Mass * 2.0
-                maxYawTorque = physics.Mass * 8.0</span> // Steering
-        case models.PlatformTypeSpace:<span class="cov0" title="0">
-                // Reaction wheels and thrusters
-                maxRollTorque = physics.Mass * 0.1
-                maxPitchTorque = physics.Mass * 0.1
-                maxYawTorque = physics.Mass * 0.1</span>
-        default:<span class="cov0" title="0">
-                maxRollTorque = physics.Mass * 2.0
-                maxPitchTorque = physics.Mass * 2.0
-                maxYawTorque = physics.Mass * 2.0</span>
-        }
-
-        // Proportional control (simplified)
-        <span class="cov0" title="0">kp := 0.1
-        physics.Torques.Roll = kp * rollError * maxRollTorque
-        physics.Torques.Pitch = kp * pitchError * maxPitchTorque
-        physics.Torques.Yaw = kp * yawError * maxYawTorque
-
-        // Limit torques
-        physics.Torques.Roll = math.Max(-maxRollTorque, math.Min(maxRollTorque, physics.Torques.Roll))
-        physics.Torques.Pitch = math.Max(-maxPitchTorque, math.Min(maxPitchTorque, physics.Torques.Pitch))
-        physics.Torques.Yaw = math.Max(-maxYawTorque, math.Min(maxYawTorque, physics.Torques.Yaw))
-
-        return nil</span>
-}
-
-// calculateDesiredAttitude determines the target attitude for navigation
-func (pe *PhysicsEngine) calculateDesiredAttitude(platform *models.UniversalPlatform) models.Attitude <span class="cov0" title="0">{
-        if platform.Destination == nil </span><span class="cov0" title="0">{
-                return platform.State.Physics.Attitude
-        }</span>
-
-        // Calculate bearing to destination
-        <span class="cov0" title="0">bearing := pe.CalculateBearing(platform.State.Position, *platform.Destination)
-
-        // Calculate desired pitch for altitude change
-        altitudeDiff := platform.Destination.Altitude - platform.State.Position.Altitude
-        distance := pe.CalculateGreatCircleDistance(platform.State.Position, *platform.Destination)
-
-        desiredPitch := 0.0
-        if distance &gt; 0 </span><span class="cov0" title="0">{
-                pitchAngle := math.Atan(altitudeDiff/distance) * 180.0 / math.Pi
-
-                // Limit pitch based on platform capabilities
-                maxPitch := platform.TypeDef.Performance.MaxPitchAngle
-                if maxPitch == 0 </span><span class="cov0" title="0">{
-                        switch platform.PlatformType </span>{
-                        case models.PlatformTypeAirborne:<span class="cov0" title="0">
-                                maxPitch = 15.0</span>
-                        case models.PlatformTypeLand:<span class="cov0" title="0">
-                                maxPitch = 30.0</span>
-                        default:<span class="cov0" title="0">
-                                maxPitch = 10.0</span>
-                        }
-                }
-                <span class="cov0" title="0">desiredPitch = math.Max(-maxPitch, math.Min(maxPitch, pitchAngle))</span>
-        }
-
-        // Calculate desired roll for coordinated turns (aircraft)
-        <span class="cov0" title="0">desiredRoll := 0.0
-        if platform.PlatformType == models.PlatformTypeAirborne </span><span class="cov0" title="0">{
-                headingError := bearing - platform.State.Physics.Attitude.Yaw
-                for headingError &gt; 180 </span><span class="cov0" title="0">{
-                        headingError -= 360
-                }</span>
-                <span class="cov0" title="0">for headingError &lt; -180 </span><span class="cov0" title="0">{
-                        headingError += 360
-                }</span>
-
-                <span class="cov0" title="0">maxBank := platform.TypeDef.Performance.MaxBankAngle
-                if maxBank == 0 </span><span class="cov0" title="0">{
-                        maxBank = 30.0
-                }</span>
-                <span class="cov0" title="0">desiredRoll = math.Max(-maxBank, math.Min(maxBank, headingError/3))</span>
-        }
-
-        <span class="cov0" title="0">return models.Attitude{
-                Roll:  desiredRoll,
-                Pitch: desiredPitch,
-                Yaw:   bearing,
-        }</span>
-}
-
-// Enhanced environmental effects
-
-// ApplyEnvironmentalEffects modifies forces based on environmental conditions
-func (pe *PhysicsEngine) ApplyEnvironmentalEffects(platform *models.UniversalPlatform, weather *WeatherConditions) error <span class="cov0" title="0">{
-        if !pe.EnableWeather || weather == nil </span><span class="cov0" title="0">{
-                return nil
-        }</span>
-
-        <span class="cov0" title="0">physics := &amp;platform.State.Physics
-
-        // Wind effects
-        windEffect := pe.calculateWindEffect(platform, weather)
-        physics.Forces.Drag += windEffect.Drag
-        physics.Torques.Roll += windEffect.RollTorque
-        physics.Torques.Pitch += windEffect.PitchTorque
-        physics.Torques.Yaw += windEffect.YawTorque
-
-        // Temperature effects on performance
-        tempRatio := (weather.Temperature + 273.15) / 288.15 // ISA standard
-        switch platform.PlatformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
-                // Engine performance varies with temperature
-                physics.Forces.Thrust *= math.Sqrt(tempRatio)</span>
-        }
-
-        // Precipitation effects
-        <span class="cov0" title="0">if weather.Precipitation &gt; 0 </span><span class="cov0" title="0">{
-                // Increased drag due to rain/snow
-                physics.Forces.Drag *= (1 + weather.Precipitation*0.1)
-        }</span>
-
-        <span class="cov0" title="0">return nil</span>
-}
-
-// WeatherConditions represents environmental conditions
-type WeatherConditions struct {
-        WindSpeed     float64 // m/s
-        WindDirection float64 // degrees
-        Temperature   float64 // Celsius
-        Pressure      float64 // Pa
-        Humidity      float64 // %
-        Precipitation float64 // mm/hr
-        Visibility    float64 // meters
-}
-
-// WindEffect represents wind-induced forces and torques
-type WindEffect struct {
-        Drag        float64
-        RollTorque  float64
-        PitchTorque float64
-        YawTorque   float64
-}
-
-// calculateWindEffect computes wind effects on platform
-func (pe *PhysicsEngine) calculateWindEffect(platform *models.UniversalPlatform, weather *WeatherConditions) WindEffect <span class="cov0" title="0">{
-        // Convert wind from meteorological to mathematical convention
-        windDir := math.Mod(270-weather.WindDirection, 360) * math.Pi / 180.0
-
-        // Wind velocity components
-        windNorth := weather.WindSpeed * math.Cos(windDir)
-        windEast := weather.WindSpeed * math.Sin(windDir)
-
-        // Relative wind
-        relWindNorth := windNorth - platform.State.Physics.Velocity.North
-        relWindEast := windEast - platform.State.Physics.Velocity.East
-        relWindSpeed := math.Sqrt(relWindNorth*relWindNorth + relWindEast*relWindEast)
-
-        // Wind effects scale with exposed area and relative wind speed
-        var exposedArea float64
-        switch platform.PlatformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
-                exposedArea = platform.TypeDef.Physical.WingArea</span>
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
-                exposedArea = platform.TypeDef.Physical.Length * platform.TypeDef.Physical.Height</span>
-        case models.PlatformTypeLand:<span class="cov0" title="0">
-                exposedArea = platform.TypeDef.Physical.FrontalArea</span>
-        default:<span class="cov0" title="0">
-                exposedArea = platform.TypeDef.Physical.Width * platform.TypeDef.Physical.Height</span>
-        }
-
-        <span class="cov0" title="0">if exposedArea == 0 </span><span class="cov0" title="0">{
-                exposedArea = 10.0 // Default
-        }</span>
-
-        // Wind drag
-        <span class="cov0" title="0">windDrag := 0.5 * pe.AirDensity * relWindSpeed * relWindSpeed * exposedArea * 0.5
-
-        // Wind-induced torques (simplified)
-        leverArm := platform.TypeDef.Physical.Length / 2
-        windTorque := windDrag * leverArm * 0.1
-
-        return WindEffect{
-                Drag:        windDrag,
-                RollTorque:  windTorque * 0.3,
-                PitchTorque: windTorque * 0.2,
-                YawTorque:   windTorque * 0.5,
-        }</span>
-}
-
-// Missing helper functions for physics calculations
-
-// calculateEnvironmentalForces computes environmental forces like wind and current
-func (pe *PhysicsEngine) calculateEnvironmentalForces(platform *models.UniversalPlatform) models.Acceleration <span class="cov0" title="0">{
-        // Simplified environmental forces - can be expanded for weather effects
-        var envForce models.Acceleration
-
-        // For now, return zero forces - this can be enhanced with weather data
-        return envForce
-}</span>
-
-// applyEnvironmentalForces applies environmental effects to the platform
-func (pe *PhysicsEngine) applyEnvironmentalForces(platform *models.UniversalPlatform, deltaSeconds float64) {<span class="cov0" title="0">
-        // Apply basic environmental effects like atmospheric density changes
-        // This is a placeholder for more complex environmental modeling
-}</span>
-
-// updateDerivedParameters updates calculated values based on current state
-func (pe *PhysicsEngine) updateDerivedParameters(platform *models.UniversalPlatform) <span class="cov0" title="0">{
-        // Update speed from velocity components
-        platform.State.Speed = math.Sqrt(
-                platform.State.Velocity.North*platform.State.Velocity.North +
-                        platform.State.Velocity.East*platform.State.Velocity.East,
-        )
-
-        // Update heading from velocity direction
-        if platform.State.Speed &gt; 0 </span><span class="cov0" title="0">{
-                platform.State.Heading = math.Atan2(platform.State.Velocity.East, platform.State.Velocity.North) * 180.0 / math.Pi
-                platform.State.Heading = math.Mod(platform.State.Heading+360, 360)
-        }</span>
-}
-
-// normalizeAngle normalizes an angle to the range [-π, π]
-func (pe *PhysicsEngine) normalizeAngle(angle float64) float64 <span class="cov0" title="0">{
-        for angle &gt; math.Pi </span><span class="cov0" title="0">{
-                angle -= 2 * math.Pi
-        }</span>
-        <span class="cov0" title="0">for angle &lt; -math.Pi </span><span class="cov0" title="0">{
-                angle += 2 * math.Pi
-        }</span>
-        <span class="cov0" title="0">return angle</span>
-}
 </pre>
 		
 		</div>

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,14 +20,23 @@ import (
 func main() {
 	// Command line flags
 	var (
-		configPath = flag.String("config", "data/config.yaml", "Path to configuration file")
-		webMode    = flag.Bool("web", false, "Run in web server mode")
-		port       = flag.String("port", "8080", "Port for web server")
+		configPath    = flag.String("config", "data/config.yaml", "Path to configuration file")
+		webMode       = flag.Bool("web", false, "Run in web server mode")
+		headlessMode  = flag.Bool("headless", false, "Run in headless mode (command-line only, no web interface)")
+		port          = flag.String("port", "8080", "Port for web server")
+		multicast     = flag.Bool("multicast", false, "Enable multicast transmission of platform updates")
+		multicastAddr = flag.String("multicast-addr", "239.2.3.1", "Multicast address for platform updates")
+		multicastPort = flag.String("multicast-port", "6969", "Multicast port for platform updates")
 	)
 	flag.Parse()
 
 	fmt.Println("Global Traffic Simulator - Configuration-Driven Demo")
 	fmt.Println("====================================================")
+
+	// Validate flag combinations
+	if *webMode && *headlessMode {
+		log.Fatal("Error: Cannot specify both -web and -headless modes")
+	}
 
 	// Load configuration
 	fmt.Printf("Loading configuration from: %s\n", *configPath)
@@ -37,6 +47,17 @@ func main() {
 
 	// Create simulation engine
 	engine := sim.NewEngine(cfg)
+
+	// Setup multicast if enabled
+	var multicastConn *net.UDPConn
+	if *multicast {
+		multicastConn, err = setupMulticast(*multicastAddr, *multicastPort)
+		if err != nil {
+			log.Fatalf("Failed to setup multicast: %v", err)
+		}
+		defer multicastConn.Close()
+		fmt.Printf("Multicast transmission enabled on %s:%s\n", *multicastAddr, *multicastPort)
+	}
 
 	if *webMode {
 		// Run web server mode
@@ -64,12 +85,31 @@ func main() {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	} else {
-		// Run command-line mode
-		runCLISimulation(engine, cfg)
+		// Run command-line mode (headless or regular CLI)
+		if *headlessMode {
+			fmt.Println("Running in headless mode...")
+		}
+		runCLISimulation(engine, cfg, multicastConn)
 	}
 }
 
-func runCLISimulation(engine *sim.Engine, cfg *config.Config) {
+func setupMulticast(addr, port string) (*net.UDPConn, error) {
+	// Parse multicast address
+	multicastAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", addr, port))
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve multicast address: %v", err)
+	}
+
+	// Create UDP connection
+	conn, err := net.DialUDP("udp", nil, multicastAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create multicast connection: %v", err)
+	}
+
+	return conn, nil
+}
+
+func runCLISimulation(engine *sim.Engine, cfg *config.Config, multicastConn *net.UDPConn) {
 	fmt.Println("Starting traffic simulation...")
 
 	// Create context for graceful shutdown
@@ -129,6 +169,34 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config) {
 			if len(platforms) > 0 {
 				displayPlatformStatus(platforms)
 			}
+
+			// Send multicast updates if enabled
+			if multicastConn != nil {
+				sendMulticastUpdates(multicastConn, platforms)
+			}
+		}
+	}
+}
+
+func sendMulticastUpdates(conn *net.UDPConn, platforms []models.Platform) {
+	for _, platform := range platforms {
+		state := platform.GetState()
+		// Create a simple JSON message with platform update
+		message := fmt.Sprintf(`{"callsign":"%s","type":"%s","timestamp":"%s","position":{"lat":%.6f,"lon":%.6f,"alt":%.1f},"speed":%.2f,"heading":%.1f}`,
+			platform.GetCallSign(),
+			platform.GetType(),
+			time.Now().UTC().Format(time.RFC3339),
+			state.Position.Latitude,
+			state.Position.Longitude,
+			state.Position.Altitude,
+			state.Speed,
+			state.Heading,
+		)
+
+		// Send the message
+		_, err := conn.Write([]byte(message + "\n"))
+		if err != nil {
+			log.Printf("Failed to send multicast update for %s: %v", platform.GetCallSign(), err)
 		}
 	}
 }

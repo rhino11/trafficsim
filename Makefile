@@ -17,8 +17,13 @@ BINARY_NAME=trafficsim
 BINARY_UNIX=$(BINARY_NAME)_unix
 MAIN_PATH=./cmd/simrunner
 
+# Runtime parameters
+DEFAULT_PORT=8080
+DEFAULT_MULTICAST_ADDR=239.255.42.99
+DEFAULT_MULTICAST_PORT=9999
+
 # Build targets
-.PHONY: all build clean test test-go test-js test-all test-coverage test-coverage-go test-coverage-js test-verbose deps deps-js fmt vet lint run help
+.PHONY: all build clean test test-go test-js test-all test-coverage test-coverage-go test-coverage-js test-verbose deps deps-js fmt vet lint run run-headless run-web run-multicast run-web-multicast help
 
 # Default target
 all: test-all build
@@ -147,15 +152,76 @@ lint-js:
 # Run all linting
 lint-all: lint lint-js
 
-# Run the application
+# Run the application (backward compatibility - defaults to CLI mode)
 run:
-	@echo "Running $(BINARY_NAME)..."
+	@echo "Running $(BINARY_NAME) in CLI mode..."
 	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME)
 
-# Run with hot reload (requires air)
+# Run in headless mode (no frontend, command-line only)
+run-headless:
+	@echo "Running $(BINARY_NAME) in headless mode (no frontend)..."
+	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -headless
+
+# Run with web frontend
+run-web:
+	@echo "Running $(BINARY_NAME) with web frontend on port $(DEFAULT_PORT)..."
+	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -web -port=$(DEFAULT_PORT)
+
+# Run with web frontend on custom port
+run-web-port:
+	@echo "Running $(BINARY_NAME) with web frontend on port $(PORT)..."
+	@if [ -z "$(PORT)" ]; then echo "Error: PORT variable not set. Use: make run-web-port PORT=8081"; exit 1; fi
+	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -web -port=$(PORT)
+
+# Run in headless mode with multicast transmission
+run-multicast:
+	@echo "Running $(BINARY_NAME) in headless mode with multicast transmission..."
+	@echo "Multicast address: $(DEFAULT_MULTICAST_ADDR):$(DEFAULT_MULTICAST_PORT)"
+	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -headless -multicast -multicast-addr=$(DEFAULT_MULTICAST_ADDR) -multicast-port=$(DEFAULT_MULTICAST_PORT)
+
+# Run with web frontend and multicast transmission
+run-web-multicast:
+	@echo "Running $(BINARY_NAME) with web frontend and multicast transmission..."
+	@echo "Web server on port $(DEFAULT_PORT), multicast on $(DEFAULT_MULTICAST_ADDR):$(DEFAULT_MULTICAST_PORT)"
+	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -web -port=$(DEFAULT_PORT) -multicast -multicast-addr=$(DEFAULT_MULTICAST_ADDR) -multicast-port=$(DEFAULT_MULTICAST_PORT)
+
+# Run with custom multicast settings
+run-multicast-custom:
+	@echo "Running $(BINARY_NAME) with custom multicast settings..."
+	@if [ -z "$(ADDR)" ]; then echo "Error: ADDR variable not set. Use: make run-multicast-custom ADDR=239.255.42.100 PORT=9998"; exit 1; fi
+	@if [ -z "$(PORT)" ]; then echo "Error: PORT variable not set. Use: make run-multicast-custom ADDR=239.255.42.100 PORT=9998"; exit 1; fi
+	@echo "Multicast address: $(ADDR):$(PORT)"
+	$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -headless -multicast -multicast-addr=$(ADDR) -multicast-port=$(PORT)
+
+# Run all modes for testing (in background with different ports/addresses)
+run-all-modes:
+	@echo "Starting all running modes for testing..."
+	@echo "Starting headless mode in background..."
+	@$(GOBUILD) -o $(BINARY_NAME) -v $(MAIN_PATH) && ./$(BINARY_NAME) -headless &
+	@sleep 2
+	@echo "Starting web mode on port 8081 in background..."
+	@./$(BINARY_NAME) -web -port=8081 &
+	@sleep 2
+	@echo "Starting multicast mode on different address in background..."
+	@./$(BINARY_NAME) -headless -multicast -multicast-addr=239.255.42.100 -multicast-port=9998 &
+	@echo "All modes started. Use 'make stop-all' to stop them."
+	@echo "Web interface available at: http://localhost:8081"
+	@echo "Multicast streams on: 239.255.42.99:9999 and 239.255.42.100:9998"
+
+# Stop all background processes
+stop-all:
+	@echo "Stopping all $(BINARY_NAME) processes..."
+	@pkill -f $(BINARY_NAME) || echo "No $(BINARY_NAME) processes found"
+
+# Download and install air (if not already installed)
+install-air:
+	@echo "Installing air for hot reloading..."
+	@which air > /dev/null || (go install github.com/air-verse/air@latest)
+
+# Development mode with hot reloading (requires air)
 dev:
 	@echo "Starting development server with hot reload..."
-	@which air > /dev/null || (echo "Installing air..." && go install github.com/air-verse/air@latest)
+	@$(MAKE) install-air
 	air
 
 # Install development tools
@@ -199,7 +265,7 @@ docker-run: docker-build
 check: fmt vet test-all
 
 # Full quality check
-check-all: fmt vet lint-all test-race test-coverage security
+check-all: check lint-all test-race test-coverage security
 
 # CI check (for CI environments)
 ci: deps-all check-all
@@ -231,7 +297,15 @@ help:
 	@echo "  lint             - Run Go linter"
 	@echo "  lint-js          - Run JavaScript linter"
 	@echo "  lint-all         - Run all linters"
-	@echo "  run              - Build and run the application"
+	@echo "  run              - Build and run in CLI mode (default)"
+	@echo "  run-headless     - Run in headless mode (no frontend)"
+	@echo "  run-web          - Run with web frontend on default port ($(DEFAULT_PORT))"
+	@echo "  run-web-port     - Run with web frontend on custom port (use PORT=xxxx)"
+	@echo "  run-multicast    - Run headless with multicast transmission"
+	@echo "  run-web-multicast - Run with web frontend and multicast"
+	@echo "  run-multicast-custom - Run with custom multicast (use ADDR=x.x.x.x PORT=xxxx)"
+	@echo "  run-all-modes    - Start all modes for testing (background)"
+	@echo "  stop-all         - Stop all background processes"
 	@echo "  dev              - Start development server with hot reload"
 	@echo "  install-tools    - Install development tools"
 	@echo "  mocks            - Generate mocks"
@@ -242,3 +316,8 @@ help:
 	@echo "  check-all        - Full quality check"
 	@echo "  ci               - CI environment check (deps + check-all)"
 	@echo "  help             - Display this help"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make run-web-port PORT=8081        - Run web mode on port 8081"
+	@echo "  make run-multicast-custom ADDR=239.255.42.100 PORT=9998"
+	@echo "  make run-all-modes                 - Start all modes for testing"
