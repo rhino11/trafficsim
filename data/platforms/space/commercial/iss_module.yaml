@@ -1,0 +1,51 @@
+# International Space Station Platform Definition
+platform_types:
+  iss_module:
+    class: "International Space Station"
+    category: "space_station"
+    cot_config:
+      type: "a-n-P-U-S"          # MIL-STD-2525D: Space-Neutral-Unit-Space Station
+      icon: "SNPPUS----G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "space"
+      battle_dimension: "space"
+      category_code: "space_station"
+    performance:
+      max_speed: 7660.0         # m/s (orbital velocity)
+      cruise_speed: 7660.0      # m/s
+      fuel_consumption: 0.01    # kg/s (periodic reboost)
+      orbital_velocity: 7660.0  # m/s
+      orbital_period: 5580      # seconds (93 minutes)
+      orbital_altitude: 408000  # meters (408 km)
+      inclination: 51.6         # degrees
+      eccentricity: 0.0003      # nearly circular
+    physical:
+      length: 108.5             # meters (truss length)
+      width: 72.8               # meters (solar array span)
+      height: 20.0              # meters
+      mass: 450000              # kg
+      solar_panel_area: 2500    # m²
+    operational:
+      range: 999999999
+      crew_capacity: 7
+      mission_life: 30          # years (extended)
+    sensors:
+      has_gps: true
+      has_radar: false
+      has_compass: true
+    callsign_config:
+      prefix: "ISS"
+      format: "ISS"
+
+platforms:
+  - id: "ISS_001"
+    type: "iss_module"
+    name: "ISS"
+    start_position:
+      latitude: 0.0             # varies in orbit
+      longitude: 0.0
+      altitude: 408000
+    mission:
+      type: "scientific_research"
+      expedition: 70
+      duration: 8760            # hours (1 year)

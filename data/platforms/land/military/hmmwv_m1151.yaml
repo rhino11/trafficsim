@@ -1,0 +1,53 @@
+# HMMWV M1151 Platform Definition
+platform_types:
+  hmmwv_m1151:
+    class: "HMMWV M1151"
+    category: "tactical_vehicle"
+    cot_config:
+      type: "a-f-G-U-C-V"        # MIL-STD-2525D: Ground-Friend-Unit-Combat-Vehicle
+      icon: "SFGPUCV---G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "ground"
+      battle_dimension: "ground"
+      category_code: "vehicle"
+    performance:
+      max_speed: 29.1           # m/s (65 mph)
+      cruise_speed: 24.6        # m/s (55 mph)
+      fuel_consumption: 0.08    # kg/s at cruise
+      turning_radius: 7.6       # meters
+      acceleration: 3.5         # m/s²
+      max_gradient: 60.0        # degrees
+      range: 482000             # meters (300 miles)
+    physical:
+      length: 4.6               # meters
+      width: 2.2                # meters
+      height: 1.8               # meters (reducible)
+      mass: 2700                # kg
+      ground_clearance: 0.41    # meters
+      fuel_capacity: 95         # kg
+    operational:
+      range: 482000
+      crew_capacity: 4
+      cargo_capacity: 1134      # kg
+      weapon_systems: ["M240B", "Mk 19 grenade launcher"]
+    sensors:
+      has_gps: true
+      has_compass: true
+      optical_range: 2000
+    callsign_config:
+      prefix: ""
+      format: "{unit}{number:02d}"
+      names: ["WOLF", "TIGER", "HAWK", "EAGLE"]
+
+platforms:
+  - id: "HMMWV_001"
+    type: "hmmwv_m1151"
+    name: "WOLF12"
+    start_position:
+      latitude: 35.1495
+      longitude: -106.6253
+      altitude: 1619
+    mission:
+      type: "convoy_escort"
+      route: "Highway 285 North"
+      duration: 4

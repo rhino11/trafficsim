@@ -11,6 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 
@@ -161,6 +164,7 @@ func (s *Server) setupRoutes() {
 	api := s.router.PathPrefix("/api").Subrouter()
 	api.Use(s.loggingMiddleware)
 	api.HandleFunc("/platforms", s.handleGetPlatforms).Methods("GET")
+	api.HandleFunc("/platform-types", s.handleGetPlatformTypes).Methods("GET")
 	api.HandleFunc("/simulation/start", s.handleStartSimulation).Methods("POST")
 	api.HandleFunc("/simulation/stop", s.handleStopSimulation).Methods("POST")
 	api.HandleFunc("/simulation/reset", s.handleResetSimulation).Methods("POST")
@@ -170,9 +174,13 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/metrics", s.handleMetrics).Methods("GET")
 	// Client logging endpoint for debugging
 	api.HandleFunc("/log", s.handleClientLog).Methods("POST")
+	// Scenario creation endpoint
+	api.HandleFunc("/scenarios", s.handleCreateScenario).Methods("POST")
 
 	// Main page
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
+	// Scenario Builder page
+	s.router.HandleFunc("/scenario-builder", s.handleScenarioBuilder).Methods("GET")
 
 	logInitialization("Router", "CONFIGURED", 0)
 }
@@ -229,6 +237,26 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Error executing template: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleScenarioBuilder serves the scenario builder HTML page
+func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("web/templates/scenario-builder.html")
+	if err != nil {
+		http.Error(w, "Error loading scenario builder template: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Title string
+	}{
+		Title: "Scenario Builder - Traffic Simulation",
+	}
+
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, "Error executing scenario builder template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -292,6 +320,337 @@ func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(platforms); err != nil {
 		http.Error(w, "Error encoding platforms: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+// handleGetPlatformTypes returns all available platform types from configuration
+func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) {
+	// Load platform types from the configuration
+	platformTypes, err := s.loadPlatformTypesFromConfig()
+	if err != nil {
+		log.Printf("Error loading platform types: %v", err)
+		// Return fallback data if config loading fails
+		fallbackTypes := s.getFallbackPlatformTypes()
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(fallbackTypes); err != nil {
+			http.Error(w, "Error encoding platform types: "+err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(platformTypes); err != nil {
+		http.Error(w, "Error encoding platform types: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// PlatformTypeInfo represents a platform type for the scenario builder
+type PlatformTypeInfo struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Class       string                 `json:"class"`
+	Category    string                 `json:"category"`
+	Domain      string                 `json:"domain"`
+	Description string                 `json:"description"`
+	Performance map[string]interface{} `json:"performance"`
+}
+
+// loadPlatformTypesFromConfig loads platform types from YAML configuration files
+func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) {
+	// Load configuration from file
+	cfg, err := config.LoadConfig("data/config.yaml")
+	if err != nil {
+		log.Printf("Could not load configuration: %v", err)
+		return s.getDefaultPlatformTypes(), nil
+	}
+
+	var platformTypes []PlatformTypeInfo
+
+	// Convert airborne types
+	for typeID, typeDef := range cfg.Platforms.AirborneTypes {
+		typeInfo := PlatformTypeInfo{
+			ID:          typeID,
+			Name:        typeDef.Name,
+			Class:       typeDef.Class,
+			Category:    typeDef.Category,
+			Domain:      "airborne",
+			Description: s.generateDescription(typeID),
+			Performance: map[string]interface{}{
+				"max_speed":    typeDef.MaxSpeed,
+				"cruise_speed": typeDef.CruiseSpeed,
+				"max_altitude": typeDef.MaxAltitude,
+			},
+		}
+		platformTypes = append(platformTypes, typeInfo)
+	}
+
+	// Convert maritime types
+	for typeID, typeDef := range cfg.Platforms.MaritimeTypes {
+		typeInfo := PlatformTypeInfo{
+			ID:          typeID,
+			Name:        typeDef.Name,
+			Class:       typeDef.Class,
+			Category:    typeDef.Category,
+			Domain:      "maritime",
+			Description: s.generateDescription(typeID),
+			Performance: map[string]interface{}{
+				"max_speed":    typeDef.MaxSpeed,
+				"cruise_speed": typeDef.CruiseSpeed,
+			},
+		}
+		platformTypes = append(platformTypes, typeInfo)
+	}
+
+	// Convert land types
+	for typeID, typeDef := range cfg.Platforms.LandTypes {
+		typeInfo := PlatformTypeInfo{
+			ID:          typeID,
+			Name:        typeDef.Name,
+			Class:       typeDef.Class,
+			Category:    typeDef.Category,
+			Domain:      "land",
+			Description: s.generateDescription(typeID),
+			Performance: map[string]interface{}{
+				"max_speed":    typeDef.MaxSpeed,
+				"cruise_speed": typeDef.CruiseSpeed,
+			},
+		}
+		platformTypes = append(platformTypes, typeInfo)
+	}
+
+	// Convert space types
+	for typeID, typeDef := range cfg.Platforms.SpaceTypes {
+		typeInfo := PlatformTypeInfo{
+			ID:          typeID,
+			Name:        typeDef.Name,
+			Class:       typeDef.Class,
+			Category:    typeDef.Category,
+			Domain:      "space",
+			Description: s.generateDescription(typeID),
+			Performance: map[string]interface{}{
+				"orbital_velocity": typeDef.MaxSpeed,
+				"orbital_altitude": typeDef.MaxAltitude,
+			},
+		}
+		platformTypes = append(platformTypes, typeInfo)
+	}
+
+	if len(platformTypes) == 0 {
+		return s.getDefaultPlatformTypes(), nil
+	}
+
+	return platformTypes, nil
+}
+
+// determineDomain determines the domain based on platform type
+func (s *Server) determineDomain(platformType string) string {
+	airborneTypes := []string{"airbus_a320", "boeing_777_300er", "f16_fighting_falcon", "commercial_aircraft", "fighter_aircraft"}
+	maritimeTypes := []string{"container_ship", "arleigh_burke_destroyer", "cargo_vessel", "guided_missile_destroyer"}
+	landTypes := []string{"truck", "tank", "convoy"}
+	spaceTypes := []string{"satellite", "space_station"}
+
+	for _, t := range airborneTypes {
+		if strings.Contains(platformType, t) {
+			return "airborne"
+		}
+	}
+	for _, t := range maritimeTypes {
+		if strings.Contains(platformType, t) {
+			return "maritime"
+		}
+	}
+	for _, t := range landTypes {
+		if strings.Contains(platformType, t) {
+			return "land"
+		}
+	}
+	for _, t := range spaceTypes {
+		if strings.Contains(platformType, t) {
+			return "space"
+		}
+	}
+
+	return "unknown"
+}
+
+// generateDescription generates a description for a platform type
+func (s *Server) generateDescription(platformType string) string {
+	descriptions := map[string]string{
+		"airbus_a320":             "Short to medium-range commercial airliner",
+		"boeing_777_300er":        "Long-range wide-body commercial airliner",
+		"f16_fighting_falcon":     "Multi-role fighter aircraft",
+		"container_ship":          "Large cargo container vessel",
+		"arleigh_burke_destroyer": "US Navy guided missile destroyer",
+	}
+
+	if desc, exists := descriptions[platformType]; exists {
+		return desc
+	}
+
+	// Use proper text casing instead of deprecated strings.Title
+	caser := cases.Title(language.English)
+	return fmt.Sprintf("%s platform", caser.String(strings.ReplaceAll(platformType, "_", " ")))
+}
+
+// getFallbackPlatformTypes returns hardcoded platform types as fallback
+func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo {
+	return []PlatformTypeInfo{
+		{
+			ID:          "airbus_a320",
+			Name:        "Airbus A320",
+			Class:       "Airbus A320",
+			Category:    "commercial_aircraft",
+			Domain:      "airborne",
+			Description: "Short to medium-range commercial airliner",
+			Performance: map[string]interface{}{
+				"max_speed":    257.0,
+				"cruise_speed": 230.0,
+				"max_altitude": 12000.0,
+			},
+		},
+		{
+			ID:          "boeing_777_300er",
+			Name:        "Boeing 777-300ER",
+			Class:       "Boeing 777-300ER",
+			Category:    "wide_body_airliner",
+			Domain:      "airborne",
+			Description: "Long-range wide-body commercial airliner",
+			Performance: map[string]interface{}{
+				"max_speed":    290.0,
+				"cruise_speed": 257.0,
+				"max_altitude": 13100.0,
+			},
+		},
+		{
+			ID:          "f16_fighting_falcon",
+			Name:        "F-16 Fighting Falcon",
+			Class:       "F-16 Fighting Falcon",
+			Category:    "fighter_aircraft",
+			Domain:      "airborne",
+			Description: "Multi-role fighter aircraft",
+			Performance: map[string]interface{}{
+				"max_speed":    588.89,
+				"cruise_speed": 261.11,
+				"max_altitude": 15240.0,
+			},
+		},
+		{
+			ID:          "container_ship",
+			Name:        "Container Ship",
+			Class:       "Container Ship",
+			Category:    "cargo_vessel",
+			Domain:      "maritime",
+			Description: "Large cargo container vessel",
+			Performance: map[string]interface{}{
+				"max_speed":    12.9,
+				"cruise_speed": 10.8,
+			},
+		},
+		{
+			ID:          "arleigh_burke_destroyer",
+			Name:        "Arleigh Burke Destroyer",
+			Class:       "Arleigh Burke-class Destroyer",
+			Category:    "guided_missile_destroyer",
+			Domain:      "maritime",
+			Description: "US Navy guided missile destroyer",
+			Performance: map[string]interface{}{
+				"max_speed":    15.4,
+				"cruise_speed": 10.3,
+			},
+		},
+	}
+}
+
+// getDefaultPlatformTypes returns default platform types when config loading fails
+func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
+	return []PlatformTypeInfo{
+		{
+			ID:          "boeing_737_800",
+			Name:        "Boeing 737-800",
+			Class:       "Boeing 737-800",
+			Category:    "commercial_aircraft",
+			Domain:      "airborne",
+			Description: "Short to medium-range commercial airliner",
+			Performance: map[string]interface{}{
+				"max_speed":    257.0,
+				"cruise_speed": 230.0,
+				"max_altitude": 12000.0,
+			},
+		},
+		{
+			ID:          "f16_fighting_falcon",
+			Name:        "F-16 Fighting Falcon",
+			Class:       "F-16 Fighting Falcon",
+			Category:    "fighter_aircraft",
+			Domain:      "airborne",
+			Description: "Multi-role fighter aircraft",
+			Performance: map[string]interface{}{
+				"max_speed":    588.89,
+				"cruise_speed": 261.11,
+				"max_altitude": 15240.0,
+			},
+		},
+		{
+			ID:          "m1a2_abrams",
+			Name:        "M1A2 Abrams",
+			Class:       "M1A2 Abrams",
+			Category:    "main_battle_tank",
+			Domain:      "land",
+			Description: "Main battle tank",
+			Performance: map[string]interface{}{
+				"max_speed":    18.0,
+				"cruise_speed": 12.0,
+			},
+		},
+		{
+			ID:          "civilian_car",
+			Name:        "Civilian Car",
+			Class:       "Civilian Car",
+			Category:    "civilian_vehicle",
+			Domain:      "land",
+			Description: "Standard civilian automobile",
+			Performance: map[string]interface{}{
+				"max_speed":    36.1,
+				"cruise_speed": 25.0,
+			},
+		},
+		{
+			ID:          "arleigh_burke_destroyer",
+			Name:        "Arleigh Burke Destroyer",
+			Class:       "Arleigh Burke-class Destroyer",
+			Category:    "guided_missile_destroyer",
+			Domain:      "maritime",
+			Description: "US Navy guided missile destroyer",
+			Performance: map[string]interface{}{
+				"max_speed":    15.4,
+				"cruise_speed": 10.3,
+			},
+		},
+		{
+			ID:          "container_ship",
+			Name:        "Container Ship",
+			Class:       "Container Ship",
+			Category:    "cargo_vessel",
+			Domain:      "maritime",
+			Description: "Large cargo container vessel",
+			Performance: map[string]interface{}{
+				"max_speed":    12.9,
+				"cruise_speed": 10.8,
+			},
+		},
+		{
+			ID:          "starlink_satellite",
+			Name:        "Starlink Satellite",
+			Class:       "Starlink Satellite",
+			Category:    "communication_satellite",
+			Domain:      "space",
+			Description: "Low Earth orbit communication satellite",
+			Performance: map[string]interface{}{
+				"orbital_velocity": 7.66,
+				"orbital_altitude": 550000.0,
+			},
+		},
 	}
 }
 
@@ -760,5 +1119,48 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		logWebError("Metrics encoding", err)
 		http.Error(w, "Error encoding metrics", http.StatusInternalServerError)
 		return
+	}
+}
+
+// handleCreateScenario handles scenario creation requests
+func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name        string                   `json:"name"`
+		Description string                   `json:"description"`
+		Duration    int                      `json:"duration"`
+		Platforms   []map[string]interface{} `json:"platforms"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	// Create platforms from the request
+	var platforms []*models.UniversalPlatform
+	for _, platformConfig := range req.Platforms {
+		platform, err := models.CreatePlatformFromConfig(platformConfig)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to create platform: %v", err), http.StatusBadRequest)
+			return
+		}
+		platforms = append(platforms, platform)
+	}
+
+	// Create scenario configuration
+	scenario := map[string]interface{}{
+		"name":        req.Name,
+		"description": req.Description,
+		"duration":    req.Duration,
+		"platforms":   platforms,
+		"created_at":  time.Now(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Scenario created successfully",
+		"scenario": scenario,
+	}); err != nil {
+		logWebError("Scenario creation response encoding", err)
 	}
 }

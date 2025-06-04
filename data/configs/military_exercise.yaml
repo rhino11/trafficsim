@@ -1,0 +1,159 @@
+# Military Exercise Scenario
+# Joint multi-domain training exercise
+
+metadata:
+  name: "Joint Military Exercise"
+  description: "Multi-domain military training exercise with coordinated air, land, and naval operations"
+  version: "1.0"
+  duration: 28800              # 8 hours
+  time_acceleration: 2.0       # 2x speed
+  start_time: "2025-06-04T06:00:00Z"
+
+scenario_config:
+  exercise_type: "joint_training"
+  classification: "unclassified_training"
+
+  weather:
+    conditions: "partly_cloudy"
+    wind_speed: 7.7            # m/s (15 knots)
+    wind_direction: 045        # degrees (northeast)
+    visibility: 8000           # meters (5 miles)
+
+platforms:
+  # Air Assets
+  - id: "VIPER01"
+    type: "f16_fighting_falcon"
+    source_file: "airborne/military/f16_fighting_falcon.yaml"
+    name: "VIPER-01"
+    start_position:
+      latitude: 35.2271         # Nellis AFB
+      longitude: -115.0342
+      altitude: 915
+    route_id: "air_superiority_01"
+    spawn_time: 0
+
+  - id: "VIPER02"
+    type: "f16_fighting_falcon"
+    source_file: "airborne/military/f16_fighting_falcon.yaml"
+    name: "VIPER-02"
+    start_position:
+      latitude: 35.2271
+      longitude: -115.0342
+      altitude: 915
+    route_id: "air_superiority_02"
+    spawn_time: 300            # 5 minute delay
+
+  # Ground Forces
+  - id: "STEEL01"
+    type: "m1a2_abrams"
+    source_file: "land/military/m1a2_abrams.yaml"
+    name: "STEEL-01"
+    start_position:
+      latitude: 35.9132         # NTC Fort Irwin
+      longitude: -116.6889
+      altitude: 860
+    route_id: "ground_advance_01"
+    spawn_time: 1800
+
+  - id: "STEEL02"
+    type: "m1a2_abrams"
+    source_file: "land/military/m1a2_abrams.yaml"
+    name: "STEEL-02"
+    start_position:
+      latitude: 35.9132
+      longitude: -116.6889
+      altitude: 860
+    route_id: "ground_advance_02"
+    spawn_time: 1800
+
+  # Naval Assets
+  - id: "BURKE01"
+    type: "arleigh_burke_class"
+    source_file: "maritime/military/arleigh_burke_class.yaml"
+    name: "USS Porter"
+    start_position:
+      latitude: 32.6801         # San Diego Naval Base
+      longitude: -117.2340
+      altitude: 0
+    route_id: "naval_support_01"
+    spawn_time: 0
+
+routes:
+  air_superiority_01:
+    name: "Air Superiority Mission Alpha"
+    type: "patrol_pattern"
+    pattern: "combat_air_patrol"
+    center:
+      latitude: 36.0
+      longitude: -116.0
+      altitude: 9144            # 30,000 ft
+    parameters:
+      patrol_radius: 92600      # 50 nm
+      patrol_speed: 400.0       # m/s
+      altitude_block: [7620, 10668]  # FL250-FL350
+
+  air_superiority_02:
+    name: "Air Superiority Mission Bravo"
+    type: "patrol_pattern"
+    pattern: "combat_air_patrol"
+    center:
+      latitude: 35.5
+      longitude: -115.5
+      altitude: 8534            # 28,000 ft
+    parameters:
+      patrol_radius: 92600
+      patrol_speed: 400.0
+      altitude_block: [6096, 9144]   # FL200-FL300
+
+  ground_advance_01:
+    name: "Armored Advance Route Alpha"
+    type: "tactical_movement"
+    waypoints:
+      - latitude: 35.9132
+        longitude: -116.6889
+        altitude: 860
+        speed: 15.0
+      - latitude: 35.9500
+        longitude: -116.6200
+        altitude: 920
+        speed: 10.0             # Slower through rough terrain
+      - latitude: 35.9800
+        longitude: -116.5500
+        altitude: 975
+        speed: 15.0
+
+  ground_advance_02:
+    name: "Armored Advance Route Bravo"
+    type: "tactical_movement"
+    waypoints:
+      - latitude: 35.9132
+        longitude: -116.6889
+        altitude: 860
+        speed: 15.0
+      - latitude: 35.9300
+        longitude: -116.6000
+        altitude: 940
+        speed: 12.0
+      - latitude: 35.9600
+        longitude: -116.5200
+        altitude: 995
+        speed: 15.0
+
+  naval_support_01:
+    name: "Naval Gunfire Support Position"
+    type: "station_keeping"
+    station:
+      latitude: 32.5000
+      longitude: -117.5000
+      altitude: 0
+    parameters:
+      station_radius: 2000      # meters
+      patrol_speed: 5.1         # 10 knots
+
+outputs:
+  military_cot:
+    enabled: true
+    endpoint: "https://military-toc.example.mil/cot"
+    update_interval: 1.0
+    format: "mil-std-2525"
+    classification: "unclassified"

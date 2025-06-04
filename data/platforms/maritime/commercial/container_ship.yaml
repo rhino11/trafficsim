@@ -1,0 +1,41 @@
+# Container Ship Platform Definition
+platform_types:
+  container_ship:
+    class: "Container Ship"
+    category: "cargo_vessel"
+    cot_config:
+      type: "a-n-S-U-C-V"        # MIL-STD-2525D: Sea-Neutral-Unit-Civilian-Vessel
+      icon: "SNSPUCV---G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "sea"
+      battle_dimension: "sea"
+      category_code: "civilian"
+    performance:
+      max_speed: 12.9           # m/s (25 knots)
+      cruise_speed: 10.8        # m/s (21 knots)
+      fuel_consumption: 2.5     # kg/s at cruise
+      turning_radius: 1500      # meters
+      acceleration: 0.1         # m/s²
+      range: 46300000           # meters (25,000 nm)
+    physical:
+      length: 400.0             # meters
+      width: 59.0               # beam
+      height: 73.0              # height above waterline
+      mass: 220000000           # kg (laden displacement)
+      draft: 16.0               # meters
+      fuel_capacity: 15000000   # kg
+      cargo_capacity: 199000000 # kg (23,000 TEU)
+    operational:
+      range: 46300000
+      crew_capacity: 25
+      cargo_capacity: 199000000
+      mission_life: 25
+    sensors:
+      has_gps: true
+      has_radar: true
+      has_compass: true
+      radar_range: 48000        # navigation radar
+    callsign_config:
+      prefix: ""
+      format: "{company} {name}"
+      names: ["Maersk", "COSCO", "MSC", "CMA CGM", "Evergreen", "OOCL"]

@@ -42,6 +42,52 @@
             opacity: 0;
             pointer-events: none;
         }
+
+        /* Navigation styles */
+        #main-nav {
+            background: #2c3e50;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1000;
+        }
+
+        #main-nav h1 {
+            margin: 0;
+            color: #ecf0f1;
+            font-size: 24px;
+        }
+
+        #main-nav span {
+            color: #bdc3c7;
+            margin-left: 15px;
+            font-size: 14px;
+        }
+
+        #main-nav a {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            background: #34495e;
+            transition: background 0.3s ease;
+        }
+
+        #main-nav a:hover {
+            background: #3b5998;
+        }
+
+        #main-nav a:last-child {
+            background: transparent;
+            border: 1px solid #ecf0f1;
+        }
+
+        #main-nav a:last-child:hover {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
     </style>
 </head>
 
@@ -61,6 +107,18 @@
 
     <!-- Main Application Container -->
     <div id="app-container">
+        <!-- Navigation Header -->
+        <nav id="main-nav">
+            <div style="display: flex; align-items: center;">
+                <h1>TrafficSim</h1>
+                <span>Real-time Platform Visualization</span>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <a href="/">🗺️ Live Map</a>
+                <a href="/scenario-builder">🛠️ Scenario Builder</a>
+            </div>
+        </nav>
+
         <!-- Control Panel -->
         <div id="control-panel">
             <div class="panel-section">

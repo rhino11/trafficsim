@@ -1,0 +1,49 @@
+# Boeing 737-800 Platform Definition
+platform_types:
+  boeing_737_800:
+    class: "Boeing 737-800"
+    category: "commercial_airliner"
+    cot_config:
+      type: "a-n-A-C-F"          # MIL-STD-2525D: Air-Neutral-Aircraft-Civilian-Fixed Wing
+      icon: "SNAPCF----G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "air"
+      battle_dimension: "air"
+      category_code: "civilian"
+    performance:
+      max_speed: 246.7          # m/s (545 mph)
+      cruise_speed: 230.6       # m/s (515 mph)
+      max_altitude: 12500       # meters (41,000 ft)
+      fuel_consumption: 1.2     # kg/s at cruise
+      turning_radius: 3000      # meters
+      acceleration: 1.5         # m/s²
+      climb_rate: 12.7          # m/s (2,500 ft/min)
+      stall_speed: 77.2         # m/s (150 knots)
+    physical:
+      length: 39.5
+      width: 35.8               # wingspan
+      height: 12.5
+      mass: 79010              # kg max takeoff weight
+      fuel_capacity: 26020     # kg
+    operational:
+      range: 5665000           # meters (3,060 nm)
+      crew_capacity: 6
+      passenger_capacity: 189
+      cargo_capacity: 10000    # kg
+    callsign_config:
+      prefix: "UAL"
+      format: "UAL{number:04d}"
+      number_range: [1000, 9999]
+
+platforms:
+  - id: "B738_001"
+    type: "boeing_737_800"
+    name: "United 1234"
+    start_position:
+      latitude: 40.6892
+      longitude: -74.1745
+      altitude: 10000
+    mission:
+      type: "scheduled_passenger"
+      origin: "EWR"
+      destination: "LAX"

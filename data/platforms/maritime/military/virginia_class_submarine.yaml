@@ -1,0 +1,53 @@
+# Virginia-class Submarine Platform Definition
+platform_types:
+  virginia_class_submarine:
+    class: "Virginia-class Submarine"
+    category: "attack_submarine"
+    cot_config:
+      type: "a-f-S-U-S"          # MIL-STD-2525D: Subsurface-Friend-Unit-Submarine
+      icon: "SFSPUS----G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "subsurface"
+      battle_dimension: "subsurface"
+      category_code: "attack_submarine"
+    performance:
+      max_speed: 12.9           # m/s (25 knots submerged)
+      cruise_speed: 7.7         # m/s (15 knots)
+      fuel_consumption: 0.0001  # kg/s (nuclear)
+      turning_radius: 400       # meters
+      acceleration: 0.4         # m/s²
+      range: 999999999          # essentially unlimited (nuclear)
+    physical:
+      length: 115.0             # meters
+      width: 10.4               # beam
+      height: 9.4               # height
+      mass: 7800000             # kg submerged displacement
+      draft: 9.4                # fully submerged
+    operational:
+      range: 999999999
+      crew_capacity: 135
+      weapon_systems: ["Mk 48 torpedoes", "Tomahawk missiles", "VLS"]
+      sensor_range: 100000      # sonar range
+      mission_life: 33          # years
+    sensors:
+      has_gps: true            # when surfaced
+      has_radar: false         # when submerged
+      has_compass: true
+      sonar_range: 100000      # passive sonar
+    callsign_config:
+      prefix: "USS"
+      format: "{name}"
+      names: ["Virginia", "Texas", "Hawaii", "North Carolina", "New Hampshire"]
+
+platforms:
+  - id: "SSN_001"
+    type: "virginia_class_submarine"
+    name: "USS Virginia"
+    start_position:
+      latitude: 41.5034
+      longitude: -72.0990
+      altitude: -100           # 100m depth
+    mission:
+      type: "submarine_patrol"
+      area: "Atlantic Fleet AOR"
+      duration: 2160           # hours (90 days)

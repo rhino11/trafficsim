@@ -1,0 +1,49 @@
+# F-16 Fighting Falcon Platform Definition
+platform_types:
+  f16_fighting_falcon:
+    class: "F-16 Fighting Falcon"
+    category: "fighter_aircraft"
+    cot_config:
+      type: "a-f-A-M-F"          # MIL-STD-2525D: Air-Friend-Aircraft-Military-Fighter
+      icon: "SFAPMF----G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "air"
+      battle_dimension: "air"
+      category_code: "fighter"
+    performance:
+      max_speed: 588.89         # m/s (Mach 1.8)
+      cruise_speed: 261.11      # m/s (Mach 0.8)
+      max_altitude: 15240       # meters (50,000 ft)
+      fuel_consumption: 5.2     # kg/s at cruise
+      turning_radius: 1000      # meters
+      acceleration: 15.7        # m/s²
+      climb_rate: 254           # m/s
+    physical:
+      length: 15.03
+      width: 9.96               # wingspan
+      height: 5.09
+      mass: 8570                # kg empty weight
+      fuel_capacity: 3175       # kg
+      wing_area: 27.87          # m²
+    operational:
+      range: 4220000            # meters (2,280 nm)
+      crew_capacity: 1
+      weapon_systems: ["M61A1 Vulcan", "AIM-120 AMRAAM", "AIM-9 Sidewinder", "AGM-88 HARM"]
+      radar_range: 105000       # meters
+    callsign_config:
+      prefix: "VIPER"
+      format: "{callsign}-{number:02d}"
+      callsigns: ["VIPER", "FALCON", "SABRE", "EAGLE"]
+
+platforms:
+  - id: "F16_001"
+    type: "f16_fighting_falcon"
+    name: "VIPER-01"
+    start_position:
+      latitude: 39.8283
+      longitude: -98.5795
+      altitude: 10668
+    mission:
+      type: "combat_air_patrol"
+      patrol_area: "central_conus"
+      duration: 7200

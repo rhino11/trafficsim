@@ -1,0 +1,48 @@
+# Arleigh Burke-class Destroyer Platform Definition
+platform_types:
+  arleigh_burke_destroyer:
+    class: "Arleigh Burke-class Destroyer"
+    category: "guided_missile_destroyer"
+    cot_config:
+      type: "a-f-S-U-W-D"        # MIL-STD-2525D: Sea-Friend-Unit-Warship-Destroyer
+      icon: "SFSPUWD---G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "sea"
+      battle_dimension: "sea"
+      category_code: "destroyer"
+    performance:
+      max_speed: 15.4           # m/s (30 knots)
+      cruise_speed: 10.3        # m/s (20 knots)
+      fuel_consumption: 0.8     # kg/s at cruise
+      turning_radius: 800       # meters
+      acceleration: 0.3         # m/s²
+      range: 8334000            # meters (4,500 nm)
+      max_acceleration: 0.5     # m/s²
+      max_deceleration: 1.0     # m/s²
+    physical:
+      length: 155.0             # meters
+      width: 20.4               # beam
+      height: 55.0              # mast height
+      mass: 9200000             # kg (full load displacement)
+      draft: 6.3                # meters
+      fuel_capacity: 3900000    # kg
+      center_of_gravity:
+        x: 77.5                 # meters from bow
+        y: 0.0                  # centerline
+        z: -3.0                 # meters below waterline
+    operational:
+      range: 8334000
+      crew_capacity: 280
+      weapon_systems: ["VLS Mk41", "5-inch gun", "CIWS", "torpedoes"]
+      sensor_range: 450000      # meters (SPY-1D radar)
+      mission_life: 30          # years
+    sensors:
+      has_gps: true
+      has_radar: true
+      has_compass: true
+      radar_range: 450000       # AN/SPY-1D
+      sonar_range: 50000        # towed array sonar
+    callsign_config:
+      prefix: "USS"
+      format: "{name}"
+      names: ["Cole", "Mason", "Nitze", "O'Kane", "Porter", "Stout"]

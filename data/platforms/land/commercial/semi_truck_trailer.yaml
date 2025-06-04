@@ -1,0 +1,51 @@
+# Semi-Truck Trailer Platform Definition
+platform_types:
+  semi_truck_trailer:
+    class: "Class 8 Semi-Truck"
+    category: "commercial_truck"
+    cot_config:
+      type: "a-n-G-U-C-V"        # MIL-STD-2525D: Ground-Neutral-Unit-Civilian-Vehicle
+      icon: "SNGPUCV---G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "ground"
+      battle_dimension: "ground"
+      category_code: "civilian"
+    performance:
+      max_speed: 29.1           # m/s (65 mph highway)
+      cruise_speed: 26.8        # m/s (60 mph)
+      fuel_consumption: 0.12    # kg/s at cruise
+      turning_radius: 16.8      # meters
+      acceleration: 1.2         # m/s²
+      max_gradient: 15.0        # degrees
+      range: 2414000            # meters (1,500 miles)
+    physical:
+      length: 22.9              # meters (tractor + 53' trailer)
+      width: 2.6                # meters
+      height: 4.1               # meters
+      mass: 36287               # kg (80,000 lbs gross)
+      fuel_capacity: 1136       # kg (300 gallons)
+      cargo_capacity: 25401     # kg
+    operational:
+      range: 2414000
+      crew_capacity: 2
+      cargo_capacity: 25401
+    sensors:
+      has_gps: true
+      has_compass: true
+    callsign_config:
+      prefix: ""
+      format: "{company} {number}"
+      names: ["UPS", "FedEx", "Walmart", "Amazon", "Schneider", "Swift"]
+
+platforms:
+  - id: "TRUCK_001"
+    type: "semi_truck_trailer"
+    name: "UPS 1234"
+    start_position:
+      latitude: 39.7392
+      longitude: -104.9903
+      altitude: 1655
+    mission:
+      type: "cargo_delivery"
+      origin: "Denver Distribution Center"
+      destination: "Salt Lake City Hub"

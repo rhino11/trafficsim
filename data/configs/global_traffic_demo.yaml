@@ -1,0 +1,292 @@
+# Multi-Domain Traffic Simulation Scenario
+# This scenario demonstrates realistic traffic across all domains
+
+metadata:
+  name: "Global Traffic Demo"
+  description: "Comprehensive multi-domain traffic simulation showcasing air, land, maritime, and space platforms"
+  version: "1.0"
+  duration: 14400              # 4 hours in seconds
+  time_acceleration: 1.0       # Real-time simulation
+  start_time: "2025-06-04T12:00:00Z"
+
+scenario_config:
+  weather:
+    conditions: "clear"
+    wind_speed: 5.1            # m/s (10 knots)
+    wind_direction: 270        # degrees (westerly)
+    visibility: 16000          # meters (10 miles)
+
+  traffic_density: "moderate"
+
+  # Domain-specific settings
+  airspace:
+    active_restrictions: []
+    traffic_control: "enabled"
+    separation_standards: "IFR"
+
+  maritime:
+    sea_state: 2               # Beaufort scale
+    tidal_conditions: "normal"
+    shipping_lanes: "active"
+
+  road_network:
+    traffic_density: "moderate"
+    construction_zones: []
+    weather_impact: "none"
+
+# Platform instances for this scenario
+platforms:
+  # Commercial Aviation
+  - id: "UAL1234"
+    type: "boeing_737_800"
+    source_file: "airborne/commercial/boeing_737_800.yaml"
+    name: "United 1234"
+    start_position:
+      latitude: 40.6413         # JFK Airport
+      longitude: -73.7781
+      altitude: 10668           # FL350
+    route_id: "transcon_01"
+    spawn_time: 0               # Start immediately
+
+  - id: "DLH441"
+    type: "airbus_a320"
+    source_file: "airborne/commercial/airbus_a320.yaml"
+    name: "Lufthansa 441"
+    start_position:
+      latitude: 52.5597         # Berlin TXL
+      longitude: 13.2877
+      altitude: 11000           # FL360
+    route_id: "europe_short_01"
+    spawn_time: 1800            # Spawn after 30 minutes
+
+  # Military Aviation
+  - id: "VIPER01"
+    type: "f22_raptor"
+    source_file: "airborne/military/f22_raptor.yaml"
+    name: "VIPER-01"
+    start_position:
+      latitude: 39.8283         # Central CONUS
+      longitude: -98.5795
+      altitude: 10668
+    route_id: "cap_patrol_01"
+    spawn_time: 900
+
+  # Maritime Traffic
+  - id: "EVERGIVEN"
+    type: "container_ship_large"
+    source_file: "maritime/commercial/container_ship_large.yaml"
+    name: "Ever Given"
+    start_position:
+      latitude: 30.3753         # Suez Canal
+      longitude: 32.3324
+      altitude: 0
+    route_id: "suez_to_rotterdam"
+    spawn_time: 0
+
+  - id: "USSCOLE"
+    type: "arleigh_burke_class"
+    source_file: "maritime/military/arleigh_burke_class.yaml"
+    name: "USS Cole"
+    start_position:
+      latitude: 36.8467         # Norfolk Naval Base
+      longitude: -76.2951
+      altitude: 0
+    route_id: "naval_patrol_01"
+    spawn_time: 0
+
+  # Land Vehicles
+  - id: "UPS1234"
+    type: "semi_truck_trailer"
+    source_file: "land/commercial/semi_truck_trailer.yaml"
+    name: "UPS 1234"
+    start_position:
+      latitude: 39.7392         # Denver
+      longitude: -104.9903
+      altitude: 1655
+    route_id: "i70_westbound"
+    spawn_time: 0
+
+  - id: "STEEL01"
+    type: "m1a2_abrams"
+    source_file: "land/military/m1a2_abrams.yaml"
+    name: "STEEL01"
+    start_position:
+      latitude: 32.3484         # Fort Bliss
+      longitude: -106.3781
+      altitude: 1206
+    route_id: "training_area_patrol"
+    spawn_time: 3600            # 1 hour delay
+
+  # Space Assets
+  - id: "GPS15"
+    type: "gps_satellite"
+    source_file: "space/military/gps_satellite.yaml"
+    name: "GPS-15"
+    start_position:
+      latitude: 0.0
+      longitude: 0.0
+      altitude: 20200000
+    route_id: "gps_orbit_01"
+    spawn_time: 0
+
+  - id: "STARLINK1234"
+    type: "starlink_satellite"
+    source_file: "space/commercial/starlink_satellite.yaml"
+    name: "STARLINK-1234"
+    start_position:
+      latitude: 0.0
+      longitude: 0.0
+      altitude: 550000
+    route_id: "starlink_orbit_01"
+    spawn_time: 0
+
+# Route definitions
+routes:
+  transcon_01:
+    name: "JFK to LAX Transcontinental"
+    type: "great_circle_with_waypoints"
+    waypoints:
+      - latitude: 40.6413
+        longitude: -73.7781
+        altitude: 10668
+        speed: 230.0
+      - latitude: 41.9786       # Chicago
+        longitude: -87.9048
+        altitude: 11582
+        speed: 230.0
+      - latitude: 39.8617       # Denver
+        longitude: -104.6731
+        altitude: 11582
+        speed: 230.0
+      - latitude: 33.9425       # LAX
+        longitude: -118.4081
+        altitude: 304
+        speed: 77.0             # Landing speed
+
+  europe_short_01:
+    name: "Berlin to Paris"
+    type: "airway"
+    waypoints:
+      - latitude: 52.5597
+        longitude: 13.2877
+        altitude: 11000
+        speed: 230.0
+      - latitude: 48.8566       # Paris CDG
+        longitude: 2.3522
+        altitude: 119
+        speed: 75.0
+
+  cap_patrol_01:
+    name: "Combat Air Patrol - Central CONUS"
+    type: "patrol_pattern"
+    pattern: "racetrack"
+    center:
+      latitude: 39.8283
+      longitude: -98.5795
+      altitude: 10668
+    parameters:
+      leg_length: 185000        # meters (100 nm)
+      pattern_heading: 090      # East-West racetrack
+      patrol_speed: 257.0       # m/s
+
+  suez_to_rotterdam:
+    name: "Suez Canal to Port of Rotterdam"
+    type: "great_circle"
+    waypoints:
+      - latitude: 30.3753
+        longitude: 32.3324
+        altitude: 0
+        speed: 10.8
+      - latitude: 51.9244       # Rotterdam
+        longitude: 4.4777
+        altitude: 0
+        speed: 5.1              # Port approach speed
+
+  naval_patrol_01:
+    name: "Norfolk Operating Area Patrol"
+    type: "patrol_pattern"
+    pattern: "box"
+    boundaries:
+      north: 37.5
+      south: 36.0
+      east: -75.0
+      west: -77.0
+    parameters:
+      patrol_speed: 10.3        # 20 knots
+      altitude: 0
+
+  i70_westbound:
+    name: "I-70 Denver to Salt Lake City"
+    type: "highway_route"
+    highway: "I-70"
+    waypoints:
+      - latitude: 39.7392
+        longitude: -104.9903
+        altitude: 1655
+        speed: 26.8             # 60 mph
+      - latitude: 40.7608       # Salt Lake City
+        longitude: -111.8910
+        altitude: 1288
+        speed: 26.8
+
+  training_area_patrol:
+    name: "Fort Bliss Training Area"
+    type: "patrol_pattern"
+    pattern: "random_walk"
+    boundaries:
+      north: 32.5
+      south: 32.1
+      east: -106.2
+      west: -106.5
+    parameters:
+      patrol_speed: 13.4        # 30 mph
+      waypoint_spacing: 2000    # meters
+
+  gps_orbit_01:
+    name: "GPS MEO Orbit"
+    type: "orbital"
+    orbital_elements:
+      semi_major_axis: 26560000 # meters
+      eccentricity: 0.0
+      inclination: 55.0         # degrees
+      longitude_of_ascending_node: 0.0
+      argument_of_perigee: 0.0
+      mean_anomaly: 0.0
+
+  starlink_orbit_01:
+    name: "Starlink LEO Orbit"
+    type: "orbital"
+    orbital_elements:
+      semi_major_axis: 6921000  # meters (550 km altitude)
+      eccentricity: 0.0001
+      inclination: 53.0
+      longitude_of_ascending_node: 45.0
+      argument_of_perigee: 0.0
+      mean_anomaly: 90.0
+
+# Output configuration
+outputs:
+  cot_xml:
+    enabled: true
+    endpoint: "http://localhost:8080/cot"
+    update_interval: 5.0      # seconds
+    format: "mil-std-2525"
+
+  json_feed:
+    enabled: true
+    endpoint: "ws://localhost:8081/tracks"
+    update_interval: 1.0      # seconds
+
+  visualization:
+    enabled: true
+    web_port: 8080
+    update_interval: 1.0
+
+# Performance settings
+simulation:
+  physics_timestep: 0.1       # seconds
+  update_frequency: 10.0      # Hz
+  collision_detection: false  # Disable for performance
+  detailed_physics: true      # Enable enhanced 3D physics
+  fuel_consumption: true      # Track fuel usage
+  weather_effects: false     # Disable weather for this demo

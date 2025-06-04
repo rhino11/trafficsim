@@ -1,0 +1,52 @@
+# Starlink Satellite Platform Definition
+platform_types:
+  starlink_satellite:
+    class: "Starlink Satellite"
+    category: "communication_satellite"
+    cot_config:
+      type: "a-n-P-U-S"          # MIL-STD-2525D: Space-Neutral-Unit-Satellite
+      icon: "SNPPUS----G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "space"
+      battle_dimension: "space"
+      category_code: "communication"
+    performance:
+      max_speed: 7354.0         # m/s
+      cruise_speed: 7354.0      # m/s
+      fuel_consumption: 0.0001  # kg/s (ion thrusters)
+      orbital_velocity: 7354.0  # m/s
+      orbital_period: 6120      # seconds (102 minutes)
+      orbital_altitude: 550000  # meters (550 km)
+      inclination: 53.0         # degrees
+      eccentricity: 0.0001      # circular
+    physical:
+      length: 3.2               # meters
+      width: 1.6                # meters
+      height: 0.3               # meters (stowed)
+      mass: 260                 # kg
+      solar_panel_area: 8.0     # m²
+    operational:
+      range: 999999999
+      crew_capacity: 0
+      mission_life: 5           # years
+      frequency_bands: ["Ku", "Ka"]
+    sensors:
+      has_gps: true
+      has_radar: false
+      has_compass: true
+    callsign_config:
+      prefix: "STARLINK"
+      format: "STARLINK-{number:04d}"
+      number_range: [1, 9999]
+
+platforms:
+  - id: "STARLINK_001"
+    type: "starlink_satellite"
+    name: "STARLINK-1234"
+    start_position:
+      latitude: 0.0
+      longitude: 0.0
+      altitude: 550000
+    mission:
+      type: "internet_service"
+      coverage_area: "North America"

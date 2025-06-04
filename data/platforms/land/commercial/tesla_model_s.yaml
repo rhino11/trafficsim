@@ -1,0 +1,52 @@
+# Tesla Model S Platform Definition
+platform_types:
+  tesla_model_s:
+    class: "Tesla Model S"
+    category: "luxury_sedan"
+    cot_config:
+      type: "a-n-G-U-C-V"        # MIL-STD-2525D: Ground-Neutral-Unit-Civilian-Vehicle
+      icon: "SNGPUCV---G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "ground"
+      battle_dimension: "ground"
+      category_code: "civilian"
+    performance:
+      max_speed: 69.4           # m/s (155 mph)
+      cruise_speed: 29.1        # m/s (65 mph)
+      fuel_consumption: 0.0     # kg/s (electric)
+      turning_radius: 5.6       # meters
+      acceleration: 6.1         # m/s² (0-60 in 2.3s)
+      max_gradient: 20.0        # degrees
+      range: 663000             # meters (412 miles)
+    physical:
+      length: 5.0               # meters
+      width: 2.0                # meters
+      height: 1.4               # meters
+      mass: 2108                # kg
+      ground_clearance: 0.14    # meters
+    operational:
+      range: 663000
+      crew_capacity: 5
+      mission_life: 15          # years
+    sensors:
+      has_gps: true
+      has_compass: true
+      radar_range: 160          # autopilot radar
+      optical_range: 250        # cameras
+    callsign_config:
+      prefix: ""
+      format: "TESLA{number:04d}"
+      number_range: [1000, 9999]
+
+platforms:
+  - id: "CAR_001"
+    type: "tesla_model_s"
+    name: "TESLA5678"
+    start_position:
+      latitude: 37.4419
+      longitude: -122.1430
+      altitude: 56
+    mission:
+      type: "autonomous_drive"
+      origin: "Palo Alto"
+      destination: "San Francisco"

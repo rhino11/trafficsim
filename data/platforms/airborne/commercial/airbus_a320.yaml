@@ -1,0 +1,69 @@
+# Airbus A320 Platform Definition
+platform_types:
+  airbus_a320:
+    class: "Airbus A320"
+    category: "commercial_aircraft"
+    cot_config:
+      type: "a-n-A-C-F"          # MIL-STD-2525D: Air-Neutral-Aircraft-Civilian-Fixed Wing
+      icon: "SNAPCF----G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "air"
+      battle_dimension: "air"
+      category_code: "civilian"
+    performance:
+      max_speed: 257.0          # m/s (500 kts)
+      cruise_speed: 230.0       # m/s (447 kts)
+      max_altitude: 12000       # meters (39,370 ft)
+      fuel_consumption: 2.2     # kg/s at cruise
+      turning_radius: 1100      # meters
+      acceleration: 1.6         # m/s²
+      climb_rate: 13.2          # m/s (2,600 ft/min)
+      stall_speed: 75.0         # m/s (146 kts)
+      range: 6150000            # meters (3,320 nm)
+      max_acceleration: 2.1     # m/s²
+      max_deceleration: 4.2     # m/s²
+      max_roll_rate: 15.0       # degrees/second
+      max_pitch_rate: 5.0       # degrees/second
+      max_yaw_rate: 3.0         # degrees/second
+      max_bank_angle: 30.0      # degrees
+      max_pitch_angle: 15.0     # degrees
+      max_load_factor: 2.5      # g-force
+    physical:
+      length: 37.6              # meters
+      width: 36.0               # wingspan
+      height: 11.8              # meters
+      mass: 78000               # kg (max takeoff weight)
+      empty_weight: 42400       # kg
+      fuel_capacity: 24210      # kg
+      wing_area: 122.6          # m²
+      center_of_gravity:
+        x: 17.0
+        y: 0.0
+        z: 2.4
+    operational:
+      range: 6150000
+      crew_capacity: 6
+      passenger_capacity: 180
+      cargo_capacity: 1580
+    sensors:
+      has_gps: true
+      has_radar: true
+      has_compass: true
+      radar_range: 80000
+    callsign_config:
+      prefix: ""
+      format: "{airline}{flight_number}"
+      names: ["AFR", "BAW", "DLH", "KLM", "SAS", "EZY"]
+
+platforms:
+  - id: "A320_001"
+    type: "airbus_a320"
+    name: "Lufthansa 441"
+    start_position:
+      latitude: 52.5597
+      longitude: 13.2877
+      altitude: 10000
+    mission:
+      type: "scheduled_passenger"
+      origin: "TXL"
+      destination: "CDG"

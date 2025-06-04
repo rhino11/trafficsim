@@ -34,20 +34,6 @@ const (
 	PlatformTypeSpace    PlatformType = "space"
 )
 
-// Position represents a 3D position in space
-type Position struct {
-	Latitude  float64 `json:"latitude"`  // degrees
-	Longitude float64 `json:"longitude"` // degrees
-	Altitude  float64 `json:"altitude"`  // meters above sea level
-}
-
-// Velocity represents 3D velocity vector
-type Velocity struct {
-	North float64 `json:"north"` // m/s
-	East  float64 `json:"east"`  // m/s
-	Up    float64 `json:"up"`    // m/s
-}
-
 // Acceleration represents 3D acceleration vector
 type Acceleration struct {
 	North float64 `json:"north"` // m/s²

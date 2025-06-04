@@ -1,0 +1,62 @@
+# M1A2 Abrams Tank Platform Definition
+platform_types:
+  m1a2_abrams:
+    class: "M1A2 Abrams"
+    category: "main_battle_tank"
+    cot_config:
+      type: "a-f-G-U-C-I"        # MIL-STD-2525D: Ground-Friend-Unit-Combat-Armor-Tank
+      icon: "SFGPUCIT--G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "ground"
+      battle_dimension: "ground"
+      category_code: "tank"
+    performance:
+      max_speed: 19.3           # m/s (43 mph)
+      cruise_speed: 13.4        # m/s (30 mph)
+      fuel_consumption: 1.6     # kg/s at cruise
+      turning_radius: 8.5       # meters
+      acceleration: 2.5         # m/s²
+      max_gradient: 60.0        # degrees
+      range: 426000             # meters (265 miles)
+      max_acceleration: 3.0     # m/s²
+      max_deceleration: 8.0     # m/s²
+    physical:
+      length: 9.8               # meters
+      width: 3.7                # meters
+      height: 2.4               # meters
+      mass: 62000               # kg
+      ground_clearance: 0.48    # meters
+      fuel_capacity: 1909       # kg
+      center_of_gravity:
+        x: 4.9                  # meters from front
+        y: 0.0                  # centerline
+        z: 1.2                  # meters from ground
+    operational:
+      range: 426000
+      crew_capacity: 4
+      weapon_systems: ["120mm smoothbore", "M240 machine gun", ".50 cal"]
+      armor_rating: "composite"
+      mission_life: 20          # years
+    sensors:
+      has_gps: true
+      has_radar: true
+      has_compass: true
+      optical_range: 8000       # thermal sight
+      infrared_range: 12000     # FLIR
+    callsign_config:
+      prefix: ""
+      format: "{unit}{number}"
+      names: ["ARMOR", "STEEL", "IRON", "THUNDER"]
+
+platforms:
+  - id: "TANK_001"
+    type: "m1a2_abrams"
+    name: "STEEL01"
+    start_position:
+      latitude: 32.3484
+      longitude: -106.3781
+      altitude: 1206
+    mission:
+      type: "armored_patrol"
+      area: "Fort Bliss Training Area"
+      duration: 8

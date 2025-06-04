@@ -1,0 +1,60 @@
+# GPS Block III Satellite Platform Definition
+platform_types:
+  gps_satellite:
+    class: "GPS Block III Satellite"
+    category: "navigation_satellite"
+    cot_config:
+      type: "a-f-P-U-S"          # MIL-STD-2525D: Space-Friend-Unit-Satellite
+      icon: "SFPPUS----G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "space"
+      battle_dimension: "space"
+      category_code: "navigation"
+    performance:
+      max_speed: 3874.0         # m/s (orbital velocity)
+      cruise_speed: 3874.0      # m/s (constant orbital velocity)
+      fuel_consumption: 0.0001  # kg/s (station keeping)
+      turning_radius: 0         # N/A for satellites
+      acceleration: 0.1         # m/s² (thrusters)
+      orbital_velocity: 3874.0  # m/s
+      orbital_period: 43080     # seconds (11.97 hours)
+      orbital_altitude: 20200000 # meters (20,200 km)
+      inclination: 55.0         # degrees
+      eccentricity: 0.0         # circular orbit
+      range: 999999999          # essentially unlimited
+    physical:
+      length: 4.4               # meters
+      width: 2.0                # meters (solar panel span: 23.4m)
+      height: 1.9               # meters
+      mass: 4400                # kg
+      solar_panel_area: 46.8    # m²
+      center_of_gravity:
+        x: 2.2                  # meters from front
+        y: 0.0                  # centerline
+        z: 0.95                 # meters from bottom
+    operational:
+      range: 999999999
+      crew_capacity: 0          # unmanned
+      mission_life: 15          # years
+      frequency_bands: ["L1", "L2", "L5"]
+    sensors:
+      has_gps: false           # it IS GPS
+      has_radar: false
+      has_compass: true
+    callsign_config:
+      prefix: "GPS"
+      format: "GPS-{number:02d}"
+      number_range: [1, 32]
+
+platforms:
+  - id: "GPS_001"
+    type: "gps_satellite"
+    name: "GPS-15"
+    start_position:
+      latitude: 0.0             # varies in orbit
+      longitude: 0.0
+      altitude: 20200000
+    mission:
+      type: "navigation_service"
+      constellation: "GPS"
+      orbital_slot: 15

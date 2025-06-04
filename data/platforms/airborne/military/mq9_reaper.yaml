@@ -1,0 +1,49 @@
+# MQ-9 Reaper Platform Definition
+platform_types:
+  mq9_reaper:
+    class: "MQ-9 Reaper"
+    category: "drone"
+    cot_config:
+      type: "a-f-A-M-U"          # MIL-STD-2525D: Air-Friend-Aircraft-Military-Unmanned
+      icon: "SFAPMU----G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "air"
+      battle_dimension: "air"
+      category_code: "unmanned"
+    performance:
+      max_speed: 130.6          # m/s (300 mph)
+      cruise_speed: 102.8       # m/s (230 mph)
+      max_altitude: 15240       # meters (50,000 ft)
+      fuel_consumption: 0.03    # kg/s at cruise
+      turning_radius: 1500      # meters
+      acceleration: 2.0         # m/s²
+      climb_rate: 5.1           # m/s (1,000 ft/min)
+    physical:
+      length: 11.0
+      width: 20.1               # wingspan
+      height: 3.8
+      mass: 4760               # kg max takeoff weight
+      fuel_capacity: 1746      # kg
+    operational:
+      range: 1850000           # meters (1,000 nm)
+      crew_capacity: 0         # remotely piloted
+      mission_life: 14.0       # hours
+      sensor_range: 120000     # meters
+      weapon_systems: ["Hellfire", "GBU-12"]
+    callsign_config:
+      prefix: "HUNTER"
+      format: "HUNTER{number:02d}"
+      number_range: [1, 50]
+
+platforms:
+  - id: "HUNTER01"
+    type: "mq9_reaper"
+    name: "Hunter One"
+    start_position:
+      latitude: 32.1544
+      longitude: -110.9548
+      altitude: 8000
+    mission:
+      type: "surveillance"
+      target_area: "Border Patrol Sector"
+      duration: 12.0

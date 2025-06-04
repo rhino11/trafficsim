@@ -16,6 +16,7 @@ JEST=npx jest
 BINARY_NAME=trafficsim
 BINARY_UNIX=$(BINARY_NAME)_unix
 MAIN_PATH=./cmd/simrunner
+VALIDATOR_PATH=./cmd/validate-yaml
 
 # Runtime parameters
 DEFAULT_PORT=8080
@@ -23,10 +24,10 @@ DEFAULT_MULTICAST_ADDR=239.255.42.99
 DEFAULT_MULTICAST_PORT=9999
 
 # Build targets
-.PHONY: all build clean test test-go test-js test-all test-coverage test-coverage-go test-coverage-js test-verbose deps deps-js fmt vet lint run run-headless run-web run-multicast run-web-multicast help
+.PHONY: all build clean test test-go test-js test-all test-coverage test-coverage-go test-coverage-js test-verbose deps deps-js fmt vet lint run run-headless run-web run-multicast run-web-multicast validate-yaml help
 
-# Default target
-all: test-all build
+# Default target - now includes YAML validation
+all: validate-yaml test-all build
 
 # Build the application
 build:
@@ -38,12 +39,28 @@ build-linux:
 	@echo "Building for Linux..."
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_UNIX) -v $(MAIN_PATH)
 
+# Validate YAML configuration files
+validate-yaml:
+	@echo "Validating YAML configuration files..."
+	@$(GOBUILD) -o validate-yaml $(VALIDATOR_PATH)
+	@./validate-yaml data/
+	@rm -f validate-yaml
+
+# Validate specific YAML file or directory
+validate-yaml-file:
+	@echo "Validating specific YAML file/directory: $(FILE)"
+	@if [ -z "$(FILE)" ]; then echo "Error: FILE variable not set. Use: make validate-yaml-file FILE=path/to/file.yaml"; exit 1; fi
+	@$(GOBUILD) -o validate-yaml $(VALIDATOR_PATH)
+	@./validate-yaml $(FILE)
+	@rm -f validate-yaml
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
 	rm -f $(BINARY_UNIX)
+	rm -f validate-yaml
 
 # Run Go tests
 test-go:
@@ -261,14 +278,14 @@ docker-run: docker-build
 	@echo "Running Docker container..."
 	docker run -p 8080:8080 $(BINARY_NAME)
 
-# Quick quality check
-check: fmt vet test-all
+# Quick quality check - now includes YAML validation
+check: validate-yaml fmt vet test-all
 
-# Full quality check
-check-all: check lint-all test-race test-coverage security
+# Full quality check - now includes YAML validation
+check-all: validate-yaml check lint-all test-race test-coverage security
 
-# CI check (for CI environments)
-ci: deps-all check-all
+# CI check (for CI environments) - now includes YAML validation
+ci: deps-all validate-yaml check-all
 
 # Display help
 help:
@@ -276,6 +293,8 @@ help:
 	@echo "  build            - Build the application"
 	@echo "  build-linux      - Build for Linux"
 	@echo "  clean            - Clean build artifacts"
+	@echo "  validate-yaml    - Validate all YAML configuration files"
+	@echo "  validate-yaml-file - Validate specific YAML file (use FILE=path/to/file.yaml)"
 	@echo "  test             - Run all tests (Go + JavaScript)"
 	@echo "  test-go          - Run Go tests only"
 	@echo "  test-js          - Run JavaScript tests only"
@@ -312,12 +331,13 @@ help:
 	@echo "  security         - Run security checks"
 	@echo "  docker-build     - Build Docker image"
 	@echo "  docker-run       - Build and run Docker container"
-	@echo "  check            - Quick quality check (fmt, vet, test-all)"
+	@echo "  check            - Quick quality check (validate-yaml, fmt, vet, test-all)"
 	@echo "  check-all        - Full quality check"
 	@echo "  ci               - CI environment check (deps + check-all)"
 	@echo "  help             - Display this help"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make validate-yaml-file FILE=data/config.yaml  - Validate specific file"
 	@echo "  make run-web-port PORT=8081        - Run web mode on port 8081"
 	@echo "  make run-multicast-custom ADDR=239.255.42.100 PORT=9998"
 	@echo "  make run-all-modes                 - Start all modes for testing"

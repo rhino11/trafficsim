@@ -1,0 +1,49 @@
+# F-22 Raptor Platform Definition
+platform_types:
+  f22_raptor:
+    class: "F-22 Raptor"
+    category: "fighter_aircraft"
+    cot_config:
+      type: "a-f-A-M-F"          # MIL-STD-2525D: Air-Friend-Aircraft-Military-Fighter
+      icon: "SFAPMF----G"        # 2525D symbol code
+      affiliation: "friend"
+      dimension: "air"
+      battle_dimension: "air"
+      category_code: "fighter"
+    performance:
+      max_speed: 683.3          # m/s (Mach 2.25)
+      cruise_speed: 589.0       # m/s (Mach 1.8)
+      max_altitude: 19800       # meters (65,000 ft)
+      fuel_consumption: 2.8     # kg/s at cruise
+      turning_radius: 800       # meters
+      acceleration: 15.0        # m/s²
+      climb_rate: 254.0         # m/s (50,000 ft/min)
+      stall_speed: 92.6         # m/s (180 knots)
+    physical:
+      length: 18.9
+      width: 13.6               # wingspan
+      height: 5.1
+      mass: 38000              # kg max takeoff weight
+      fuel_capacity: 8200      # kg
+    operational:
+      range: 2963000           # meters (1,600 nm)
+      crew_capacity: 1
+      weapon_systems: ["AIM-120", "AIM-9", "M61A2"]
+      sensor_range: 240000     # meters (radar range)
+    callsign_config:
+      prefix: "VIPER"
+      format: "VIPER{number:02d}"
+      number_range: [1, 99]
+
+platforms:
+  - id: "VIPER01"
+    type: "f22_raptor"
+    name: "Viper One"
+    start_position:
+      latitude: 38.8048
+      longitude: -104.8197
+      altitude: 12000
+    mission:
+      type: "combat_air_patrol"
+      area: "Colorado Springs"
+      duration: 4.0

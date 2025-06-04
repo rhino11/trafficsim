@@ -1,0 +1,196 @@
+# Emergency Response Scenario
+# Coordinated response to a natural disaster with civilian and emergency traffic
+
+metadata:
+  name: "Hurricane Response Operations"
+  description: "Multi-domain emergency response scenario with civilian evacuation, relief supplies, and emergency services"
+  version: "1.0"
+  duration: 86400              # 24 hours
+  time_acceleration: 4.0       # 4x speed for long-duration scenario
+  start_time: "2025-09-15T12:00:00Z"
+
+scenario_config:
+  emergency_type: "hurricane"
+  threat_level: "category_3"
+  affected_region: "gulf_coast"
+
+  weather:
+    conditions: "severe_weather"
+    wind_speed: 41.2           # m/s (80 knots) - hurricane force
+    wind_direction: 270        # degrees (westerly)
+    visibility: 1600           # meters (1 mile) - poor visibility
+    precipitation: "heavy_rain"
+
+platforms:
+  # Emergency Air Assets (using available military helicopter)
+  - id: "RESCUE01"
+    type: "mq9_reaper"
+    source_file: "airborne/military/mq9_reaper.yaml"
+    name: "RESCUE-01"
+    start_position:
+      latitude: 29.5344         # Houston area
+      longitude: -95.2034
+      altitude: 305
+    route_id: "search_rescue_01"
+    spawn_time: 0
+
+  # Civilian Evacuation - Commercial Aviation
+  - id: "UAL9001"
+    type: "boeing_737_800"
+    source_file: "airborne/commercial/boeing_737_800.yaml"
+    name: "United 9001"
+    start_position:
+      latitude: 29.9844         # Houston IAH
+      longitude: -95.3414
+      altitude: 97
+    route_id: "evacuation_flight_01"
+    spawn_time: 3600           # 1 hour after scenario start
+
+  # Relief Supply Maritime (using available commercial ship)
+  - id: "MERCY01"
+    type: "container_ship_large"
+    source_file: "maritime/commercial/container_ship_large.yaml"
+    name: "USNS Mercy"
+    start_position:
+      latitude: 27.7663         # Port of Corpus Christi
+      longitude: -97.3905
+      altitude: 0
+    route_id: "medical_relief_01"
+    spawn_time: 0
+
+  # Emergency Ground Vehicles (using available commercial truck)
+  - id: "FEMA01"
+    type: "semi_truck_trailer"
+    source_file: "land/commercial/semi_truck_trailer.yaml"
+    name: "FEMA-01"
+    start_position:
+      latitude: 30.4515         # Baton Rouge staging area
+      longitude: -91.1871
+      altitude: 17
+    route_id: "supply_convoy_01"
+    spawn_time: 7200           # 2 hours delay
+
+  # Coast Guard Maritime (using available naval vessel)
+  - id: "USCG01"
+    type: "arleigh_burke_class"
+    source_file: "maritime/military/arleigh_burke_class.yaml"
+    name: "USCGC Seneca"
+    start_position:
+      latitude: 29.3103         # Galveston
+      longitude: -94.7977
+      altitude: 0
+    route_id: "coastal_patrol_01"
+    spawn_time: 0
+
+  # Civilian Evacuation - Personal Vehicles (using available land vehicle)
+  - id: "EVAC001"
+    type: "pickup_truck"
+    source_file: "land/commercial/pickup_truck.yaml"
+    name: "Evacuation Vehicle 001"
+    start_position:
+      latitude: 29.7604         # Houston downtown
+      longitude: -95.3698
+      altitude: 13
+    route_id: "evacuation_route_i10"
+    spawn_time: 1800           # 30 minutes
+
+routes:
+  search_rescue_01:
+    name: "Search and Rescue Pattern"
+    type: "search_pattern"
+    pattern: "expanding_square"
+    center:
+      latitude: 29.4000
+      longitude: -95.0000
+      altitude: 152             # 500 ft AGL
+    parameters:
+      search_altitude: 152
+      search_speed: 51.4        # 100 kts
+      pattern_size: 10000       # 10 km square
+      expansion_rate: 1000      # meters per leg
+
+  evacuation_flight_01:
+    name: "Houston to Dallas Evacuation Flight"
+    type: "emergency_evacuation"
+    priority: "high"
+    waypoints:
+      - latitude: 29.9844       # Houston IAH
+        longitude: -95.3414
+        altitude: 97
+        speed: 77.0             # Takeoff speed
+      - latitude: 32.8968       # Dallas DFW
+        longitude: -97.0380
+        altitude: 201
+        speed: 77.0             # Landing speed
+
+  medical_relief_01:
+    name: "Hospital Ship Relief Station"
+    type: "station_keeping"
+    station:
+      latitude: 28.5000         # Offshore staging
+      longitude: -96.0000
+      altitude: 0
+    parameters:
+      station_radius: 5000      # 5 km radius
+      patrol_speed: 2.6         # 5 knots
+
+  supply_convoy_01:
+    name: "FEMA Supply Convoy Route"
+    type: "highway_convoy"
+    highway: "I-10"
+    waypoints:
+      - latitude: 30.4515       # Baton Rouge
+        longitude: -91.1871
+        altitude: 17
+        speed: 22.4             # 50 mph (convoy speed)
+      - latitude: 29.7604       # Houston
+        longitude: -95.3698
+        altitude: 13
+        speed: 13.4             # 30 mph (urban)
+
+  coastal_patrol_01:
+    name: "Coast Guard Coastal Patrol"
+    type: "patrol_pattern"
+    pattern: "coastal_sweep"
+    boundaries:
+      north: 30.0
+      south: 28.5
+      east: -93.5
+      west: -95.5
+    parameters:
+      patrol_speed: 15.4        # 30 knots
+      sweep_pattern: "zigzag"
+
+  evacuation_route_i10:
+    name: "Civilian Evacuation via I-10"
+    type: "evacuation_route"
+    highway: "I-10"
+    waypoints:
+      - latitude: 29.7604
+        longitude: -95.3698
+        altitude: 13
+        speed: 17.9             # 40 mph (heavy traffic)
+      - latitude: 30.2241       # Beaumont
+        longitude: -94.1266
+        altitude: 6
+        speed: 26.8             # 60 mph (lighter traffic)
+
+outputs:
+  emergency_coordination:
+    enabled: true
+    endpoint: "https://fema-coordination.gov/tracks"
+    update_interval: 30.0       # 30 second updates for emergency ops
+    format: "emergency_management"
+
+  public_information:
+    enabled: true
+    endpoint: "https://public-safety.gov/traffic"
+    update_interval: 60.0       # 1 minute for public updates
+    format: "public_safety"
+
+simulation:
+  physics_timestep: 1.0        # 1 second timestep for emergency scenario
+  update_frequency: 1.0        # 1 Hz for real-time coordination
+  weather_effects: true        # Enable weather impact on movement
+  traffic_modeling: true       # Model traffic congestion
+  fuel_consumption: true       # Critical for emergency ops planning

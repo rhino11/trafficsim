@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrafficSim - Scenario Builder</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom CSS -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        /* Navigation styles */
+        #main-nav {
+            background: #2c3e50;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1000;
+        }
+
+        #main-nav h1 {
+            margin: 0;
+            color: #ecf0f1;
+            font-size: 24px;
+        }
+
+        #main-nav span {
+            color: #bdc3c7;
+            margin-left: 15px;
+            font-size: 14px;
+        }
+
+        #main-nav a {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            background: #34495e;
+            transition: background 0.3s ease;
+        }
+
+        #main-nav a:hover {
+            background: #3b5998;
+        }
+
+        #main-nav a:first-child {
+            background: transparent;
+            border: 1px solid #ecf0f1;
+        }
+
+        #main-nav a:first-child:hover {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .builder-container {
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            margin-bottom: 20px;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-run {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 700;
+            transition: all 0.3s;
+            width: 100%;
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-run:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.5);
+            background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
+        }
+
+        .btn-run:active {
+            transform: translateY(-1px);
+        }
+
+        .simulation-config {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .simulation-config h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            font-size: 16px;
+        }
+
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .config-row.single {
+            grid-template-columns: 1fr;
+        }
+
+        .coordinates-input {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        @media (max-width: 1200px) {
+            .builder-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+                height: auto;
+            }
+
+            .panel {
+                max-height: 400px;
+            }
+
+            .map-container {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav id="main-nav">
+        <div style="display: flex; align-items: center;">
+            <h1>TrafficSim</h1>
+            <span>Scenario Builder</span>
+        </div>
+        <div style="display: flex; gap: 20px;">
+            <a href="/">🗺️ Live Map</a>
+            <a href="/scenario-builder">🛠️ Scenario Builder</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>🚁 Traffic Simulator</h1>
+            <p>Interactive Scenario Builder - Design realistic traffic scenarios with ease</p>
+        </div>
+
+        <div class="builder-container">
+            <!-- Platform Library Panel -->
+            <div class="panel">
+                <h2>📚 Platform Library</h2>
+
+                <input type="text" class="search-box" id="platformSearch" placeholder="Search platforms...">
+
+                <div class="domain-filter">
+                    <button class="active" data-domain="all">All</button>
+                    <button data-domain="airborne">✈️ Air</button>
+                    <button data-domain="maritime">🚢 Sea</button>
+                    <button data-domain="land">🚛 Land</button>
+                    <button data-domain="space">🛰️ Space</button>
+                </div>
+
+                <div id="platformList">
+                    <!-- Platform items will be populated here -->
+                </div>
+            </div>
+
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="map"></div>
+                <div id="mapInstructions"
+                    style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 6px; font-size: 14px; z-index: 1000;">
+                    Click on the map to place platforms
+                </div>
+            </div>
+
+            <!-- Scenario Builder Panel -->
+            <div class="panel">
+                <h2>🎬 Scenario Builder</h2>
+
+                <div class="form-group">
+                    <label for="scenarioName">Scenario Name</label>
+                    <input type="text" id="scenarioName" value="Custom Scenario" placeholder="Enter scenario name">
+                </div>
+
+                <div class="form-group">
+                    <label for="scenarioDescription">Description</label>
+                    <textarea id="scenarioDescription" rows="3" placeholder="Describe your scenario..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="scenarioDuration">Duration (minutes)</label>
+                    <input type="number" id="scenarioDuration" value="30" min="1" max="1440">
+                </div>
+
+                <h3 style="margin: 20px 0 10px 0; color: #4a5568;">Platforms in Scenario</h3>
+                <div id="scenarioPlatforms">
+                    <!-- Scenario platforms will be listed here -->
+                </div>
+
+                <div class="export-section">
+                    <button class="btn" onclick="exportScenario()">📥 Export YAML</button>
+                    <button class="btn btn-secondary" onclick="loadScenario()">📤 Load Scenario</button>
+                    <button class="btn btn-secondary" onclick="previewScenario()">👁️ Preview</button>
+                    <button class="btn btn-danger" onclick="clearScenario()">🗑️ Clear All</button>
+                </div>
+
+                <!-- Simulation Configuration -->
+                <div class="simulation-config">
+                    <h4>🚀 Simulation Settings</h4>
+                    <div class="config-row">
+                        <div>
+                            <label for="timestep">Timestep (seconds):</label>
+                            <input type="number" id="timestep" min="1" max="60" value="5" />
+                        </div>
+                        <div>
+                            <label for="multicastPort">Multicast Port:</label>
+                            <input type="number" id="multicastPort" min="1024" max="65535" value="6969" />
+                        </div>
+                    </div>
+                    <div class="config-row single">
+                        <div>
+                            <label for="multicastGroup">Multicast Group:</label>
+                            <input type="text" id="multicastGroup" value="239.255.0.1" placeholder="e.g., 239.255.0.1" />
+                        </div>
+                    </div>
+                    
+                    <button class="btn-run" onclick="runSimulation()">
+                        🚀 RUN SIMULATION
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="statusBar">
+        Ready to build scenarios
+    </div>
+
+    <!-- Modal for platform configuration -->
+    <div id="platformModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Configure Platform</h2>
+
+            <div class="form-group">
+                <label for="modalPlatformId">Platform ID</label>
+                <input type="text" id="modalPlatformId" placeholder="e.g., AIRCRAFT_001">
+            </div>
+
+            <div class="form-group">
+                <label for="modalPlatformName">Display Name</label>
+                <input type="text" id="modalPlatformName" placeholder="e.g., United 1234">
+            </div>
+
+            <div class="form-group">
+                <label>Position</label>
+                <div class="coordinates-input">
+                    <input type="number" id="modalLatitude" placeholder="Latitude" step="0.000001">
+                    <input type="number" id="modalLongitude" placeholder="Longitude" step="0.000001">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="modalAltitude">Altitude (meters)</label>
+                <input type="number" id="modalAltitude" value="1000" min="0" max="50000">
+            </div>
+
+            <div class="form-group">
+                <label for="modalMissionType">Mission Type</label>
+                <select id="modalMissionType">
+                    <option value="patrol">Patrol</option>
+                    <option value="transport">Transport</option>
+                    <option value="reconnaissance">Reconnaissance</option>
+                    <option value="training">Training</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="emergency">Emergency</option>
+                </select>
+            </div>
+
+            <button class="btn" onclick="savePlatformConfig()">Save Platform</button>
+        </div>
+    </div>
+
+    <!-- Modal for scenario preview -->
+    <div id="previewModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Scenario Preview</h2>
+            <div class="yaml-preview" id="yamlPreview"></div>
+            <button class="btn" onclick="downloadYaml()">💾 Download YAML</button>
+        </div>
+    </div>
+
+    <!-- Load Leaflet for mapping -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="/static/js/scenario-builder.js"></script>
+</body>
+
+</html>

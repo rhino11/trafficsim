@@ -1,0 +1,69 @@
+# Boeing 777-300ER Platform Definition
+platform_types:
+  boeing_777_300er:
+    class: "Boeing 777-300ER"
+    category: "wide_body_airliner"
+    cot_config:
+      type: "a-n-A-C-F"          # MIL-STD-2525D: Air-Neutral-Aircraft-Civilian-Fixed Wing
+      icon: "SNAPCF----G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "air"
+      battle_dimension: "air"
+      category_code: "civilian"
+    performance:
+      max_speed: 290.0          # m/s (564 kts)
+      cruise_speed: 257.0       # m/s (500 kts)
+      max_altitude: 13100       # meters (43,000 ft)
+      fuel_consumption: 6.8     # kg/s at cruise
+      turning_radius: 1800      # meters
+      acceleration: 1.2         # m/s²
+      climb_rate: 10.2          # m/s (2,000 ft/min)
+      stall_speed: 82.0         # m/s (160 kts)
+      range: 14490000           # meters (7,825 nm)
+      max_acceleration: 1.5     # m/s²
+      max_deceleration: 3.5     # m/s²
+      max_roll_rate: 12.0       # degrees/second
+      max_pitch_rate: 4.0       # degrees/second
+      max_yaw_rate: 2.5         # degrees/second
+      max_bank_angle: 25.0      # degrees
+      max_pitch_angle: 12.0     # degrees
+      max_load_factor: 2.5      # g-force
+    physical:
+      length: 73.9              # meters
+      width: 64.8               # wingspan
+      height: 18.5              # meters
+      mass: 351535              # kg (max takeoff weight)
+      empty_weight: 167829      # kg
+      fuel_capacity: 181283     # kg
+      wing_area: 427.8          # m²
+      center_of_gravity:
+        x: 35.0
+        y: 0.0
+        z: 4.0
+    operational:
+      range: 14490000
+      crew_capacity: 14
+      passenger_capacity: 396
+      cargo_capacity: 8131
+    sensors:
+      has_gps: true
+      has_radar: true
+      has_compass: true
+      radar_range: 120000
+    callsign_config:
+      prefix: ""
+      format: "{airline}{flight_number}"
+      names: ["UAL", "AAL", "EK", "QR", "SIA", "CX"]
+
+platforms:
+  - id: "B77W_001"
+    type: "boeing_777_300er"
+    name: "Emirates 215"
+    start_position:
+      latitude: 25.2532
+      longitude: 55.3657
+      altitude: 12000
+    mission:
+      type: "long_haul_passenger"
+      origin: "DXB"
+      destination: "JFK"

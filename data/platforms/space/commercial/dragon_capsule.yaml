@@ -1,0 +1,52 @@
+# SpaceX Dragon Capsule Platform Definition
+platform_types:
+  dragon_capsule:
+    class: "SpaceX Dragon"
+    category: "crew_vehicle"
+    cot_config:
+      type: "a-n-P-U-S"          # MIL-STD-2525D: Space-Neutral-Unit-Spacecraft
+      icon: "SNPPUS----G"        # 2525D symbol code
+      affiliation: "neutral"
+      dimension: "space"
+      battle_dimension: "space"
+      category_code: "crew_vehicle"
+    performance:
+      max_speed: 7800.0         # m/s (varies with orbit)
+      cruise_speed: 7660.0      # m/s (ISS orbital velocity)
+      fuel_consumption: 0.5     # kg/s (maneuvering)
+      acceleration: 11.5        # m/s² (SuperDraco thrusters)
+      orbital_velocity: 7660.0  # m/s (when docked to ISS)
+      orbital_period: 5580      # seconds (when at ISS)
+      orbital_altitude: 408000  # meters (ISS altitude)
+    physical:
+      length: 8.1               # meters (with trunk)
+      width: 3.7                # meters (diameter)
+      height: 3.7               # meters
+      mass: 12519               # kg (fully loaded)
+      solar_panel_area: 15.0    # m² (trunk solar panels)
+    operational:
+      range: 999999999          # limited by life support
+      crew_capacity: 7
+      cargo_capacity: 6000      # kg
+      mission_life: 0.3         # years (210 days max)
+    sensors:
+      has_gps: true
+      has_radar: true           # docking sensors
+      has_compass: true
+    callsign_config:
+      prefix: "DRAGON"
+      format: "DRAGON-{mission}"
+      names: ["ENDEAVOUR", "RESILIENCE", "ENDURANCE", "FREEDOM"]
+
+platforms:
+  - id: "DRAGON_001"
+    type: "dragon_capsule"
+    name: "Dragon Endeavour"
+    start_position:
+      latitude: 28.6139          # Launch from KSC
+      longitude: -80.6079
+      altitude: 408000          # Docked to ISS
+    mission:
+      type: "crew_transport"
+      destination: "ISS"
+      crew_rotation: "Expedition 70"
