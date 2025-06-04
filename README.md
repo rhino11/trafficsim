@@ -74,19 +74,94 @@ git clone https://github.com/rhino11/trafficsim.git
 cd trafficsim
 
 # Build the application
+make build
+# or
 go build -o trafficsim ./cmd/simrunner
+```
 
+### Running TrafficSim
+
+TrafficSim supports two modes of operation:
+
+#### **CLI Mode (Default)**
+Runs a console-based simulation with real-time status updates:
+
+```bash
 # Run with default configuration
 ./trafficsim
+
+# Run with custom configuration
+./trafficsim -config path/to/config.yaml
+```
+
+Example output:
+```
+Global Traffic Simulator - Configuration-Driven Demo
+====================================================
+Loading configuration from: data/config.yaml
+Starting traffic simulation...
+Loaded 4 platforms
+  United 123 (Boeing 737-800) - United 123
+    Type: airborne | Position: 40.7128,-74.0060 @ 10000m
+  USS Mustin (Arleigh Burke-class) - NAVY-89
+    Type: maritime | Position: 36.8485,-76.2951 @ 0m
+  ...
+Real time: 1.0s, Sim time: 0.0s, Platforms: 4
+  United 123: Lat=40.7128, Lon=-74.0060, Alt=10000m, Speed=1.5m/s, Hdg=273.7°
+  NAVY-89: Lat=36.8485, Lon=-76.2951, Alt=0m, Speed=0.3m/s, Hdg=197.8°
+  ...
+```
+
+#### **Web Server Mode**
+Runs a web server with real-time visualization and API endpoints:
+
+```bash
+# Run web server on default port 8080
+./trafficsim -web
+
+# Run on custom port
+./trafficsim -web -port 9000
+
+# Custom config and port
+./trafficsim -web -port 8080 -config data/config.yaml
+```
+
+Then open your browser to `http://localhost:8080` for the web interface.
+
+#### **Using Make Commands**
+```bash
+# Build and run (CLI mode)
+make run
+
+# Run tests
+make test
+
+# Run with coverage
+make test-coverage
+
+# Format and lint code
+make fmt
+make vet
+make lint
+
+# Install development tools
+make install-tools
+
+# Full quality check
+make check-all
 ```
 
 ### Docker Deployment
 
 ```bash
 # Build Docker image
+make docker-build
+# or
 docker build -t trafficsim .
 
 # Run container
+make docker-run
+# or
 docker run -p 8080:8080 trafficsim
 ```
 
@@ -127,7 +202,7 @@ import (
 func main() {
     // Create physics engine
     engine := sim.NewPhysicsEngine()
-    
+
     // Create platform
     aircraft := models.NewUniversalPlatform(models.PlatformTypeAirborne)
     aircraft.SetDestination(models.Position{
@@ -135,7 +210,7 @@ func main() {
         Longitude: -74.0060,
         Altitude:  10000,
     })
-    
+
     // Run simulation step
     engine.CalculateMovement(aircraft, time.Second)
 }

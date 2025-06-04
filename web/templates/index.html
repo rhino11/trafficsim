@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrafficSim - Real-time Platform Visualization</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/map.css">
+
+    <!-- Performance optimizations -->
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div>
+            <h2>TrafficSim Loading...</h2>
+            <p id="loading-status">Initializing high-performance mapping engine</p>
+            <div style="width: 300px; height: 4px; background: #333; border-radius: 2px; margin: 20px auto;">
+                <div id="loading-progress" style="width: 0%; height: 100%; background: #00ff00; border-radius: 2px; transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="app-container">
+        <!-- Control Panel -->
+        <div id="control-panel">
+            <div class="panel-section">
+                <h3>Simulation Control</h3>
+                <button id="play-pause-btn" class="control-btn">⏸️ Pause</button>
+                <button id="reset-btn" class="control-btn">🔄 Reset</button>
+                <div class="speed-control">
+                    <label>Speed: <span id="speed-display">1x</span></label>
+                    <input type="range" id="speed-slider" min="0.1" max="10" step="0.1" value="1">
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>Display Options</h3>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="show-trails" checked> Show Trails
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="show-labels" checked> Show Labels
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="show-sensors"> Show Sensor Range
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="cluster-platforms" checked> Cluster Platforms
+                </label>
+            </div>
+
+            <div class="panel-section">
+                <h3>Platform Filters</h3>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="filter-airborne" checked> Airborne
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="filter-land" checked> Land
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="filter-maritime" checked> Maritime
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="filter-space" checked> Space
+                </label>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div id="map-container">
+            <div id="map"></div>
+
+            <!-- Performance HUD -->
+            <div id="performance-hud">
+                <div class="hud-item">
+                    <span class="label">FPS:</span>
+                    <span id="fps-counter">60</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">Platforms:</span>
+                    <span id="platform-counter">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">Visible:</span>
+                    <span id="visible-counter">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">Memory:</span>
+                    <span id="memory-usage">0 MB</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">Data Rate:</span>
+                    <span id="data-rate">0 KB/s</span>
+                </div>
+            </div>
+
+            <!-- Platform Info Panel -->
+            <div id="platform-info" class="info-panel hidden">
+                <div class="info-header">
+                    <h3 id="platform-title">Platform Details</h3>
+                    <button id="close-info">&times;</button>
+                </div>
+                <div class="info-content">
+                    <div class="info-row">
+                        <span class="info-label">ID:</span>
+                        <span id="info-id">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Type:</span>
+                        <span id="info-type">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Position:</span>
+                        <span id="info-position">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Speed:</span>
+                        <span id="info-speed">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Heading:</span>
+                        <span id="info-heading">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span id="info-status">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- High-performance rendering plugins -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- Application modules -->
+    <script src="/static/js/performance-monitor.js"></script>
+    <script src="/static/js/data-streamer.js"></script>
+    <script src="/static/js/platform-renderer.js"></script>
+    <script src="/static/js/map-engine.js"></script>
+
+    <!-- Application initialization -->
+    <script>
+        // Progress tracking functions
+        function updateLoadingProgress(percent, status) {
+            document.getElementById('loading-progress').style.width = percent + '%';
+            document.getElementById('loading-status').textContent = status;
+        }
+
+        // Application entry point
+        document.addEventListener('DOMContentLoaded', async function () {
+            try {
+                updateLoadingProgress(10, 'Initializing performance monitor...');
+                
+                // Initialize performance monitoring
+                const perfMonitor = new PerformanceMonitor();
+                
+                updateLoadingProgress(20, 'Setting up data streaming...');
+                
+                // Initialize data streaming (fixed constructor)
+                const dataStreamer = new DataStreamer();
+                
+                updateLoadingProgress(40, 'Initializing map engine...');
+                
+                // Initialize map engine with high-performance settings
+                const mapEngine = new MapEngine('map', {
+                    maxZoom: 20,
+                    minZoom: 2,
+                    preferCanvas: true,
+                    worldCopyJump: true,
+                    maxBounds: [[-90, -180], [90, 180]],
+                    // Performance optimizations
+                    zoomSnap: 0.5,
+                    wheelPxPerZoomLevel: 120,
+                    bounceAtZoomLimits: false
+                });
+
+                // Wait for map to initialize
+                await mapEngine.initialize();
+                
+                updateLoadingProgress(60, 'Setting up platform renderer...');
+                
+                // Initialize platform renderer (mock implementation for now)
+                const platformRenderer = {
+                    updatePlatforms: function(platforms) {
+                        console.log('Platform update received:', platforms.length, 'platforms');
+                        // Update platform counter
+                        document.getElementById('platform-counter').textContent = platforms.length;
+                    },
+                    clearAll: function() {
+                        console.log('Clearing all platforms');
+                        document.getElementById('platform-counter').textContent = '0';
+                    },
+                    setTrailsVisible: function(visible) { console.log('Trails visible:', visible); },
+                    setLabelsVisible: function(visible) { console.log('Labels visible:', visible); },
+                    setSensorRangeVisible: function(visible) { console.log('Sensor range visible:', visible); },
+                    setClusteringEnabled: function(enabled) { console.log('Clustering enabled:', enabled); },
+                    setPlatformTypeVisible: function(type, visible) { console.log('Platform type', type, 'visible:', visible); },
+                    onPlatformSelect: function(callback) { this.platformSelectCallback = callback; }
+                };
+
+                updateLoadingProgress(80, 'Connecting to data stream...');
+
+                // Connect data stream to renderer
+                dataStreamer.onPlatformUpdate((platforms) => {
+                    platformRenderer.updatePlatforms(platforms);
+                    if (perfMonitor.recordPlatformCount) {
+                        perfMonitor.recordPlatformCount(platforms.length);
+                    }
+                });
+
+                // Set up performance monitoring
+                if (perfMonitor.onUpdate) {
+                    perfMonitor.onUpdate((stats) => {
+                        document.getElementById('fps-counter').textContent = stats.fps || '60';
+                        document.getElementById('visible-counter').textContent = stats.visibleCount || '0';
+                        document.getElementById('memory-usage').textContent = `${stats.memoryMB || 0} MB`;
+                        document.getElementById('data-rate').textContent = `${stats.dataRate || 0} KB/s`;
+                    });
+                }
+
+                // Control panel event handlers
+                document.getElementById('play-pause-btn').addEventListener('click', function () {
+                    const isRunning = dataStreamer.toggleSimulation();
+                    this.textContent = isRunning ? '⏸️ Pause' : '▶️ Play';
+                });
+
+                document.getElementById('reset-btn').addEventListener('click', function () {
+                    dataStreamer.resetSimulation();
+                    platformRenderer.clearAll();
+                });
+
+                document.getElementById('speed-slider').addEventListener('input', function () {
+                    const speed = parseFloat(this.value);
+                    document.getElementById('speed-display').textContent = `${speed}x`;
+                    dataStreamer.setSimulationSpeed(speed);
+                });
+
+                // Display option handlers
+                document.getElementById('show-trails').addEventListener('change', function () {
+                    platformRenderer.setTrailsVisible(this.checked);
+                });
+
+                document.getElementById('show-labels').addEventListener('change', function () {
+                    platformRenderer.setLabelsVisible(this.checked);
+                });
+
+                document.getElementById('show-sensors').addEventListener('change', function () {
+                    platformRenderer.setSensorRangeVisible(this.checked);
+                });
+
+                document.getElementById('cluster-platforms').addEventListener('change', function () {
+                    platformRenderer.setClusteringEnabled(this.checked);
+                });
+
+                // Platform filter handlers
+                ['airborne', 'land', 'maritime', 'space'].forEach(type => {
+                    document.getElementById(`filter-${type}`).addEventListener('change', function () {
+                        platformRenderer.setPlatformTypeVisible(type, this.checked);
+                    });
+                });
+
+                // Platform info panel handlers
+                document.getElementById('close-info').addEventListener('click', function () {
+                    document.getElementById('platform-info').classList.add('hidden');
+                });
+
+                updateLoadingProgress(95, 'Starting data connection...');
+
+                // Start the data connection
+                dataStreamer.connect();
+                
+                // Start performance monitoring if available
+                if (perfMonitor.start) {
+                    perfMonitor.start();
+                }
+
+                updateLoadingProgress(100, 'Ready!');
+
+                // Hide loading screen after a brief delay
+                setTimeout(() => {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    console.log('TrafficSim initialized successfully');
+                    console.log('Map engine ready for platform visualization');
+                }, 500);
+
+            } catch (error) {
+                console.error('Application initialization failed:', error);
+                updateLoadingProgress(0, 'Initialization failed: ' + error.message);
+                
+                // Show error in loading screen for a few seconds, then hide it
+                setTimeout(() => {
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    alert('TrafficSim failed to initialize. Please check the console for details.');
+                }, 3000);
+            }
+
+            // Global error handling
+            window.addEventListener('error', function (e) {
+                console.error('Application error:', e.error);
+                if (perfMonitor && perfMonitor.recordError) {
+                    perfMonitor.recordError(e.error);
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
