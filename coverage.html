@@ -63,7 +63,7 @@
 				
 				<option value="file3">github.com/rhino11/trafficsim/internal/config/factory.go (0.0%)</option>
 				
-				<option value="file4">github.com/rhino11/trafficsim/internal/models/airborne.go (74.5%)</option>
+				<option value="file4">github.com/rhino11/trafficsim/internal/models/airborne.go (76.0%)</option>
 				
 				<option value="file5">github.com/rhino11/trafficsim/internal/models/factory.go (91.7%)</option>
 				
@@ -137,8 +137,22 @@ func main() <span class="cov0" title="0">{
                 // Run web server mode
                 fmt.Printf("Starting web server on port %s...\n", *port)
 
+                // Load platforms from configuration (needed for web mode)
+                fmt.Println("Loading platforms for web simulation...")
+                if err := engine.LoadPlatformsFromConfig(); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to load platforms: %v", err)
+                }</span>
+
+                <span class="cov0" title="0">platforms := engine.GetAllPlatforms()
+                fmt.Printf("Loaded %d platforms for web interface\n", len(platforms))
+
+                // Start simulation engine for web mode
+                if err := engine.Start(); err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to start simulation: %v", err)
+                }</span>
+
                 // Create server
-                srv := server.NewServer(cfg, engine)
+                <span class="cov0" title="0">srv := server.NewServer(cfg, engine)
 
                 // Start server
                 if err := srv.Start(*port); err != nil </span><span class="cov0" title="0">{
@@ -169,6 +183,7 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config) <span class="cov0"
 
         // Load platforms from configuration or create examples
         <span class="cov0" title="0">if err := engine.LoadPlatformsFromConfig(); err != nil </span><span class="cov0" title="0">{
+                cancel() // Cancel context before fatal exit
                 log.Fatalf("Failed to load platforms: %v", err)
         }</span>
 
@@ -254,8 +269,11 @@ func main() <span class="cov0" title="0">{
         dest := models.Position{Latitude: 40.1, Longitude: -74.0, Altitude: 10000}
 
         aircraft := models.NewBoeing737_800("TEST-004", "TEST101", startPos)
-        aircraft.SetDestination(dest)
-        aircraft.UniversalPlatform.State.Speed = 200
+        if err := aircraft.SetDestination(dest); err != nil </span><span class="cov0" title="0">{
+                fmt.Printf("Error setting destination: %v\n", err)
+                return
+        }</span>
+        <span class="cov0" title="0">aircraft.UniversalPlatform.State.Speed = 200
 
         fmt.Printf("Initial heading: %.1f°\n", aircraft.UniversalPlatform.State.Heading)
 
@@ -280,8 +298,11 @@ func main() <span class="cov0" title="0">{
         fmt.Printf("Initial roll: %.3f°\n", aircraft.UniversalPlatform.State.Physics.Attitude.Roll)
 
         // Test what happens during a full Update call
-        aircraft.Update(time.Second)
-        fmt.Printf("Roll after Update: %.3f°\n", aircraft.UniversalPlatform.State.Physics.Attitude.Roll)
+        if err := aircraft.Update(time.Second); err != nil </span><span class="cov0" title="0">{
+                fmt.Printf("Error updating aircraft: %v\n", err)
+                return
+        }</span>
+        <span class="cov0" title="0">fmt.Printf("Roll after Update: %.3f°\n", aircraft.UniversalPlatform.State.Physics.Attitude.Roll)
         fmt.Printf("Heading after Update: %.1f°\n", aircraft.UniversalPlatform.State.Heading)</span>
 }
 </pre>
@@ -291,6 +312,8 @@ func main() <span class="cov0" title="0">{
 import (
         "fmt"
         "os"
+        "path/filepath"
+        "strings"
 
         "gopkg.in/yaml.v3"
 )
@@ -458,7 +481,18 @@ type RandomWalkBehavior struct {
 
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(filename string) (*Config, error) <span class="cov0" title="0">{
-        data, err := os.ReadFile(filename)
+        // Validate filename to prevent path traversal attacks
+        if filepath.IsAbs(filename) </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("absolute paths not allowed for config files")
+        }</span>
+
+        // Clean the path to prevent directory traversal
+        <span class="cov0" title="0">cleanPath := filepath.Clean(filename)
+        if strings.Contains(cleanPath, "..") </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("path traversal not allowed in config filename")
+        }</span>
+
+        <span class="cov0" title="0">data, err := os.ReadFile(cleanPath)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to read config file: %w", err)
         }</span>
@@ -1178,7 +1212,7 @@ func (a *AirbornePlatform) updateAttitude(dt float64) <span class="cov8" title="
                 headingError := desiredHeading - a.UniversalPlatform.State.Heading
 
                 // Normalize heading error to [-180, 180]
-                for headingError &gt; 180 </span><span class="cov0" title="0">{
+                for headingError &gt; 180 </span><span class="cov8" title="1">{
                         headingError -= 360
                 }</span>
                 <span class="cov8" title="1">for headingError &lt; -180 </span><span class="cov0" title="0">{
@@ -1231,7 +1265,7 @@ func (a *AirbornePlatform) updateAttitude(dt float64) <span class="cov8" title="
                         // Normalize heading to [0, 360)
                         if a.UniversalPlatform.State.Heading &gt;= 360 </span><span class="cov0" title="0">{
                                 a.UniversalPlatform.State.Heading -= 360
-                        }</span> else<span class="cov8" title="1"> if a.UniversalPlatform.State.Heading &lt; 0 </span><span class="cov0" title="0">{
+                        }</span> else<span class="cov8" title="1"> if a.UniversalPlatform.State.Heading &lt; 0 </span><span class="cov8" title="1">{
                                 a.UniversalPlatform.State.Heading += 360
                         }</span>
                 }
@@ -1317,7 +1351,7 @@ func (a *AirbornePlatform) calculateBearing(from, to Position) float64 <span cla
         bearing := math.Atan2(y, x) * 180.0 / math.Pi
 
         // Normalize to [0, 360)
-        for bearing &lt; 0 </span><span class="cov0" title="0">{
+        for bearing &lt; 0 </span><span class="cov8" title="1">{
                 bearing += 360
         }</span>
         <span class="cov8" title="1">for bearing &gt;= 360 </span><span class="cov0" title="0">{
@@ -2990,31 +3024,31 @@ type PlatformConfiguration struct {
 
 // UniversalPlatform implements the Platform interface using configuration data
 type UniversalPlatform struct {
-        ID           string
-        PlatformType PlatformType
-        TypeDef      *PlatformTypeDefinition
-        Config       *PlatformConfiguration
-        State        PlatformState
-        CallSign     string
+        ID           string                  `json:"id"`
+        PlatformType PlatformType            `json:"platform_type"`
+        TypeDef      *PlatformTypeDefinition `json:"type_def"`
+        Config       *PlatformConfiguration  `json:"config"`
+        State        PlatformState           `json:"state"`
+        CallSign     string                  `json:"call_sign"`
 
         // Navigation
-        Destination *Position
-        Route       []Position
+        Destination *Position  `json:"destination,omitempty"`
+        Route       []Position `json:"route,omitempty"`
 
         // Runtime state
-        FuelRemaining float64
-        MissionTime   time.Duration
-        SystemStatus  SystemStatus
+        FuelRemaining float64       `json:"fuel_remaining"`
+        MissionTime   time.Duration `json:"mission_time"`
+        SystemStatus  SystemStatus  `json:"system_status"`
 
         // Physics state
-        lastPosition  Position
-        acceleration  float64
-        Mass          float64  // Mass for physics calculations
+        lastPosition  Position `json:"-"`    // Internal field, don't serialize
+        acceleration  float64  `json:"-"`    // Internal field, don't serialize
+        Mass          float64  `json:"mass"` // Mass for physics calculations
         AngularForces struct { // Angular forces for attitude control
-                X float64
-                Y float64
-                Z float64
-        }
+                X float64 `json:"x"`
+                Y float64 `json:"y"`
+                Z float64 `json:"z"`
+        } `json:"angular_forces"`
 }
 
 // SystemStatus represents the operational status of various platform systems
@@ -4218,6 +4252,18 @@ func logDebug(component string, message string, data interface{}) <span class="c
         log.Printf("[DEBUG] [%s] %s - %+v", component, message, data)
 }</span>
 
+func logClientMessage(msgType string, clientAddr string, data interface{}) <span class="cov0" title="0">{
+        log.Printf("[CLIENT-MSG] Type: %s, From: %s, Data: %+v", msgType, clientAddr, data)
+}</span>
+
+func logDataStream(component string, action string, details interface{}) <span class="cov0" title="0">{
+        log.Printf("[STREAM] [%s] %s - %+v", component, action, details)
+}</span>
+
+func logPlatformUpdate(platformCount int, action string) <span class="cov0" title="0">{
+        log.Printf("[PLATFORM] %s - Count: %d", action, platformCount)
+}</span>
+
 // Server represents the web server for the traffic simulation
 type Server struct {
         config     *config.Config
@@ -4319,6 +4365,10 @@ func (s *Server) setupRoutes() <span class="cov0" title="0">{
         api.HandleFunc("/simulation/reset", s.handleResetSimulation).Methods("POST")
         api.HandleFunc("/simulation/status", s.handleSimulationStatus).Methods("GET")
         api.HandleFunc("/stream/platforms", s.handleSSEPlatforms).Methods("GET")
+        // Performance monitoring endpoint
+        api.HandleFunc("/metrics", s.handleMetrics).Methods("GET")
+        // Client logging endpoint for debugging
+        api.HandleFunc("/log", s.handleClientLog).Methods("POST")
 
         // Main page
         s.router.HandleFunc("/", s.handleIndex).Methods("GET")
@@ -4336,18 +4386,29 @@ func (s *Server) Start(port string) error <span class="cov0" title="0">{
         // Start simulation updates if simulation is running
         go s.streamSimulationUpdates()
 
-        return http.ListenAndServe(":"+port, s.router)
+        // Create HTTP server with proper timeouts for security
+        server := &amp;http.Server{
+                Addr:         ":" + port,
+                Handler:      s.router,
+                ReadTimeout:  15 * time.Second,
+                WriteTimeout: 15 * time.Second,
+                IdleTimeout:  60 * time.Second,
+        }
+
+        return server.ListenAndServe()
 }</span>
 
 // Stop stops the web server
 func (s *Server) Stop() <span class="cov0" title="0">{
         s.cancel()
 
-        // Close all WebSocket connections
+        // Close all WebSocket connections with proper error handling
         s.clientsMux.Lock()
         for client := range s.clients </span><span class="cov0" title="0">{
-                client.Close()
-        }</span>
+                if err := client.Close(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error closing WebSocket connection: %v", err)
+                }</span>
+        }
         <span class="cov0" title="0">s.clientsMux.Unlock()</span>
 }
 
@@ -4443,7 +4504,9 @@ func (s *Server) handleStartSimulation(w http.ResponseWriter, r *http.Request) <
         <span class="cov0" title="0">s.broadcastSimulationStatus()
 
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]string{"status": "started"})</span>
+        if err := json.NewEncoder(w).Encode(map[string]string{"status": "started"}); err != nil </span><span class="cov0" title="0">{
+                logWebError("Start simulation response encoding", err)
+        }</span>
 }
 
 // handleStopSimulation stops the simulation
@@ -4452,8 +4515,10 @@ func (s *Server) handleStopSimulation(w http.ResponseWriter, r *http.Request) <s
         s.broadcastSimulationStatus()
 
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
-}</span>
+        if err := json.NewEncoder(w).Encode(map[string]string{"status": "stopped"}); err != nil </span><span class="cov0" title="0">{
+                logWebError("Stop simulation response encoding", err)
+        }</span>
+}
 
 // handleResetSimulation resets the simulation
 func (s *Server) handleResetSimulation(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
@@ -4465,7 +4530,9 @@ func (s *Server) handleResetSimulation(w http.ResponseWriter, r *http.Request) <
         <span class="cov0" title="0">s.broadcastSimulationStatus()
 
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]string{"status": "reset"})</span>
+        if err := json.NewEncoder(w).Encode(map[string]string{"status": "reset"}); err != nil </span><span class="cov0" title="0">{
+                logWebError("Reset simulation response encoding", err)
+        }</span>
 }
 
 // handleSimulationStatus returns simulation status
@@ -4478,8 +4545,12 @@ func (s *Server) handleSimulationStatus(w http.ResponseWriter, r *http.Request) 
         }
 
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(status)
-}</span>
+        if err := json.NewEncoder(w).Encode(status); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error encoding status response: %v", err)
+                http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+                return
+        }</span>
+}
 
 // handleSSEPlatforms handles Server-Sent Events for platform updates
 func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
@@ -4496,31 +4567,49 @@ func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) <spa
 
         // Send initial data
         <span class="cov0" title="0">platforms := s.simulation.GetAllPlatforms()
-        data, _ := json.Marshal(platforms)
-        fmt.Fprintf(w, "data: %s\n\n", data)
-        flusher.Flush()
+        if len(platforms) &gt; 0 </span><span class="cov0" title="0">{
+                data, _ := json.Marshal(platforms)
+                fmt.Fprintf(w, "data: %s\n\n", data)
+                flusher.Flush()
+                log.Printf("SSE: Sent initial data with %d platforms", len(platforms))
+        }</span>
 
-        // Create a channel for this SSE connection
-        updates := make(chan []byte, 10)
-        defer close(updates)
-
-        // TODO: Subscribe to simulation updates and send them via SSE
-        // This would require adding a subscription mechanism to the simulation engine
-
-        // Keep connection alive
-        ticker := time.NewTicker(30 * time.Second)
+        // Create a ticker to send regular updates
+        <span class="cov0" title="0">ticker := time.NewTicker(100 * time.Millisecond) // 10 FPS
         defer ticker.Stop()
+
+        // Keep connection alive ticker
+        heartbeatTicker := time.NewTicker(30 * time.Second)
+        defer heartbeatTicker.Stop()
 
         for </span><span class="cov0" title="0">{
                 select </span>{
                 case &lt;-r.Context().Done():<span class="cov0" title="0">
+                        log.Printf("SSE: Client disconnected")
                         return</span>
-                case &lt;-ticker.C:<span class="cov0" title="0">
+                case &lt;-heartbeatTicker.C:<span class="cov0" title="0">
                         fmt.Fprintf(w, ": heartbeat\n\n")
                         flusher.Flush()</span>
-                case data := &lt;-updates:<span class="cov0" title="0">
-                        fmt.Fprintf(w, "data: %s\n\n", data)
-                        flusher.Flush()</span>
+                case &lt;-ticker.C:<span class="cov0" title="0">
+                        if s.simulation.IsRunning() </span><span class="cov0" title="0">{
+                                platforms := s.simulation.GetAllPlatforms()
+                                if len(platforms) &gt; 0 </span><span class="cov0" title="0">{
+                                        message := PlatformUpdate{
+                                                Type:      "platform_update",
+                                                Platforms: platforms,
+                                                Timestamp: time.Now().UnixMilli(),
+                                        }
+
+                                        data, err := json.Marshal(message)
+                                        if err != nil </span><span class="cov0" title="0">{
+                                                log.Printf("Error marshaling SSE platform update: %v", err)
+                                                continue</span>
+                                        }
+
+                                        <span class="cov0" title="0">fmt.Fprintf(w, "data: %s\n\n", data)
+                                        flusher.Flush()</span>
+                                }
+                        }
                 }
         }
 }
@@ -4596,21 +4685,29 @@ func (s *Server) handleBroadcast() <span class="cov0" title="0">{
                         return</span>
                 case message := &lt;-s.broadcast:<span class="cov0" title="0">
                         s.clientsMux.RLock()
+                        clientsToRemove := make([]*websocket.Conn, 0)
+
                         for client := range s.clients </span><span class="cov0" title="0">{
-                                select </span>{
-                                case &lt;-time.After(time.Second):<span class="cov0" title="0">
-                                        // Client write timeout, remove client
+                                err := client.WriteMessage(websocket.TextMessage, message)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        log.Printf("Error writing to WebSocket client: %v", err)
+                                        clientsToRemove = append(clientsToRemove, client)
+                                }</span>
+                        }
+                        <span class="cov0" title="0">s.clientsMux.RUnlock()
+
+                        // Remove failed clients
+                        if len(clientsToRemove) &gt; 0 </span><span class="cov0" title="0">{
+                                s.clientsMux.Lock()
+                                for _, client := range clientsToRemove </span><span class="cov0" title="0">{
                                         delete(s.clients, client)
-                                        client.Close()</span>
-                                default:<span class="cov0" title="0">
-                                        if err := client.WriteMessage(websocket.TextMessage, message); err != nil </span><span class="cov0" title="0">{
-                                                // Error writing, remove client
-                                                delete(s.clients, client)
-                                                client.Close()
+                                        if err := client.Close(); err != nil </span><span class="cov0" title="0">{
+                                                log.Printf("Error closing failed WebSocket client: %v", err)
                                         }</span>
                                 }
+                                <span class="cov0" title="0">s.clientsMux.Unlock()
+                                logWebSocket("Removed failed clients", len(s.clients))</span>
                         }
-                        <span class="cov0" title="0">s.clientsMux.RUnlock()</span>
                 }
         }
 }
@@ -4623,15 +4720,21 @@ func (c *Client) readPump() <span class="cov0" title="0">{
                 c.server.clientsMux.Lock()
                 delete(c.server.clients, c.conn)
                 c.server.clientsMux.Unlock()
-                c.conn.Close()
-        }</span>()
+                if err := c.conn.Close(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error closing WebSocket connection in readPump: %v", err)
+                }</span>
+        }()
 
         <span class="cov0" title="0">c.conn.SetReadLimit(512)
-        c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-        c.conn.SetPongHandler(func(string) error </span><span class="cov0" title="0">{
-                c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-                return nil
-        }</span>)
+        if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error setting read deadline: %v", err)
+        }</span>
+        <span class="cov0" title="0">c.conn.SetPongHandler(func(string) error </span><span class="cov0" title="0">{
+                if err := c.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error setting pong read deadline: %v", err)
+                }</span>
+                <span class="cov0" title="0">return nil</span>
+        })
 
         <span class="cov0" title="0">for </span><span class="cov0" title="0">{
                 _, message, err := c.conn.ReadMessage()
@@ -4652,25 +4755,33 @@ func (c *Client) writePump() <span class="cov0" title="0">{
         ticker := time.NewTicker(54 * time.Second)
         defer func() </span><span class="cov0" title="0">{
                 ticker.Stop()
-                c.conn.Close()
-        }</span>()
+                if err := c.conn.Close(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error closing WebSocket connection in writePump: %v", err)
+                }</span>
+        }()
 
         <span class="cov0" title="0">for </span><span class="cov0" title="0">{
                 select </span>{
                 case message, ok := &lt;-c.send:<span class="cov0" title="0">
-                        c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-                        if !ok </span><span class="cov0" title="0">{
-                                c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-                                return
+                        if err := c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Error setting write deadline: %v", err)
                         }</span>
+                        <span class="cov0" title="0">if !ok </span><span class="cov0" title="0">{
+                                if err := c.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil </span><span class="cov0" title="0">{
+                                        log.Printf("Error sending close message: %v", err)
+                                }</span>
+                                <span class="cov0" title="0">return</span>
+                        }
 
                         <span class="cov0" title="0">if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil </span><span class="cov0" title="0">{
                                 return
                         }</span>
 
                 case &lt;-ticker.C:<span class="cov0" title="0">
-                        c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-                        if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil </span><span class="cov0" title="0">{
+                        if err := c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil </span><span class="cov0" title="0">{
+                                log.Printf("Error setting ping write deadline: %v", err)
+                        }</span>
+                        <span class="cov0" title="0">if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil </span><span class="cov0" title="0">{
                                 return
                         }</span>
                 }
@@ -4679,13 +4790,17 @@ func (c *Client) writePump() <span class="cov0" title="0">{
 
 // handleMessage handles incoming WebSocket messages
 func (c *Client) handleMessage(data []byte) <span class="cov0" title="0">{
+        clientAddr := c.conn.RemoteAddr().String()
+
         var msg Message
         if err := json.Unmarshal(data, &amp;msg); err != nil </span><span class="cov0" title="0">{
-                log.Printf("Error unmarshaling message: %v", err)
+                logWebError("Message unmarshaling", err)
                 return
         }</span>
 
-        <span class="cov0" title="0">switch msg.Type </span>{
+        <span class="cov0" title="0">logClientMessage(msg.Type, clientAddr, msg.Data)
+
+        switch msg.Type </span>{
         case "ping":<span class="cov0" title="0">
                 // Respond with pong
                 response := Message{
@@ -4697,14 +4812,92 @@ func (c *Client) handleMessage(data []byte) <span class="cov0" title="0">{
                 case c.send &lt;- responseData:<span class="cov0" title="0"></span>
                 default:<span class="cov0" title="0"></span>
                 }
+                <span class="cov0" title="0">logDebug("WEBSOCKET", "Pong sent", map[string]interface{}{
+                        "client":  clientAddr,
+                        "latency": time.Now().UnixMilli() - msg.Timestamp,
+                })</span>
 
-        case "control":<span class="cov0" title="0"></span>
-                // Handle simulation control messages
-                // This would be implemented based on the specific control commands needed
+        case "viewport_update":<span class="cov0" title="0">
+                // Handle viewport changes for server-side filtering
+                logDataStream("VIEWPORT", "Update received", msg.Data)</span>
+                // Future: Implement viewport-based platform filtering
+
+        case "filter_update":<span class="cov0" title="0">
+                // Handle platform filter changes
+                logDataStream("FILTER", "Update received", msg.Data)</span>
+                // Future: Implement server-side platform filtering
+
+        case "request_initial_data":<span class="cov0" title="0">
+                // Send current platform data
+                logDataStream("CLIENT", "Initial data requested", clientAddr)
+                go c.server.sendInitialData(c)</span>
+
+        case "start_simulation":<span class="cov0" title="0">
+                // Handle simulation start command
+                logSimulationEvent("START_REQUESTED", map[string]interface{}{
+                        "client":    clientAddr,
+                        "timestamp": msg.Timestamp,
+                })
+                if err := c.server.simulation.Start(); err != nil </span><span class="cov0" title="0">{
+                        logWebError("Simulation start", err)
+                }</span> else<span class="cov0" title="0"> {
+                        c.server.broadcastSimulationStatus()
+                }</span>
+
+        case "stop_simulation":<span class="cov0" title="0">
+                // Handle simulation stop command
+                logSimulationEvent("STOP_REQUESTED", map[string]interface{}{
+                        "client":    clientAddr,
+                        "timestamp": msg.Timestamp,
+                })
+                c.server.simulation.Stop()
+                c.server.broadcastSimulationStatus()</span>
+
+        case "control":<span class="cov0" title="0">
+                // Handle other simulation control messages
+                logSimulationEvent("CONTROL_MESSAGE", msg.Data)</span>
 
         default:<span class="cov0" title="0">
-                log.Printf("Unknown message type: %s", msg.Type)</span>
+                // Log unknown message types with full context for debugging
+                logDebug("WEBSOCKET", "Unknown message type received", map[string]interface{}{
+                        "type":      msg.Type,
+                        "client":    clientAddr,
+                        "data":      msg.Data,
+                        "timestamp": msg.Timestamp,
+                })</span>
         }
+}
+
+// handleClientLog handles client-side logging for debugging
+func (s *Server) handleClientLog(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var logData map[string]interface{}
+        if err := json.NewDecoder(r.Body).Decode(&amp;logData); err != nil </span><span class="cov0" title="0">{
+                logWebError("Client log decode", err)
+                http.Error(w, "Invalid log data", http.StatusBadRequest)
+                return
+        }</span>
+
+        // Log client-side events with context
+        <span class="cov0" title="0">logType, _ := logData["type"].(string)
+        step, _ := logData["step"].(string)
+        message, _ := logData["message"].(string)
+        timestamp, _ := logData["timestamp"].(string)
+        userAgent, _ := logData["userAgent"].(string)
+
+        switch logType </span>{
+        case "client_log":<span class="cov0" title="0">
+                log.Printf("[CLIENT-LOG] [%s] %s: %s - UA: %s", step, timestamp, message, userAgent)</span>
+        case "client_error":<span class="cov0" title="0">
+                errorMsg, _ := logData["error"].(string)
+                context, _ := logData["context"].(string)
+                stack, _ := logData["stack"].(string)
+                log.Printf("[CLIENT-ERROR] [%s] %s: %s - Context: %s - Stack: %s - UA: %s",
+                        step, timestamp, errorMsg, context, stack, userAgent)</span>
+        default:<span class="cov0" title="0">
+                log.Printf("[CLIENT-UNKNOWN] %+v", logData)</span>
+        }
+
+        <span class="cov0" title="0">w.WriteHeader(http.StatusNoContent)</span>
 }
 
 // loggingMiddleware adds request/response logging to API endpoints
@@ -4738,6 +4931,36 @@ func (rw *responseWriter) WriteHeader(code int) <span class="cov0" title="0">{
         rw.statusCode = code
         rw.ResponseWriter.WriteHeader(code)
 }</span>
+
+// handleMetrics returns comprehensive performance metrics
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        stats := s.simulation.GetStatistics()
+
+        metrics := map[string]interface{}{
+                "simulation": stats,
+                "server": map[string]interface{}{
+                        "active_websocket_clients": len(s.clients),
+                        "uptime_seconds":           time.Since(time.Now()).Seconds(), // Will be corrected with actual start time
+                },
+                "platforms": map[string]interface{}{
+                        "total": stats.TotalPlatforms,
+                        "by_type": map[string]interface{}{
+                                "airborne": stats.AirbornePlatforms,
+                                "maritime": stats.MaritimePlatforms,
+                                "land":     stats.LandPlatforms,
+                                "space":    stats.SpacePlatforms,
+                        },
+                },
+                "timestamp": time.Now().Unix(),
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        if err := json.NewEncoder(w).Encode(metrics); err != nil </span><span class="cov0" title="0">{
+                logWebError("Metrics encoding", err)
+                http.Error(w, "Error encoding metrics", http.StatusInternalServerError)
+                return
+        }</span>
+}
 </pre>
 		
 		<pre class="file" id="file11" style="display: none">package sim
@@ -4752,6 +4975,27 @@ import (
         "github.com/rhino11/trafficsim/internal/models"
 )
 
+// Enhanced logging for simulation debugging
+func logSimulationStart(platformCount int, updateInterval time.Duration) <span class="cov0" title="0">{
+        log.Printf("[SIM-START] Starting simulation with %d platforms at %v update interval", platformCount, updateInterval)
+}</span>
+
+func logSimulationStop(reason string) <span class="cov0" title="0">{
+        log.Printf("[SIM-STOP] Simulation stopped: %s", reason)
+}</span>
+
+func logPlatformOperation(operation string, platformID string, details interface{}) <span class="cov0" title="0">{
+        log.Printf("[PLATFORM-OP] %s - ID: %s - Details: %+v", operation, platformID, details)
+}</span>
+
+func logSimulationPerformance(updateCount int, avgUpdateTime time.Duration, platformCount int) <span class="cov0" title="0">{
+        log.Printf("[SIM-PERF] Updates: %d, Avg Update Time: %v, Platforms: %d", updateCount, avgUpdateTime, platformCount)
+}</span>
+
+func logSimulationError(context string, err error, platformID string) <span class="cov0" title="0">{
+        log.Printf("[SIM-ERROR] Context: %s, Platform: %s, Error: %v", context, platformID, err)
+}</span>
+
 // Engine represents the main simulation engine that orchestrates all platform movement
 type Engine struct {
         config         *config.Config
@@ -4765,6 +5009,11 @@ type Engine struct {
         simulationTime float64
         timeMux        sync.RWMutex
         updateInterval time.Duration
+
+        // Performance tracking
+        updateCount     int64
+        totalUpdateTime time.Duration
+        lastPerfLog     time.Time
 }
 
 // NewEngine creates a new simulation engine
@@ -4801,8 +5050,7 @@ func (e *Engine) Start() error <span class="cov0" title="0">{
         // Start the simulation loop in a goroutine
         go e.simulationLoop()
 
-        log.Printf("Simulation started with %d platforms at %v update interval",
-                len(e.platforms), e.updateInterval)
+        logSimulationStart(len(e.platforms), e.updateInterval)
         return nil</span>
 }
 
@@ -4821,7 +5069,7 @@ func (e *Engine) Stop() <span class="cov0" title="0">{
         }</span>
         <span class="cov0" title="0">close(e.stopCh)
 
-        log.Printf("Simulation stopped")</span>
+        logSimulationStop("User requested stop")</span>
 }
 
 // Reset resets the simulation to initial state
@@ -4882,7 +5130,7 @@ func (e *Engine) AddPlatform(platform models.Platform) error <span class="cov0" 
         }</span>
 
         <span class="cov0" title="0">e.platforms[id] = platform
-        log.Printf("Added platform %s to simulation", id)
+        logPlatformOperation("ADD", id, platform)
         return nil</span>
 }
 
@@ -4896,7 +5144,7 @@ func (e *Engine) RemovePlatform(id string) error <span class="cov0" title="0">{
         }</span>
 
         <span class="cov0" title="0">delete(e.platforms, id)
-        log.Printf("Removed platform %s from simulation", id)
+        logPlatformOperation("REMOVE", id, nil)
         return nil</span>
 }
 
@@ -4949,9 +5197,11 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 "United 123",
                 models.Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}, // NYC
         )
-        boeing737.SetDestination(models.Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}) // LA
+        if err := boeing737.SetDestination(models.Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error setting Boeing 737 destination: %v", err)
+        }</span>
 
-        if err := e.AddPlatform(boeing737); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := e.AddPlatform(boeing737); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
@@ -4961,9 +5211,11 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 "Mustin",
                 models.Position{Latitude: 36.8485, Longitude: -76.2951, Altitude: 0}, // Norfolk, VA
         )
-        destroyer.SetDestination(models.Position{Latitude: 25.7617, Longitude: -80.1918, Altitude: 0}) // Miami
+        if err := destroyer.SetDestination(models.Position{Latitude: 25.7617, Longitude: -80.1918, Altitude: 0}); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error setting destroyer destination: %v", err)
+        }</span>
 
-        if err := e.AddPlatform(destroyer); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := e.AddPlatform(destroyer); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
@@ -4973,9 +5225,11 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 "Alpha Company",
                 models.Position{Latitude: 31.8720, Longitude: -106.3744, Altitude: 1200}, // El Paso, TX
         )
-        tank.SetDestination(models.Position{Latitude: 31.8800, Longitude: -106.3600, Altitude: 1250})
+        if err := tank.SetDestination(models.Position{Latitude: 31.8800, Longitude: -106.3600, Altitude: 1250}); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error setting tank destination: %v", err)
+        }</span>
 
-        if err := e.AddPlatform(tank); err != nil </span><span class="cov0" title="0">{
+        <span class="cov0" title="0">if err := e.AddPlatform(tank); err != nil </span><span class="cov0" title="0">{
                 return err
         }</span>
 
@@ -5019,7 +5273,16 @@ func (e *Engine) Update(deltaTime time.Duration) error <span class="cov0" title=
         e.simulationTime += deltaTime.Seconds()
         e.timeMux.Unlock()
 
-        return nil</span>
+        // Performance tracking
+        e.updateCount++
+        e.totalUpdateTime += deltaTime
+        if time.Since(e.lastPerfLog) &gt; time.Second </span><span class="cov0" title="0">{
+                avgUpdateTime := e.totalUpdateTime / time.Duration(e.updateCount)
+                logSimulationPerformance(int(e.updateCount), avgUpdateTime, len(e.platforms))
+                e.lastPerfLog = time.Now()
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
 }
 
 // simulationLoop runs the main simulation update loop
@@ -5055,8 +5318,10 @@ func (e *Engine) SetUpdateInterval(interval time.Duration) <span class="cov0" ti
         if e.IsRunning() </span><span class="cov0" title="0">{
                 e.Stop()
                 time.Sleep(100 * time.Millisecond) // Brief pause
-                e.Start()
-        }</span>
+                if err := e.Start(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error restarting simulation with new interval: %v", err)
+                }</span>
+        }
 }
 
 // GetPlatformCount returns the number of platforms in the simulation
@@ -5134,10 +5399,12 @@ func (e *Engine) SetDestinationForPlatform(id string, destination models.Positio
         }</span>
 
         <span class="cov0" title="0">if universalPlatform, ok := platform.(*models.UniversalPlatform); ok </span><span class="cov0" title="0">{
-                universalPlatform.SetDestination(destination)
-                log.Printf("Set destination for platform %s to %+v", id, destination)
-                return nil
-        }</span>
+                if err := universalPlatform.SetDestination(destination); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to set destination for platform %s: %w", id, err)
+                }</span>
+                <span class="cov0" title="0">logPlatformOperation("SET_DESTINATION", id, destination)
+                return nil</span>
+        }
 
         <span class="cov0" title="0">return fmt.Errorf("platform %s does not support destination setting", id)</span>
 }
