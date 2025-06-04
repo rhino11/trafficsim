@@ -366,6 +366,36 @@ class PerformanceMonitor {
         return overlay;
     }
 
+    // Add missing methods that the HTML template expects
+    recordPlatformCount(count) {
+        this.metrics.platformCount = count;
+        if (this.elements.platformCount) {
+            this.elements.platformCount.textContent = count;
+        }
+    }
+
+    recordError(error) {
+        console.error('Performance Monitor - Error recorded:', error);
+        // Could implement error tracking here
+    }
+
+    onUpdate(callback) {
+        this.updateCallback = callback;
+
+        // Set up interval to call the callback with current stats
+        setInterval(() => {
+            if (this.updateCallback && this.isActive) {
+                const stats = {
+                    fps: this.metrics.fps,
+                    visibleCount: this.metrics.visibleCount,
+                    memoryMB: this.metrics.memoryUsage,
+                    dataRate: this.metrics.dataRate
+                };
+                this.updateCallback(stats);
+            }
+        }, 1000); // Update every second
+    }
+
     // Public API methods
     start() {
         this.isActive = true;

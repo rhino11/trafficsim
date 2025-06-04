@@ -434,61 +434,101 @@ class MapEngine {
     }
 
     /**
-     * Add event listener
-     * @param {string} event - Event name
-     * @param {Function} callback - Event callback
+     * Get the underlying Leaflet map instance
+     * @returns {L.Map} The Leaflet map instance
      */
-    on(event, callback) {
-        this.map.on(event, callback);
+    getMap() {
+        return this.map;
     }
 
     /**
-     * Remove event listener
-     * @param {string} event - Event name
-     * @param {Function} callback - Event callback
+     * Get current viewport bounds
+     * @returns {Object} Viewport bounds
      */
-    off(event, callback) {
-        this.map.off(event, callback);
+    getViewportBounds() {
+        return this.viewportBounds;
     }
 
     /**
-     * Get viewport bounds with padding
-     * @param {number} padding - Padding ratio (0.1 = 10% padding)
-     * @returns {Object} Padded bounds
+     * Trigger viewport change callback
      */
-    getViewportBoundsWithPadding(padding = 0.1) {
-        const bounds = this.getViewportBounds();
-        const latPadding = (bounds.north - bounds.south) * padding;
-        const lngPadding = (bounds.east - bounds.west) * padding;
+    onViewportChange() {
+        if (this.onViewportChangeCallback) {
+            this.onViewportChangeCallback(this.viewportBounds);
+        }
 
-        return {
-            north: bounds.north + latPadding,
-            south: bounds.south - latPadding,
-            east: bounds.east + lngPadding,
-            west: bounds.west - lngPadding
+        // Also trigger any registered callbacks
+        this.viewportChangeCallbacks.forEach(callback => {
+            try {
+                callback(this.viewportBounds);
+            } catch (error) {
+                console.error('Error in viewport change callback:', error);
+            }
+        });
+    }
+
+    /**
+     * Register viewport change callback
+     * @param {Function} callback - Callback function
+     */
+    onViewportChangeCallback(callback) {
+        this.onViewportChangeCallback = callback;
+    }
+
+    /**
+     * Add viewport change listener
+     * @param {Function} callback - Callback function
+     */
+    addViewportChangeListener(callback) {
+        this.viewportChangeCallbacks.push(callback);
+    }
+
+    /**
+     * Remove viewport change listener
+     * @param {Function} callback - Callback function to remove
+     */
+    removeViewportChangeListener(callback) {
+        const index = this.viewportChangeCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.viewportChangeCallbacks.splice(index, 1);
+        }
+    }
+
+    /**
+     * Performance callback handler
+     * @param {string} metric - Performance metric name
+     * @param {*} value - Metric value
+     */
+    onPerformanceUpdate(metric, value) {
+        if (this.performanceCallback) {
+            this.performanceCallback(metric, value);
+        }
+    }
+
+    /**
+     * Set performance callback
+     * @param {Function} callback - Performance callback function
+     */
+    setPerformanceCallback(callback) {
+        this.performanceCallback = callback;
+    }
+
+    /**
+     * Throttle function for performance optimization
+     * @param {Function} func - Function to throttle
+     * @param {number} wait - Wait time in milliseconds
+     * @returns {Function} Throttled function
+     */
+    throttle(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
         };
-    }
-
-    /**
-     * Add scale control
-     */
-    addScaleControl() {
-        if (L.control && L.control.scale) {
-            const scaleControl = L.control.scale();
-            scaleControl.addTo(this.map);
-        }
-    }
-
-    /**
-     * Add layer control
-     * @param {Object} baseLayers - Base layers
-     * @param {Object} overlayLayers - Overlay layers
-     */
-    addLayerControl(baseLayers, overlayLayers) {
-        if (L.control && L.control.layers) {
-            const layerControl = L.control.layers(baseLayers, overlayLayers);
-            layerControl.addTo(this.map);
-        }
     }
 
     /**

@@ -306,34 +306,32 @@
                 updateLoadingProgress(60, 'Setting up platform renderer...');
                 logInit('RENDERER', 'Setting up platform renderer');
 
-                // Initialize platform renderer (mock implementation for now)
-                const platformRenderer = {
-                    updatePlatforms: function (platforms) {
-                        logInit('RENDERER', `Platform update received: ${platforms.length} platforms`);
-                        // Update platform counter
-                        document.getElementById('platform-counter').textContent = platforms.length;
-                    },
-                    clearAll: function () {
-                        logInit('RENDERER', 'Clearing all platforms');
-                        document.getElementById('platform-counter').textContent = '0';
-                    },
-                    setTrailsVisible: function (visible) { logInit('RENDERER', `Trails visible: ${visible}`); },
-                    setLabelsVisible: function (visible) { logInit('RENDERER', `Labels visible: ${visible}`); },
-                    setSensorRangeVisible: function (visible) { logInit('RENDERER', `Sensor range visible: ${visible}`); },
-                    setClusteringEnabled: function (enabled) { logInit('RENDERER', `Clustering enabled: ${enabled}`); },
-                    setPlatformTypeVisible: function (type, visible) { logInit('RENDERER', `Platform type ${type} visible: ${visible}`); },
-                    onPlatformSelect: function (callback) { this.platformSelectCallback = callback; }
-                };
+                // Initialize actual platform renderer
+                const platformRenderer = new PlatformRenderer(mapEngine);
+                await platformRenderer.init();
                 logInit('RENDERER', 'Platform renderer setup completed');
 
                 updateLoadingProgress(80, 'Connecting to data stream...');
                 logInit('CONNECTION', 'Setting up data stream connection');
 
-                // Connect data stream to renderer
+                // Start the data connection and wait for initial data
+                logInit('CONNECTION', 'Starting data streamer connection');
+                await dataStreamer.connect();
+                logInit('CONNECTION', 'Data streamer connection established');
+
+                // Connect data stream to renderer with proper error handling
                 dataStreamer.onPlatformUpdate((platforms) => {
-                    platformRenderer.updatePlatforms(platforms);
-                    if (perfMonitor.recordPlatformCount) {
-                        perfMonitor.recordPlatformCount(platforms.length);
+                    try {
+                        logInit('DATA', `Received platform update with ${platforms.length} platforms`);
+                        platformRenderer.updatePlatforms(platforms);
+
+                        // Update performance counters
+                        document.getElementById('platform-counter').textContent = platforms.length;
+                        if (perfMonitor.recordPlatformCount) {
+                            perfMonitor.recordPlatformCount(platforms.length);
+                        }
+                    } catch (error) {
+                        logError('RENDERER', error, 'Failed to update platforms in renderer');
                     }
                 });
 
@@ -350,23 +348,31 @@
                 logInit('EVENTS', 'Setting up UI event handlers');
 
                 // Control panel event handlers
-                document.getElementById('play-pause-btn').addEventListener('click', function () {
+                document.getElementById('play-pause-btn').addEventListener('click', async function () {
                     logInit('UI', 'Play/Pause button clicked');
-                    const isRunning = dataStreamer.toggleSimulation();
-                    this.textContent = isRunning ? '⏸️ Pause' : '▶️ Play';
+                    try {
+                        if (this.textContent.includes('Pause')) {
+                            await dataStreamer.stopSimulation();
+                            this.textContent = '▶️ Play';
+                        } else {
+                            await dataStreamer.startSimulation();
+                            this.textContent = '⏸️ Pause';
+                        }
+                    } catch (error) {
+                        logError('UI', error, 'Failed to toggle simulation');
+                    }
                 });
 
                 document.getElementById('reset-btn').addEventListener('click', function () {
                     logInit('UI', 'Reset button clicked');
-                    dataStreamer.resetSimulation();
-                    platformRenderer.clearAll();
+                    platformRenderer.clearAllPlatforms();
                 });
 
                 document.getElementById('speed-slider').addEventListener('input', function () {
                     const speed = parseFloat(this.value);
                     logInit('UI', `Speed slider changed to: ${speed}x`);
                     document.getElementById('speed-display').textContent = `${speed}x`;
-                    dataStreamer.setSimulationSpeed(speed);
+                    // Speed control would be implemented server-side
                 });
 
                 // Display option handlers
@@ -377,24 +383,28 @@
 
                 document.getElementById('show-labels').addEventListener('change', function () {
                     logInit('UI', `Show labels toggled: ${this.checked}`);
-                    platformRenderer.setLabelsVisible(this.checked);
+                    // Labels are handled in popup content
                 });
 
                 document.getElementById('show-sensors').addEventListener('change', function () {
                     logInit('UI', `Show sensors toggled: ${this.checked}`);
-                    platformRenderer.setSensorRangeVisible(this.checked);
+                    // Sensor range visualization would be a future feature
                 });
 
                 document.getElementById('cluster-platforms').addEventListener('change', function () {
                     logInit('UI', `Clustering toggled: ${this.checked}`);
-                    platformRenderer.setClusteringEnabled(this.checked);
+                    if (this.checked) {
+                        platformRenderer.enableClustering();
+                    } else {
+                        platformRenderer.disableClustering();
+                    }
                 });
 
                 // Platform filter handlers
                 ['airborne', 'land', 'maritime', 'space'].forEach(type => {
                     document.getElementById(`filter-${type}`).addEventListener('change', function () {
                         logInit('UI', `Filter ${type} toggled: ${this.checked}`);
-                        platformRenderer.setPlatformTypeVisible(type, this.checked);
+                        platformRenderer.setPlatformFilter(type, this.checked);
                     });
                 });
 
@@ -407,9 +417,26 @@
                 updateLoadingProgress(95, 'Starting data connection...');
                 logInit('CONNECTION', 'Starting data streamer connection');
 
-                // Start the data connection
-                dataStreamer.connect();
-                logInit('CONNECTION', 'Data streamer connection initiated');
+                // Start the data connection and wait for initial data
+                logInit('CONNECTION', 'Starting data streamer connection');
+                await dataStreamer.connect();
+                logInit('CONNECTION', 'Data streamer connection established');
+
+                // Connect data stream to renderer with proper error handling
+                dataStreamer.onPlatformUpdate((platforms) => {
+                    try {
+                        logInit('DATA', `Received platform update with ${platforms.length} platforms`);
+                        platformRenderer.updatePlatforms(platforms);
+
+                        // Update performance counters
+                        document.getElementById('platform-counter').textContent = platforms.length;
+                        if (perfMonitor.recordPlatformCount) {
+                            perfMonitor.recordPlatformCount(platforms.length);
+                        }
+                    } catch (error) {
+                        logError('RENDERER', error, 'Failed to update platforms in renderer');
+                    }
+                });
 
                 // Start performance monitoring if available
                 if (perfMonitor.start) {

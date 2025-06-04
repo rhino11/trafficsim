@@ -10,6 +10,27 @@ import (
 	"github.com/rhino11/trafficsim/internal/models"
 )
 
+// Enhanced logging for simulation debugging
+func logSimulationStart(platformCount int, updateInterval time.Duration) {
+	log.Printf("[SIM-START] Starting simulation with %d platforms at %v update interval", platformCount, updateInterval)
+}
+
+func logSimulationStop(reason string) {
+	log.Printf("[SIM-STOP] Simulation stopped: %s", reason)
+}
+
+func logPlatformOperation(operation string, platformID string, details interface{}) {
+	log.Printf("[PLATFORM-OP] %s - ID: %s - Details: %+v", operation, platformID, details)
+}
+
+func logSimulationPerformance(updateCount int, avgUpdateTime time.Duration, platformCount int) {
+	log.Printf("[SIM-PERF] Updates: %d, Avg Update Time: %v, Platforms: %d", updateCount, avgUpdateTime, platformCount)
+}
+
+func logSimulationError(context string, err error, platformID string) {
+	log.Printf("[SIM-ERROR] Context: %s, Platform: %s, Error: %v", context, platformID, err)
+}
+
 // Engine represents the main simulation engine that orchestrates all platform movement
 type Engine struct {
 	config         *config.Config
@@ -23,6 +44,11 @@ type Engine struct {
 	simulationTime float64
 	timeMux        sync.RWMutex
 	updateInterval time.Duration
+
+	// Performance tracking
+	updateCount    int64
+	totalUpdateTime time.Duration
+	lastPerfLog    time.Time
 }
 
 // NewEngine creates a new simulation engine
@@ -59,8 +85,7 @@ func (e *Engine) Start() error {
 	// Start the simulation loop in a goroutine
 	go e.simulationLoop()
 
-	log.Printf("Simulation started with %d platforms at %v update interval",
-		len(e.platforms), e.updateInterval)
+	logSimulationStart(len(e.platforms), e.updateInterval)
 	return nil
 }
 
@@ -79,7 +104,7 @@ func (e *Engine) Stop() {
 	}
 	close(e.stopCh)
 
-	log.Printf("Simulation stopped")
+	logSimulationStop("User requested stop")
 }
 
 // Reset resets the simulation to initial state
@@ -140,7 +165,7 @@ func (e *Engine) AddPlatform(platform models.Platform) error {
 	}
 
 	e.platforms[id] = platform
-	log.Printf("Added platform %s to simulation", id)
+	logPlatformOperation("ADD", id, platform)
 	return nil
 }
 
@@ -154,7 +179,7 @@ func (e *Engine) RemovePlatform(id string) error {
 	}
 
 	delete(e.platforms, id)
-	log.Printf("Removed platform %s from simulation", id)
+	logPlatformOperation("REMOVE", id, nil)
 	return nil
 }
 
@@ -277,6 +302,15 @@ func (e *Engine) Update(deltaTime time.Duration) error {
 	e.simulationTime += deltaTime.Seconds()
 	e.timeMux.Unlock()
 
+	// Performance tracking
+	e.updateCount++
+	e.totalUpdateTime += deltaTime
+	if time.Since(e.lastPerfLog) > time.Second {
+		avgUpdateTime := e.totalUpdateTime / time.Duration(e.updateCount)
+		logSimulationPerformance(int(e.updateCount), avgUpdateTime, len(e.platforms))
+		e.lastPerfLog = time.Now()
+	}
+
 	return nil
 }
 
@@ -393,7 +427,7 @@ func (e *Engine) SetDestinationForPlatform(id string, destination models.Positio
 
 	if universalPlatform, ok := platform.(*models.UniversalPlatform); ok {
 		universalPlatform.SetDestination(destination)
-		log.Printf("Set destination for platform %s to %+v", id, destination)
+		logPlatformOperation("SET_DESTINATION", id, destination)
 		return nil
 	}
 

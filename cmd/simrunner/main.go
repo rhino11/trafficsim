@@ -42,6 +42,20 @@ func main() {
 		// Run web server mode
 		fmt.Printf("Starting web server on port %s...\n", *port)
 
+		// Load platforms from configuration (needed for web mode)
+		fmt.Println("Loading platforms for web simulation...")
+		if err := engine.LoadPlatformsFromConfig(); err != nil {
+			log.Fatalf("Failed to load platforms: %v", err)
+		}
+
+		platforms := engine.GetAllPlatforms()
+		fmt.Printf("Loaded %d platforms for web interface\n", len(platforms))
+
+		// Start simulation engine for web mode
+		if err := engine.Start(); err != nil {
+			log.Fatalf("Failed to start simulation: %v", err)
+		}
+
 		// Create server
 		srv := server.NewServer(cfg, engine)
 

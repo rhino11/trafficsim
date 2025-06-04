@@ -52,7 +52,7 @@ class PlatformRenderer {
         this.init();
     }
 
-    init() {
+    async init() {
         console.log('Initializing PlatformRenderer...');
 
         // Set up high-performance canvas renderer
@@ -65,6 +65,8 @@ class PlatformRenderer {
         this.setupEventHandlers();
 
         console.log('PlatformRenderer initialized');
+
+        return this;
     }
 
     setupCanvasRenderer() {
@@ -124,10 +126,12 @@ class PlatformRenderer {
             }
         });
 
-        // Viewport change optimization
-        this.mapEngine.onViewportChangeCallback = (bounds) => {
-            this.onViewportChange(bounds);
-        };
+        // Viewport change optimization - fix the callback assignment
+        if (this.mapEngine.addViewportChangeListener) {
+            this.mapEngine.addViewportChangeListener((bounds) => {
+                this.onViewportChange(bounds);
+            });
+        }
     }
 
     // Create optimized marker for platform

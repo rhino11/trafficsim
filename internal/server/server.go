@@ -53,6 +53,18 @@ func logDebug(component string, message string, data interface{}) {
 	log.Printf("[DEBUG] [%s] %s - %+v", component, message, data)
 }
 
+func logClientMessage(msgType string, clientAddr string, data interface{}) {
+	log.Printf("[CLIENT-MSG] Type: %s, From: %s, Data: %+v", msgType, clientAddr, data)
+}
+
+func logDataStream(component string, action string, details interface{}) {
+	log.Printf("[STREAM] [%s] %s - %+v", component, action, details)
+}
+
+func logPlatformUpdate(platformCount int, action string) {
+	log.Printf("[PLATFORM] %s - Count: %d", action, platformCount)
+}
+
 // Server represents the web server for the traffic simulation
 type Server struct {
 	config     *config.Config
@@ -154,6 +166,10 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/simulation/reset", s.handleResetSimulation).Methods("POST")
 	api.HandleFunc("/simulation/status", s.handleSimulationStatus).Methods("GET")
 	api.HandleFunc("/stream/platforms", s.handleSSEPlatforms).Methods("GET")
+	// Performance monitoring endpoint
+	api.HandleFunc("/metrics", s.handleMetrics).Methods("GET")
+	// Client logging endpoint for debugging
+	api.HandleFunc("/log", s.handleClientLog).Methods("POST")
 
 	// Main page
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
@@ -331,31 +347,49 @@ func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) {
 
 	// Send initial data
 	platforms := s.simulation.GetAllPlatforms()
-	data, _ := json.Marshal(platforms)
-	fmt.Fprintf(w, "data: %s\n\n", data)
-	flusher.Flush()
+	if len(platforms) > 0 {
+		data, _ := json.Marshal(platforms)
+		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+		log.Printf("SSE: Sent initial data with %d platforms", len(platforms))
+	}
 
-	// Create a channel for this SSE connection
-	updates := make(chan []byte, 10)
-	defer close(updates)
-
-	// TODO: Subscribe to simulation updates and send them via SSE
-	// This would require adding a subscription mechanism to the simulation engine
-
-	// Keep connection alive
-	ticker := time.NewTicker(30 * time.Second)
+	// Create a ticker to send regular updates
+	ticker := time.NewTicker(100 * time.Millisecond) // 10 FPS
 	defer ticker.Stop()
+
+	// Keep connection alive ticker
+	heartbeatTicker := time.NewTicker(30 * time.Second)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
 		case <-r.Context().Done():
+			log.Printf("SSE: Client disconnected")
 			return
-		case <-ticker.C:
+		case <-heartbeatTicker.C:
 			fmt.Fprintf(w, ": heartbeat\n\n")
 			flusher.Flush()
-		case data := <-updates:
-			fmt.Fprintf(w, "data: %s\n\n", data)
-			flusher.Flush()
+		case <-ticker.C:
+			if s.simulation.IsRunning() {
+				platforms := s.simulation.GetAllPlatforms()
+				if len(platforms) > 0 {
+					message := PlatformUpdate{
+						Type:      "platform_update",
+						Platforms: platforms,
+						Timestamp: time.Now().UnixMilli(),
+					}
+
+					data, err := json.Marshal(message)
+					if err != nil {
+						log.Printf("Error marshaling SSE platform update: %v", err)
+						continue
+					}
+
+					fmt.Fprintf(w, "data: %s\n\n", data)
+					flusher.Flush()
+				}
+			}
 		}
 	}
 }
@@ -431,21 +465,27 @@ func (s *Server) handleBroadcast() {
 			return
 		case message := <-s.broadcast:
 			s.clientsMux.RLock()
+			clientsToRemove := make([]*websocket.Conn, 0)
+
 			for client := range s.clients {
-				select {
-				case <-time.After(time.Second):
-					// Client write timeout, remove client
-					delete(s.clients, client)
-					client.Close()
-				default:
-					if err := client.WriteMessage(websocket.TextMessage, message); err != nil {
-						// Error writing, remove client
-						delete(s.clients, client)
-						client.Close()
-					}
+				err := client.WriteMessage(websocket.TextMessage, message)
+				if err != nil {
+					log.Printf("Error writing to WebSocket client: %v", err)
+					clientsToRemove = append(clientsToRemove, client)
 				}
 			}
 			s.clientsMux.RUnlock()
+
+			// Remove failed clients
+			if len(clientsToRemove) > 0 {
+				s.clientsMux.Lock()
+				for _, client := range clientsToRemove {
+					delete(s.clients, client)
+					client.Close()
+				}
+				s.clientsMux.Unlock()
+				logWebSocket("Removed failed clients", len(s.clients))
+			}
 		}
 	}
 }
@@ -514,11 +554,15 @@ func (c *Client) writePump() {
 
 // handleMessage handles incoming WebSocket messages
 func (c *Client) handleMessage(data []byte) {
+	clientAddr := c.conn.RemoteAddr().String()
+
 	var msg Message
 	if err := json.Unmarshal(data, &msg); err != nil {
-		log.Printf("Error unmarshaling message: %v", err)
+		logWebError("Message unmarshaling", err)
 		return
 	}
+
+	logClientMessage(msg.Type, clientAddr, msg.Data)
 
 	switch msg.Type {
 	case "ping":
@@ -532,14 +576,92 @@ func (c *Client) handleMessage(data []byte) {
 		case c.send <- responseData:
 		default:
 		}
+		logDebug("WEBSOCKET", "Pong sent", map[string]interface{}{
+			"client":  clientAddr,
+			"latency": time.Now().UnixMilli() - msg.Timestamp,
+		})
+
+	case "viewport_update":
+		// Handle viewport changes for server-side filtering
+		logDataStream("VIEWPORT", "Update received", msg.Data)
+		// Future: Implement viewport-based platform filtering
+
+	case "filter_update":
+		// Handle platform filter changes
+		logDataStream("FILTER", "Update received", msg.Data)
+		// Future: Implement server-side platform filtering
+
+	case "request_initial_data":
+		// Send current platform data
+		logDataStream("CLIENT", "Initial data requested", clientAddr)
+		go c.server.sendInitialData(c)
+
+	case "start_simulation":
+		// Handle simulation start command
+		logSimulationEvent("START_REQUESTED", map[string]interface{}{
+			"client":    clientAddr,
+			"timestamp": msg.Timestamp,
+		})
+		if err := c.server.simulation.Start(); err != nil {
+			logWebError("Simulation start", err)
+		} else {
+			c.server.broadcastSimulationStatus()
+		}
+
+	case "stop_simulation":
+		// Handle simulation stop command
+		logSimulationEvent("STOP_REQUESTED", map[string]interface{}{
+			"client":    clientAddr,
+			"timestamp": msg.Timestamp,
+		})
+		c.server.simulation.Stop()
+		c.server.broadcastSimulationStatus()
 
 	case "control":
-		// Handle simulation control messages
-		// This would be implemented based on the specific control commands needed
+		// Handle other simulation control messages
+		logSimulationEvent("CONTROL_MESSAGE", msg.Data)
 
 	default:
-		log.Printf("Unknown message type: %s", msg.Type)
+		// Log unknown message types with full context for debugging
+		logDebug("WEBSOCKET", "Unknown message type received", map[string]interface{}{
+			"type":      msg.Type,
+			"client":    clientAddr,
+			"data":      msg.Data,
+			"timestamp": msg.Timestamp,
+		})
 	}
+}
+
+// handleClientLog handles client-side logging for debugging
+func (s *Server) handleClientLog(w http.ResponseWriter, r *http.Request) {
+	var logData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&logData); err != nil {
+		logWebError("Client log decode", err)
+		http.Error(w, "Invalid log data", http.StatusBadRequest)
+		return
+	}
+
+	// Log client-side events with context
+	logType, _ := logData["type"].(string)
+	step, _ := logData["step"].(string)
+	message, _ := logData["message"].(string)
+	timestamp, _ := logData["timestamp"].(string)
+	userAgent, _ := logData["userAgent"].(string)
+
+	switch logType {
+	case "client_log":
+		log.Printf("[CLIENT-LOG] [%s] %s: %s - UA: %s", step, timestamp, message, userAgent)
+	case "client_error":
+		errorMsg, _ := logData["error"].(string)
+		context, _ := logData["context"].(string)
+		stack, _ := logData["stack"].(string)
+		log.Printf("[CLIENT-ERROR] [%s] %s: %s - Context: %s - Stack: %s - UA: %s", 
+			step, timestamp, errorMsg, context, stack, userAgent)
+	default:
+		log.Printf("[CLIENT-UNKNOWN] %+v", logData)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // loggingMiddleware adds request/response logging to API endpoints
@@ -572,4 +694,34 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// handleMetrics returns comprehensive performance metrics
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	stats := s.simulation.GetStatistics()
+	
+	metrics := map[string]interface{}{
+		"simulation": stats,
+		"server": map[string]interface{}{
+			"active_websocket_clients": len(s.clients),
+			"uptime_seconds": time.Since(time.Now()).Seconds(), // Will be corrected with actual start time
+		},
+		"platforms": map[string]interface{}{
+			"total": stats.TotalPlatforms,
+			"by_type": map[string]interface{}{
+				"airborne": stats.AirbornePlatforms,
+				"maritime": stats.MaritimePlatforms,
+				"land":     stats.LandPlatforms,
+				"space":    stats.SpacePlatforms,
+			},
+		},
+		"timestamp": time.Now().Unix(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(metrics); err != nil {
+		logWebError("Metrics encoding", err)
+		http.Error(w, "Error encoding metrics", http.StatusInternalServerError)
+		return
+	}
 }
