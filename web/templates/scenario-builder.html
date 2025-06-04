@@ -290,6 +290,171 @@
             color: black;
         }
 
+        /* Platform selection styles */
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .domain-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .domain-filter button {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            color: #495057;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+            flex: 1;
+            min-width: 60px;
+        }
+
+        .domain-filter button:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .domain-filter button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+        }
+
+        .platform-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .platform-item:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .platform-item.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+        }
+
+        .platform-item h4 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .platform-item p {
+            margin: 4px 0;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .platform-item.selected p {
+            opacity: 0.9;
+        }
+
+        /* Scenario controls */
+        .scenario-controls {
+            margin-bottom: 20px;
+        }
+
+        .existing-scenarios {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .existing-scenarios h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .scenario-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .scenario-option {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .scenario-option:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .scenario-option.selected {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        .checkbox-label {
+            margin-left: 5px;
+        }
+
+        .map-instructions {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
         @media (max-width: 1200px) {
             .builder-container {
                 grid-template-columns: 1fr;
@@ -350,15 +515,50 @@
             <!-- Map Container -->
             <div class="map-container">
                 <div id="map"></div>
-                <div id="mapInstructions"
-                    style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 6px; font-size: 14px; z-index: 1000;">
-                    Click on the map to place platforms
+
+                <div class="map-controls">
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="waypointMode">
+                            <span class="checkbox-label">Waypoint Mode</span>
+                        </label>
+                        <small>Enable to create multi-point routes</small>
+                    </div>
+
+                    <div id="routeControls" style="display: none;">
+                        <button id="completeRoute" class="btn btn-primary" disabled>
+                            Complete Route
+                        </button>
+                        <button id="clearRoute" class="btn btn-secondary">
+                            Clear Route
+                        </button>
+                    </div>
+                </div>
+
+                <div id="mapInstructions" class="map-instructions">
+                    Select a platform and click on the map to place
                 </div>
             </div>
 
             <!-- Scenario Builder Panel -->
             <div class="panel">
                 <h2>🎬 Scenario Builder</h2>
+
+                <!-- Existing Scenarios Section -->
+                <div class="existing-scenarios">
+                    <h4>📁 Load Existing Scenarios</h4>
+                    <div class="scenario-list" id="existingScenarios">
+                        <div class="scenario-option" onclick="loadExistingScenario('emergency_response')">
+                            🚨 Emergency Response
+                        </div>
+                        <div class="scenario-option" onclick="loadExistingScenario('global_traffic_demo')">
+                            🌍 Global Traffic Demo
+                        </div>
+                        <div class="scenario-option" onclick="loadExistingScenario('military_exercise')">
+                            ⚔️ Military Exercise
+                        </div>
+                    </div>
+                </div>
 
                 <div class="form-group">
                     <label for="scenarioName">Scenario Name</label>
@@ -403,10 +603,11 @@
                     <div class="config-row single">
                         <div>
                             <label for="multicastGroup">Multicast Group:</label>
-                            <input type="text" id="multicastGroup" value="239.255.0.1" placeholder="e.g., 239.255.0.1" />
+                            <input type="text" id="multicastGroup" value="239.255.0.1"
+                                placeholder="e.g., 239.255.0.1" />
                         </div>
                     </div>
-                    
+
                     <button class="btn-run" onclick="runSimulation()">
                         🚀 RUN SIMULATION
                     </button>
@@ -459,6 +660,30 @@
                     <option value="commercial">Commercial</option>
                     <option value="emergency">Emergency</option>
                 </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="platformSpeed">Speed (m/s):</label>
+                    <input type="number" id="platformSpeed" min="0" step="0.1" value="10">
+                </div>
+                <div class="form-group">
+                    <label for="platformHeading">Heading (degrees):</label>
+                    <input type="number" id="platformHeading" min="0" max="359" step="1" value="0">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="platformRoute">Route Configuration:</label>
+                <div id="routeConfiguration">
+                    <div class="route-summary">
+                        <span id="waypointCount">0 waypoints</span>
+                        <button type="button" id="editRoute" class="btn btn-secondary">Edit Route</button>
+                    </div>
+                    <div id="waypointList" class="waypoint-list" style="display: none;">
+                        <!-- Waypoints will be populated here -->
+                    </div>
+                </div>
             </div>
 
             <button class="btn" onclick="savePlatformConfig()">Save Platform</button>

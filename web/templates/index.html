@@ -79,14 +79,234 @@
             background: #3b5998;
         }
 
-        #main-nav a:last-child {
+        #main-nav a:first-child {
             background: transparent;
             border: 1px solid #ecf0f1;
         }
 
-        #main-nav a:last-child:hover {
+        #main-nav a:first-child:hover {
             background: #ecf0f1;
             color: #2c3e50;
+        }
+
+        /* Main container styles */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        /* Left side control panel styles */
+        .control-panel {
+            background: #2c3e50;
+            padding: 20px;
+            width: 300px;
+            overflow-y: auto;
+            position: relative;
+            z-index: 100;
+            border-right: 1px solid #34495e;
+        }
+
+        .control-panel h2 {
+            margin: 0 0 20px 0;
+            color: #ecf0f1;
+            font-size: 22px;
+            border-bottom: 2px solid #34495e;
+            padding-bottom: 10px;
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+        }
+
+        .control-section h3 {
+            margin: 0 0 10px 0;
+            color: #ecf0f1;
+            font-size: 18px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .stat-item {
+            background: #34495e;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: #ffffff;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: #ffffff;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Map container styles */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Platform info panel styles */
+        .info-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            min-width: 280px;
+        }
+
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .info-header h3 {
+            margin: 0;
+            color: #4a5568;
+        }
+
+        .info-header button {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .info-content {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .info-value {
+            font-family: monospace;
+            color: #667eea;
+        }
+
+        /* Performance HUD styles */
+        #performance-hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .hud-item {
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        .label {
+            font-weight: 500;
+            margin-right: 5px;
+        }
+
+        /* Connection status styles */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background: #00ff00;
+        }
+
+        /* Checkbox styles */
+        input[type="checkbox"] {
+            accent-color: #667eea;
+        }
+
+        /* Performance monitor grid styles */
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .performance-item {
+            background: #34495e;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .performance-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ff00;
         }
     </style>
 </head>
@@ -105,123 +325,174 @@
         </div>
     </div>
 
-    <!-- Main Application Container -->
-    <div id="app-container">
-        <!-- Navigation Header -->
-        <nav id="main-nav">
-            <div style="display: flex; align-items: center;">
-                <h1>TrafficSim</h1>
-                <span>Real-time Platform Visualization</span>
-            </div>
-            <div style="display: flex; gap: 20px;">
-                <a href="/">🗺️ Live Map</a>
-                <a href="/scenario-builder">🛠️ Scenario Builder</a>
-            </div>
-        </nav>
+    <!-- Navigation Bar -->
+    <nav id="main-nav">
+        <div style="display: flex; align-items: center;">
+            <h1>TrafficSim</h1>
+            <span>Live Map</span>
+        </div>
+        <div style="display: flex; gap: 20px;">
+            <a href="/">🗺️ Live Map</a>
+            <a href="/scenario-builder">🛠️ Scenario Builder</a>
+        </div>
+    </nav>
 
-        <!-- Control Panel -->
-        <div id="control-panel">
-            <div class="panel-section">
-                <h3>Simulation Control</h3>
-                <button id="play-pause-btn" class="control-btn">⏸️ Pause</button>
-                <button id="reset-btn" class="control-btn">🔄 Reset</button>
-                <div class="speed-control">
-                    <label>Speed: <span id="speed-display">1x</span></label>
-                    <input type="range" id="speed-slider" min="0.1" max="10" step="0.1" value="1">
+    <!-- Main Application Container -->
+    <div class="main-container">
+        <!-- Left Side Control Panel -->
+        <div class="control-panel">
+            <h2>🎛️ Control Center</h2>
+
+            <!-- Connection Status -->
+            <div class="connection-status">
+                <div class="status-indicator" id="connection-indicator"></div>
+                <span id="connection-text">Connected</span>
+            </div>
+
+            <!-- Statistics Grid -->
+            <div class="control-section">
+                <h3>📊 Live Stats</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="platform-counter">0</span>
+                        <div class="stat-label">Platforms</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="visible-counter">0</span>
+                        <div class="stat-label">Visible</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="fps-counter">60</span>
+                        <div class="stat-label">FPS</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="data-rate">0</span>
+                        <div class="stat-label">KB/s</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="panel-section">
-                <h3>Display Options</h3>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="show-trails" checked> Show Trails
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="show-labels" checked> Show Labels
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="show-sensors"> Show Sensor Range
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="cluster-platforms" checked> Cluster Platforms
-                </label>
+            <!-- Simulation Control -->
+            <div class="control-section">
+                <h3>⏯️ Simulation</h3>
+                <div class="control-buttons">
+                    <button id="play-pause-btn" class="btn">⏸️ Pause</button>
+                    <button id="reset-btn" class="btn btn-secondary">🔄 Reset</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #4a5568; font-weight: 500;">
+                        Speed: <span id="speed-display">1x</span>
+                    </label>
+                    <input type="range" id="speed-slider" min="0.1" max="10" step="0.1" value="1"
+                        style="width: 100%; accent-color: #667eea;">
+                </div>
             </div>
 
-            <div class="panel-section">
-                <h3>Platform Filters</h3>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="filter-airborne" checked> Airborne
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="filter-land" checked> Land
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="filter-maritime" checked> Maritime
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="filter-space" checked> Space
-                </label>
+            <!-- Display Options -->
+            <div class="control-section">
+                <h3>👁️ Display</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="show-trails" checked style="accent-color: #667eea;">
+                        Show Trails
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="show-labels" checked style="accent-color: #667eea;">
+                        Show Labels
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="show-sensors" style="accent-color: #667eea;">
+                        Show Sensor Range
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="cluster-platforms" checked style="accent-color: #667eea;">
+                        Cluster Platforms
+                    </label>
+                </div>
+            </div>
+
+            <!-- Platform Filters -->
+            <div class="control-section">
+                <h3>🎯 Filters</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="filter-airborne" checked style="accent-color: #667eea;">
+                        ✈️ Airborne
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="filter-land" checked style="accent-color: #667eea;">
+                        🚗 Land
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="filter-maritime" checked style="accent-color: #667eea;">
+                        🚢 Maritime
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="filter-space" checked style="accent-color: #667eea;">
+                        🚀 Space
+                    </label>
+                </div>
+            </div>
+
+            <!-- Performance Monitor -->
+            <div class="control-section">
+                <h3>⚡ Performance</h3>
+                <div class="performance-grid">
+                    <div class="performance-item">
+                        <div class="performance-value" id="memory-usage">0 MB</div>
+                        <div style="font-size: 0.8rem; color: #6c757d;">Memory</div>
+                    </div>
+                    <div class="performance-item">
+                        <div class="performance-value" id="render-time">0ms</div>
+                        <div style="font-size: 0.8rem; color: #6c757d;">Render</div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Map Container -->
-        <div id="map-container">
+        <div class="map-container">
             <div id="map"></div>
 
-            <!-- Performance HUD -->
-            <div id="performance-hud">
-                <div class="hud-item">
-                    <span class="label">FPS:</span>
-                    <span id="fps-counter">60</span>
-                </div>
-                <div class="hud-item">
-                    <span class="label">Platforms:</span>
-                    <span id="platform-counter">0</span>
-                </div>
-                <div class="hud-item">
-                    <span class="label">Visible:</span>
-                    <span id="visible-counter">0</span>
-                </div>
-                <div class="hud-item">
-                    <span class="label">Memory:</span>
-                    <span id="memory-usage">0 MB</span>
-                </div>
-                <div class="hud-item">
-                    <span class="label">Data Rate:</span>
-                    <span id="data-rate">0 KB/s</span>
-                </div>
-            </div>
-
             <!-- Platform Info Panel -->
-            <div id="platform-info" class="info-panel hidden">
-                <div class="info-header">
-                    <h3 id="platform-title">Platform Details</h3>
-                    <button id="close-info">&times;</button>
+            <div id="platform-info" class="info-panel hidden"
+                style="position: absolute; top: 20px; right: 20px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; min-width: 280px;">
+                <div class="info-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                    <h3 id="platform-title" style="margin: 0; color: #4a5568;">Platform Details</h3>
+                    <button id="close-info"
+                        style="background: none; border: none; font-size: 18px; cursor: pointer; color: #6c757d;">&times;</button>
                 </div>
                 <div class="info-content">
-                    <div class="info-row">
-                        <span class="info-label">ID:</span>
-                        <span id="info-id">-</span>
+                    <div class="info-row"
+                        style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #f1f3f4;">
+                        <span class="info-label" style="font-weight: 500; color: #4a5568;">ID:</span>
+                        <span id="info-id" style="font-family: monospace; color: #667eea;">-</span>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Type:</span>
-                        <span id="info-type">-</span>
+                    <div class="info-row"
+                        style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #f1f3f4;">
+                        <span class="info-label" style="font-weight: 500; color: #4a5568;">Type:</span>
+                        <span id="info-type" style="font-family: monospace; color: #667eea;">-</span>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Position:</span>
-                        <span id="info-position">-</span>
+                    <div class="info-row"
+                        style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #f1f3f4;">
+                        <span class="info-label" style="font-weight: 500; color: #4a5568;">Position:</span>
+                        <span id="info-position" style="font-family: monospace; color: #667eea;">-</span>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Speed:</span>
-                        <span id="info-speed">-</span>
+                    <div class="info-row"
+                        style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #f1f3f4;">
+                        <span class="info-label" style="font-weight: 500; color: #4a5568;">Speed:</span>
+                        <span id="info-speed" style="font-family: monospace; color: #667eea;">-</span>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Heading:</span>
-                        <span id="info-heading">-</span>
+                    <div class="info-row"
+                        style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #f1f3f4;">
+                        <span class="info-label" style="font-weight: 500; color: #4a5568;">Heading:</span>
+                        <span id="info-heading" style="font-family: monospace; color: #667eea;">-</span>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Status:</span>
-                        <span id="info-status">-</span>
+                    <div class="info-row"
+                        style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0;">
+                        <span class="info-label" style="font-weight: 500; color: #4a5568;">Status:</span>
+                        <span id="info-status" style="font-family: monospace; color: #667eea;">-</span>
                     </div>
                 </div>
             </div>
