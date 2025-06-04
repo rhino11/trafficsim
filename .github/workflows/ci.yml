@@ -7,11 +7,12 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.24.3'
+  NODE_VERSION: '20'
 
 jobs:
-  test:
-    name: Test
+  test-go:
+    name: Go Tests
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -22,7 +23,7 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
     
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -32,7 +33,7 @@ jobs:
     - name: Download dependencies
       run: go mod download
     
-    - name: Run tests
+    - name: Run Go tests
       run: go test -v -race -coverprofile=coverage.out ./...
     
     - name: Generate coverage report
@@ -46,10 +47,69 @@ jobs:
         name: codecov-umbrella
     
     - name: Upload coverage artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: coverage-report
+        name: go-coverage-report
         path: coverage.html
+
+  test-web:
+    name: Web Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run JavaScript tests
+      run: npm test
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: web-test-results
+        path: |
+          coverage/
+          test-results/
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-go]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Build application
+      run: make build
+    
+    - name: Test CLI mode
+      run: |
+        timeout 10s ./trafficsim || [ $? -eq 124 ]
+    
+    - name: Test web server mode
+      run: |
+        ./trafficsim -web -port 8081 &
+        SERVER_PID=$!
+        sleep 5
+        
+        # Test endpoints
+        curl -f http://localhost:8081/api/platforms
+        curl -f http://localhost:8081/api/metrics
+        curl -f http://localhost:8081/
+        
+        kill $SERVER_PID
 
   lint:
     name: Lint
@@ -87,7 +147,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test-go, test-web, lint]
     strategy:
       matrix:
         goos: [linux, windows, darwin]
@@ -112,7 +172,7 @@ jobs:
         go build -ldflags="-s -w" -o build/trafficsim-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/simrunner
     
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: trafficsim-${{ matrix.goos }}-${{ matrix.goarch }}
         path: build/
@@ -132,7 +192,7 @@ jobs:
       run: go test -bench=. -benchmem ./... | tee benchmark.txt
     
     - name: Upload benchmark results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: benchmark-results
         path: benchmark.txt
@@ -140,7 +200,7 @@ jobs:
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test-go, test-web, lint]
     steps:
     - uses: actions/checkout@v4
     
@@ -159,7 +219,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [build, docker]
+    needs: [build, docker, integration-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
     - uses: actions/checkout@v4
@@ -167,7 +227,7 @@ jobs:
         fetch-depth: 0
     
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
     
     - name: Generate changelog
       id: changelog
