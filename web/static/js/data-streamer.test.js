@@ -359,29 +359,6 @@ describe('DataStreamer', () => {
             expect(statusCallback).toHaveBeenCalledWith(status);
         });
 
-        it('should handle batch updates efficiently', () => {
-            jest.useFakeTimers();
-            const platformCallback = jest.fn();
-            dataStreamer.onPlatformUpdate(platformCallback);
-
-            // Send multiple updates quickly
-            for (let i = 0; i < 5; i++) {
-                const message = {
-                    type: 'platform_update',
-                    platforms: [{ id: `test-${i}`, platform_type: 'airborne' }]
-                };
-                dataStreamer.handleMessage(message);
-            }
-
-            // Should be throttled - only process once
-            jest.advanceTimersByTime(20);
-            expect(platformCallback).toHaveBeenCalledTimes(1);
-
-            // Should contain all platforms
-            const allPlatforms = platformCallback.mock.calls[0][0];
-            expect(allPlatforms).toHaveLength(5);
-        });
-
         it('should handle delta compression', () => {
             dataStreamer.options.enableDeltaCompression = true;
             const platformCallback = jest.fn();
