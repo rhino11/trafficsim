@@ -221,15 +221,15 @@ type PlatformConfiguration struct {
 
 // UniversalPlatform implements the Platform interface using configuration data
 type UniversalPlatform struct {
-	ID           string                   `json:"id"`
-	PlatformType PlatformType             `json:"platform_type"`
-	TypeDef      *PlatformTypeDefinition  `json:"type_def"`
-	Config       *PlatformConfiguration   `json:"config"`
-	State        PlatformState            `json:"state"`
-	CallSign     string                   `json:"call_sign"`
+	ID           string                  `json:"id"`
+	PlatformType PlatformType            `json:"platform_type"`
+	TypeDef      *PlatformTypeDefinition `json:"type_def"`
+	Config       *PlatformConfiguration  `json:"config"`
+	State        PlatformState           `json:"state"`
+	CallSign     string                  `json:"call_sign"`
 
 	// Navigation
-	Destination *Position `json:"destination,omitempty"`
+	Destination *Position  `json:"destination,omitempty"`
 	Route       []Position `json:"route,omitempty"`
 
 	// Runtime state
@@ -238,8 +238,8 @@ type UniversalPlatform struct {
 	SystemStatus  SystemStatus  `json:"system_status"`
 
 	// Physics state
-	lastPosition  Position `json:"-"` // Internal field, don't serialize
-	acceleration  float64  `json:"-"` // Internal field, don't serialize
+	lastPosition  Position `json:"-"`    // Internal field, don't serialize
+	acceleration  float64  `json:"-"`    // Internal field, don't serialize
 	Mass          float64  `json:"mass"` // Mass for physics calculations
 	AngularForces struct { // Angular forces for attitude control
 		X float64 `json:"x"`

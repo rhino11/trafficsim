@@ -655,7 +655,7 @@ func (s *Server) handleClientLog(w http.ResponseWriter, r *http.Request) {
 		errorMsg, _ := logData["error"].(string)
 		context, _ := logData["context"].(string)
 		stack, _ := logData["stack"].(string)
-		log.Printf("[CLIENT-ERROR] [%s] %s: %s - Context: %s - Stack: %s - UA: %s", 
+		log.Printf("[CLIENT-ERROR] [%s] %s: %s - Context: %s - Stack: %s - UA: %s",
 			step, timestamp, errorMsg, context, stack, userAgent)
 	default:
 		log.Printf("[CLIENT-UNKNOWN] %+v", logData)
@@ -699,12 +699,12 @@ func (rw *responseWriter) WriteHeader(code int) {
 // handleMetrics returns comprehensive performance metrics
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	stats := s.simulation.GetStatistics()
-	
+
 	metrics := map[string]interface{}{
 		"simulation": stats,
 		"server": map[string]interface{}{
 			"active_websocket_clients": len(s.clients),
-			"uptime_seconds": time.Since(time.Now()).Seconds(), // Will be corrected with actual start time
+			"uptime_seconds":           time.Since(time.Now()).Seconds(), // Will be corrected with actual start time
 		},
 		"platforms": map[string]interface{}{
 			"total": stats.TotalPlatforms,

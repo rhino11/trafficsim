@@ -46,9 +46,9 @@ type Engine struct {
 	updateInterval time.Duration
 
 	// Performance tracking
-	updateCount    int64
+	updateCount     int64
 	totalUpdateTime time.Duration
-	lastPerfLog    time.Time
+	lastPerfLog     time.Time
 }
 
 // NewEngine creates a new simulation engine
