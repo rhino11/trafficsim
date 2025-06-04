@@ -9,6 +9,15 @@ import (
 	"github.com/rhino11/trafficsim/internal/models"
 )
 
+// Platform type constants
+const (
+	PlatformTypeAirborne = "airborne"
+	PlatformTypeMaritime = "maritime"
+	PlatformTypeLand     = "land"
+	PlatformTypeSpace    = "space"
+	CategoryMilitary     = "military"
+)
+
 // PlatformFactory creates platform instances from configuration data
 type PlatformFactory struct {
 	registry *PlatformRegistry

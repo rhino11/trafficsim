@@ -8,6 +8,111 @@ import (
 // UnifiedPlatformFactory provides factory functions for creating UniversalPlatform instances
 // with realistic configurations for different platform types
 
+// Helper function to create base platform structure
+func createBasePlatform(id string, platformType PlatformType, typeDef *PlatformTypeDefinition,
+	config *PlatformConfiguration, startPos Position, callSign string, fuelRemaining float64) *UniversalPlatform {
+	return &UniversalPlatform{
+		ID:           id,
+		PlatformType: platformType,
+		TypeDef:      typeDef,
+		Config:       config,
+		State: PlatformState{
+			ID:          id,
+			Position:    startPos,
+			Velocity:    Velocity{},
+			Heading:     0,
+			Speed:       0,
+			LastUpdated: time.Now(),
+			Physics: PhysicsState{
+				Position:        startPos,
+				Mass:            typeDef.Physical.Mass,
+				MomentOfInertia: calculateMomentOfInertia(typeDef.Physical.Mass, platformType),
+			},
+		},
+		CallSign:      callSign,
+		FuelRemaining: fuelRemaining,
+		MissionTime:   0,
+		SystemStatus:  createSystemStatus(platformType),
+		lastPosition:  startPos,
+		acceleration:  0,
+	}
+}
+
+// Helper function to calculate moment of inertia based on platform type
+func calculateMomentOfInertia(mass float64, platformType PlatformType) MomentOfInertia {
+	switch platformType {
+	case PlatformTypeAirborne:
+		return MomentOfInertia{
+			Ixx: mass * 5.0 * 5.0,
+			Iyy: mass * 7.5 * 7.5,
+			Izz: mass * 7.5 * 7.5,
+		}
+	case PlatformTypeLand:
+		return MomentOfInertia{
+			Ixx: mass * 1.8 * 1.8,
+			Iyy: mass * 4.9 * 4.9,
+			Izz: mass * 4.9 * 4.9,
+		}
+	case PlatformTypeMaritime:
+		return MomentOfInertia{
+			Ixx: mass * 10.0 * 10.0,
+			Iyy: mass * 77.5 * 77.5,
+			Izz: mass * 77.5 * 77.5,
+		}
+	case PlatformTypeSpace:
+		return MomentOfInertia{
+			Ixx: mass * 2.5 * 2.5,
+			Iyy: mass * 2.5 * 2.5,
+			Izz: mass * 2.5 * 2.5,
+		}
+	default:
+		return MomentOfInertia{
+			Ixx: mass * 5.0 * 5.0,
+			Iyy: mass * 5.0 * 5.0,
+			Izz: mass * 5.0 * 5.0,
+		}
+	}
+}
+
+// Helper function to create system status based on platform type
+func createSystemStatus(platformType PlatformType) SystemStatus {
+	switch platformType {
+	case PlatformTypeAirborne, PlatformTypeLand, PlatformTypeMaritime:
+		return SystemStatus{
+			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
+			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
+			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
+			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.99},
+			SensorSystem:        SystemState{Operational: true, Efficiency: 0.95},
+			WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
+			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
+			WeaponStatus:        WeaponStatusArmed,
+		}
+	case PlatformTypeSpace:
+		return SystemStatus{
+			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
+			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
+			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
+			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
+			SensorSystem:        SystemState{Operational: true, Efficiency: 0.97},
+			WeaponSystem:        SystemState{Operational: false, Efficiency: 0.0},
+			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
+			WeaponStatus:        WeaponStatusNA,
+		}
+	default:
+		return SystemStatus{
+			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
+			PropulsionSystem:    SystemState{Operational: true, Efficiency: 1.0},
+			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
+			CommunicationSystem: SystemState{Operational: true, Efficiency: 1.0},
+			SensorSystem:        SystemState{Operational: true, Efficiency: 1.0},
+			WeaponSystem:        SystemState{Operational: false, Efficiency: 0.0},
+			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
+			WeaponStatus:        WeaponStatusNA,
+		}
+	}
+}
+
 // Aircraft Factories
 
 // NewBoeing737_800Universal creates a Boeing 737-800 using UniversalPlatform
@@ -68,43 +173,7 @@ func NewBoeing737_800Universal(id, flightNumber string, startPos Position) *Univ
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeAirborne,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-				MomentOfInertia: MomentOfInertia{
-					Ixx: mass * 15.0 * 15.0, // wingspan
-					Iyy: mass * 20.0 * 20.0, // length
-					Izz: mass * 20.0 * 20.0, // length
-				},
-			},
-		},
-		CallSign:      flightNumber,
-		FuelRemaining: 26000,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.99},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "N/A", // Civilian aircraft
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeAirborne, typeDef, config, startPos, flightNumber, 26000)
 
 	return platform
 }
@@ -163,44 +232,7 @@ func NewF16FightingFalconUniversal(id, tailNumber string, startPos Position) *Un
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeAirborne,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-				MomentOfInertia: MomentOfInertia{
-					Ixx: mass * 5.0 * 5.0,
-					Iyy: mass * 7.5 * 7.5,
-					Izz: mass * 7.5 * 7.5,
-				},
-			},
-		},
-		CallSign:      fmt.Sprintf("VIPER%s", tailNumber[len(tailNumber)-3:]),
-		FuelRemaining: 3200,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.99},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.95},
-			WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "ARMED", // Military fighter
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeAirborne, typeDef, config, startPos, fmt.Sprintf("VIPER%s", tailNumber[len(tailNumber)-3:]), 3200)
 
 	return platform
 }
@@ -252,44 +284,7 @@ func NewM1A2AbramsUniversal(id, unitDesignation string, startPos Position) *Univ
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeLand,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-				MomentOfInertia: MomentOfInertia{
-					Ixx: mass * 1.8 * 1.8, // width
-					Iyy: mass * 4.9 * 4.9, // length
-					Izz: mass * 4.9 * 4.9, // length
-				},
-			},
-		},
-		CallSign:      fmt.Sprintf("ARMOR%s", id[len(id)-2:]),
-		FuelRemaining: 1900,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.90},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.95},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.92},
-			WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "ARMED", // Military tank
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeLand, typeDef, config, startPos, fmt.Sprintf("ARMOR%s", id[len(id)-2:]), 1900)
 
 	return platform
 }
@@ -341,44 +336,7 @@ func NewArleighBurkeDestroyerUniversal(id, shipName string, startPos Position) *
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeMaritime,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-				MomentOfInertia: MomentOfInertia{
-					Ixx: mass * 10.0 * 10.0, // beam
-					Iyy: mass * 77.5 * 77.5, // length
-					Izz: mass * 77.5 * 77.5, // length
-				},
-			},
-		},
-		CallSign:      fmt.Sprintf("NAVY%s", id[len(id)-3:]),
-		FuelRemaining: 1200000,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.96},
-			WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "ARMED", // Naval destroyer
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeMaritime, typeDef, config, startPos, fmt.Sprintf("NAVY%s", id[len(id)-3:]), 1200000)
 
 	return platform
 }
@@ -433,43 +391,7 @@ func NewStarlinkSatelliteUniversal(id, satelliteNumber string, startPos Position
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeSpace,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     90, // Eastward orbital motion
-			Speed:       7590,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-				MomentOfInertia: MomentOfInertia{
-					Ixx: mass * 0.95 * 0.95, // width
-					Iyy: mass * 1.4 * 1.4,   // length
-					Izz: mass * 1.4 * 1.4,   // length
-				},
-			},
-		},
-		CallSign:      fmt.Sprintf("STARLINK%s", id[len(id)-3:]),
-		FuelRemaining: 50,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 1.0},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.99},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "N/A", // Civilian satellite
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeSpace, typeDef, config, startPos, fmt.Sprintf("STARLINK%s", id[len(id)-3:]), 50)
 
 	return platform
 }
@@ -518,38 +440,7 @@ func NewCivilianCarUniversal(id, model string, startPos Position) *UniversalPlat
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeLand,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-			},
-		},
-		CallSign:      fmt.Sprintf("CAR%s", id[len(id)-3:]),
-		FuelRemaining: 60,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.95},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.98},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.99},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "N/A", // Civilian vehicle
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeLand, typeDef, config, startPos, fmt.Sprintf("CAR%s", id[len(id)-3:]), 60)
 
 	return platform
 }
@@ -600,38 +491,7 @@ func NewContainerShipUniversal(id, shipName string, startPos Position) *Universa
 		StartPosition: startPos,
 	}
 
-	platform := &UniversalPlatform{
-		ID:           id,
-		PlatformType: PlatformTypeMaritime,
-		TypeDef:      typeDef,
-		Config:       config,
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
-			Physics: PhysicsState{
-				Position: startPos,
-				Mass:     mass,
-			},
-		},
-		CallSign:      fmt.Sprintf("CARGO%s", id[len(id)-3:]),
-		FuelRemaining: 15000000,
-		MissionTime:   0,
-		SystemStatus: SystemStatus{
-			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
-			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.92},
-			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
-			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.96},
-			SensorSystem:        SystemState{Operational: true, Efficiency: 0.98},
-			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        "N/A", // Commercial vessel
-		},
-		lastPosition: startPos,
-		acceleration: 0,
-	}
+	platform := createBasePlatform(id, PlatformTypeMaritime, typeDef, config, startPos, fmt.Sprintf("CARGO%s", id[len(id)-3:]), 15000000)
 
 	return platform
 }

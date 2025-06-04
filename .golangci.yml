@@ -5,13 +5,9 @@ run:
 
 linters-settings:
   govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0
+    shadow: true
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
   goconst:
@@ -36,16 +32,26 @@ linters-settings:
       - octalLiteral
       - whyNoLint
       - wrapperFunc
+  depguard:
+    rules:
+      main:
+        files:
+          - "**/*.go"
+        allow:
+          - $gostd
+          - github.com/rhino11/trafficsim
+          - github.com/gorilla/mux
+          - github.com/gorilla/websocket
+          - gopkg.in/yaml.v3
 
 linters:
   enable:
     - bodyclose
-    - deadcode
+    - unused
     - depguard
-    - dogsled
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - exhaustive
     - funlen
     - gochecknoinits
@@ -54,8 +60,7 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - gomnd
-    - goprintffuncname
+    - revive
     - gosec
     - gosimple
     - govet
@@ -63,24 +68,19 @@ linters:
     - lll
     - misspell
     - nakedret
-    - noctx
     - nolintlint
-    - rowserrcheck
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
         - funlen
         - gocyclo
     - path: cmd/

@@ -60,9 +60,9 @@ describe('PerformanceMonitor', () => {
         }));
 
         // Mock console methods to avoid spam during tests
-        jest.spyOn(console, 'log').mockImplementation(() => {});
-        jest.spyOn(console, 'warn').mockImplementation(() => {});
-        jest.spyOn(console, 'error').mockImplementation(() => {});
+        jest.spyOn(console, 'log').mockImplementation(() => { });
+        jest.spyOn(console, 'warn').mockImplementation(() => { });
+        jest.spyOn(console, 'error').mockImplementation(() => { });
 
         // Mock URL and Blob for export functionality
         global.URL = {
@@ -78,12 +78,12 @@ describe('PerformanceMonitor', () => {
         if (performanceMonitor) {
             performanceMonitor.destroy();
         }
-        
+
         // Restore original methods
         document.body.appendChild = originalAppendChild;
         document.body.removeChild = originalRemoveChild;
         document.createElement = originalCreateElement;
-        
+
         jest.restoreAllMocks();
         jest.clearAllTimers();
     });
@@ -119,7 +119,7 @@ describe('PerformanceMonitor', () => {
             // Simulate frame updates
             performanceMonitor.frameCount = 60;
             performanceMonitor.lastFPSUpdate = performance.now() - 1000; // 1 second ago
-            
+
             // This would normally be called by requestAnimationFrame
             performanceMonitor.currentFPS = 60;
             performanceMonitor.metrics.fps = 60;
@@ -152,12 +152,12 @@ describe('PerformanceMonitor', () => {
             // Start with a fresh render timer
             performanceMonitor.renderStartTime = null;
             performanceMonitor.renderTimes = [];
-            
+
             // Mock performance.now for consistent timing
             const mockNow = jest.fn()
                 .mockReturnValueOnce(100) // start time
                 .mockReturnValueOnce(116.5); // end time (16.5ms later)
-            
+
             const originalNow = performance.now;
             performance.now = mockNow;
 
@@ -176,7 +176,7 @@ describe('PerformanceMonitor', () => {
         test('should maintain render time history within limits', () => {
             // Clear existing render times first
             performanceMonitor.renderTimes = [];
-            
+
             // Add exactly the max number of render times
             for (let i = 0; i < performanceMonitor.maxRenderTimeHistory; i++) {
                 performanceMonitor.renderTimes.push(16.67);
@@ -206,14 +206,14 @@ describe('PerformanceMonitor', () => {
                 totalJSHeapSize: 100 * 1024 * 1024, // 100MB
                 jsHeapSizeLimit: 200 * 1024 * 1024 // 200MB
             };
-            
+
             performanceMonitor.updateMemoryUsage();
-            
+
             // Should use actual memory if available
             const expectedMemoryMB = Math.round(50 * 1024 * 1024 / (1024 * 1024)); // 50MB
             expect(performanceMonitor.metrics.memoryUsage).toBe(expectedMemoryMB);
             expect(mockElements.memoryUsage.textContent).toBe(`${expectedMemoryMB} MB`);
-            
+
             // Restore original memory object
             performance.memory = originalMemory;
         });
@@ -291,7 +291,7 @@ describe('PerformanceMonitor', () => {
         test('should calculate standard deviation correctly', () => {
             const values = [10, 12, 14, 16, 18];
             const stdDev = performanceMonitor.calculateStandardDeviation(values);
-            
+
             expect(stdDev).toBeCloseTo(2.83, 1); // Expected standard deviation
         });
 
@@ -369,40 +369,40 @@ describe('PerformanceMonitor', () => {
 
         test('should record platform count', () => {
             performanceMonitor.recordPlatformCount(500);
-            
+
             expect(performanceMonitor.metrics.platformCount).toBe(500);
             expect(mockElements.platformCount.textContent).toBe(500);
         });
 
         test('should record errors', () => {
-            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-            
+            const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
             performanceMonitor.recordError('Test error');
-            
+
             expect(errorSpy).toHaveBeenCalledWith('Performance Monitor - Error recorded:', 'Test error');
         });
 
         test('should set up update callback', () => {
             jest.useFakeTimers();
             const mockCallback = jest.fn();
-            
+
             performanceMonitor.metrics.fps = 60;
             performanceMonitor.metrics.visibleCount = 100;
             performanceMonitor.metrics.memoryUsage = 50;
             performanceMonitor.metrics.dataRate = 1024;
-            
+
             performanceMonitor.onUpdate(mockCallback);
-            
+
             // Fast-forward time to trigger the callback
             jest.advanceTimersByTime(1000);
-            
+
             expect(mockCallback).toHaveBeenCalledWith({
                 fps: 60,
                 visibleCount: 100,
                 memoryMB: 50,
                 dataRate: 1024
             });
-            
+
             jest.useRealTimers();
         });
     });
@@ -420,13 +420,13 @@ describe('PerformanceMonitor', () => {
     describe('Debug Overlay', () => {
         test('should create performance debug overlay', () => {
             jest.useFakeTimers();
-            
+
             const overlay = performanceMonitor.createPerformanceOverlay();
-            
+
             expect(overlay).toBeDefined();
             expect(overlay.id).toBe('performance-debug-overlay');
             expect(document.body.appendChild).toHaveBeenCalledWith(overlay);
-            
+
             jest.useRealTimers();
         });
     });

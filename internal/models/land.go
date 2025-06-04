@@ -2,110 +2,95 @@ package models
 
 import (
 	"fmt"
-	"math"
 	"time"
+)
+
+// Constants to reduce string duplication
+const (
+	DefaultHeading       = 0
+	DefaultSpeed         = 0
+	ArmorCallsignPrefix  = "ARMOR"
+	HumveeCallsignPrefix = "HUMVEE"
+	TruckCallsignPrefix  = "TRUCK"
+	PatrolCallsignPrefix = "PATROL"
 )
 
 // LandPlatform represents ground vehicles and installations
 type LandPlatform struct {
-	// Base identification
-	ID       string
-	Class    string // Vehicle/platform type
-	Name     string // Unit designation
-	CallSign string
+	// Embed UniversalPlatform for base functionality
+	UniversalPlatform
 
-	// Current state
-	State PlatformState
+	// Land-specific characteristics
+	MaxGradient     float64 // degrees (max slope)
+	GroundClearance float64 // meters
+	TurningRadius   float64 // meters
+	FuelConsumption float64 // liters per km
+	CargoCapacity   float64 // kg
+	CrewCapacity    int
 
-	// Land characteristics
-	MaxSpeed     float64 // m/s
-	CruiseSpeed  float64 // m/s
-	MaxGradient  float64 // degrees (max slope)
-	FuelCapacity float64 // liters
-	Range        float64 // meters
-
-	// Physical characteristics
-	Length float64 // meters
-	Width  float64 // meters
-	Height float64 // meters
-	Mass   float64 // kg
-
-	// Navigation
-	Destination *Position
-	Route       []Position
+	// Terrain capabilities
+	OffRoadCapable bool
+	WaterFording   float64 // max depth in meters
+	ClimbAngle     float64 // degrees
 }
 
-// Core Platform interface implementation
-func (l *LandPlatform) GetID() string           { return l.ID }
-func (l *LandPlatform) GetType() PlatformType   { return PlatformTypeLand }
-func (l *LandPlatform) GetClass() string        { return l.Class }
-func (l *LandPlatform) GetName() string         { return l.Name }
-func (l *LandPlatform) GetCallSign() string     { return l.CallSign }
-func (l *LandPlatform) GetState() PlatformState { return l.State }
-func (l *LandPlatform) GetMaxSpeed() float64    { return l.MaxSpeed }
-func (l *LandPlatform) GetMaxAltitude() float64 { return 0 } // Ground vehicles
-func (l *LandPlatform) GetLength() float64      { return l.Length }
-func (l *LandPlatform) GetWidth() float64       { return l.Width }
-func (l *LandPlatform) GetHeight() float64      { return l.Height }
-func (l *LandPlatform) GetMass() float64        { return l.Mass }
+// Core Platform interface implementation - delegate to embedded UniversalPlatform
+func (l *LandPlatform) GetID() string           { return l.UniversalPlatform.GetID() }
+func (l *LandPlatform) GetType() PlatformType   { return l.UniversalPlatform.GetType() }
+func (l *LandPlatform) GetClass() string        { return l.UniversalPlatform.GetClass() }
+func (l *LandPlatform) GetName() string         { return l.UniversalPlatform.GetName() }
+func (l *LandPlatform) GetCallSign() string     { return l.UniversalPlatform.GetCallSign() }
+func (l *LandPlatform) GetState() PlatformState { return l.UniversalPlatform.GetState() }
+func (l *LandPlatform) GetMaxSpeed() float64    { return l.UniversalPlatform.GetMaxSpeed() }
+func (l *LandPlatform) GetMaxAltitude() float64 { return l.UniversalPlatform.GetMaxAltitude() }
+func (l *LandPlatform) GetLength() float64      { return l.UniversalPlatform.GetLength() }
+func (l *LandPlatform) GetWidth() float64       { return l.UniversalPlatform.GetWidth() }
+func (l *LandPlatform) GetHeight() float64      { return l.UniversalPlatform.GetHeight() }
+func (l *LandPlatform) GetMass() float64        { return l.UniversalPlatform.GetMass() }
 
 func (l *LandPlatform) UpdateState(state PlatformState) {
-	l.State = state
+	l.UniversalPlatform.UpdateState(state)
 }
 
 func (l *LandPlatform) SetDestination(pos Position) error {
-	l.Destination = &pos
-	return nil
+	return l.UniversalPlatform.SetDestination(pos)
 }
 
+// Enhanced 3D physics methods
+func (l *LandPlatform) Initialize3DPhysics() {
+	l.UniversalPlatform.Initialize3DPhysics()
+}
+
+func (l *LandPlatform) Update3DPhysics(deltaTime time.Duration) error {
+	return l.UniversalPlatform.Update3DPhysics(deltaTime)
+}
+
+func (l *LandPlatform) GetPhysicsState() PhysicsState {
+	return l.UniversalPlatform.GetPhysicsState()
+}
+
+func (l *LandPlatform) SetPhysicsState(physics PhysicsState) {
+	l.UniversalPlatform.SetPhysicsState(physics)
+}
+
+// Update uses the base UniversalPlatform movement but can be enhanced with land-specific logic
 func (l *LandPlatform) Update(deltaTime time.Duration) error {
-	if l.Destination == nil {
-		return nil
-	}
-
-	// Simple movement towards destination
-	dt := deltaTime.Seconds()
-
-	// Calculate distance and bearing to destination
-	deltaLat := l.Destination.Latitude - l.State.Position.Latitude
-	deltaLon := l.Destination.Longitude - l.State.Position.Longitude
-
-	distance := math.Sqrt(deltaLat*deltaLat + deltaLon*deltaLon)
-
-	if distance < 0.00001 { // Close enough (very small threshold for ground vehicles)
-		l.Destination = nil
-		return nil
-	}
-
-	// Move towards destination at cruise speed
-	speed := math.Min(l.CruiseSpeed, l.MaxSpeed)
-
-	// Update position
-	factor := (speed * dt) / (distance * 111320) // rough meters per degree
-	l.State.Position.Latitude += deltaLat * factor
-	l.State.Position.Longitude += deltaLon * factor
-	// Note: Altitude changes would be based on terrain, keeping simple for now
-
-	// Update heading and speed
-	l.State.Heading = math.Atan2(deltaLon, deltaLat) * 180 / math.Pi
-	if l.State.Heading < 0 {
-		l.State.Heading += 360
-	}
-	l.State.Speed = speed
-	l.State.LastUpdated = time.Now()
-
-	return nil
+	// Use enhanced land movement from UniversalPlatform
+	return l.UniversalPlatform.Update(deltaTime)
 }
 
-// Land platform factory functions for real-world platforms
-
-// NewM1A2Abrams creates an M1A2 Abrams main battle tank
-func NewM1A2Abrams(id, unitDesignation string, startPos Position) *LandPlatform {
-	return &LandPlatform{
-		ID:       id,
-		Class:    "M1A2 Abrams MBT",
-		Name:     unitDesignation,
-		CallSign: fmt.Sprintf("ARMOR%s", id[len(id)-2:]),
+// createLandPlatformBase creates a base UniversalPlatform for land vehicles
+func createLandPlatformBase(id, name, platformType, callsign string, startPos Position, typeDef *PlatformTypeDefinition) UniversalPlatform {
+	return UniversalPlatform{
+		ID:           id,
+		PlatformType: PlatformTypeLand,
+		TypeDef:      typeDef,
+		Config: &PlatformConfiguration{
+			ID:            id,
+			Type:          platformType,
+			Name:          name,
+			StartPosition: startPos,
+		},
 		State: PlatformState{
 			ID:          id,
 			Position:    startPos,
@@ -113,96 +98,297 @@ func NewM1A2Abrams(id, unitDesignation string, startPos Position) *LandPlatform 
 			Heading:     0,
 			Speed:       0,
 			LastUpdated: time.Now(),
+			Physics: PhysicsState{
+				Position:        startPos,
+				Mass:            typeDef.Physical.Mass,
+				MomentOfInertia: calculateMomentOfInertia(typeDef.Physical.Mass, PlatformTypeLand),
+			},
 		},
-		MaxSpeed:     20,     // m/s (45 mph)
-		CruiseSpeed:  13.4,   // m/s (30 mph)
-		MaxGradient:  30,     // degrees
-		FuelCapacity: 1900,   // liters
-		Range:        426000, // meters (265 miles)
-		Length:       9.8,    // meters
-		Width:        3.7,    // meters
-		Height:       2.4,    // meters
-		Mass:         62000,  // kg
+		CallSign:      callsign,
+		FuelRemaining: typeDef.Physical.FuelCapacity,
+		MissionTime:   0,
+		SystemStatus: SystemStatus{
+			PropulsionSystem:    SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+			CommunicationSystem: SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+			SensorSystem:        SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0, LastCheck: time.Now()},
+			WeaponStatus:        WeaponStatusSafe,
+		},
+		lastPosition: startPos,
+		acceleration: 0,
 	}
 }
 
-// NewHMMWV creates a High Mobility Multipurpose Wheeled Vehicle (Humvee)
-func NewHMMWV(id, unitDesignation string, startPos Position) *LandPlatform {
-	return &LandPlatform{
-		ID:       id,
-		Class:    "HMMWV",
-		Name:     unitDesignation,
-		CallSign: fmt.Sprintf("HUMVEE%s", id[len(id)-2:]),
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
+// CreateM1A2Tank creates an M1A2 Abrams main battle tank
+func CreateM1A2Tank(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Main Battle Tank",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      18.6, // m/s (67 km/h)
+			CruiseSpeed:   11.1, // m/s (40 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 8.4,  // meters
 		},
-		MaxSpeed:     31,     // m/s (70 mph)
-		CruiseSpeed:  22.4,   // m/s (50 mph)
-		MaxGradient:  40,     // degrees
-		FuelCapacity: 95,     // liters
-		Range:        480000, // meters (300 miles)
-		Length:       4.6,    // meters
-		Width:        2.2,    // meters
-		Height:       1.8,    // meters
-		Mass:         5900,   // kg
+		Physical: PhysicalCharacteristics{
+			Length: 9.77,  // meters
+			Width:  3.66,  // meters
+			Height: 2.44,  // meters
+			Mass:   62000, // kg
+		},
+	}
+
+	base := createLandPlatformBase(id, "M1A2 Abrams", "Main Battle Tank", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       60,    // degrees
+		GroundClearance:   0.432, // meters
+		TurningRadius:     8.4,   // meters
+		FuelConsumption:   2.6,   // liters per km
+		CargoCapacity:     1000,  // kg
+		CrewCapacity:      4,
+		OffRoadCapable:    true,
+		WaterFording:      1.2, // meters
+		ClimbAngle:        60,  // degrees
 	}
 }
 
-// NewFreightlinerCascadia creates a commercial freight truck
-func NewFreightlinerCascadia(id, truckNumber string, startPos Position) *LandPlatform {
-	return &LandPlatform{
-		ID:       id,
-		Class:    "Freightliner Cascadia",
-		Name:     truckNumber,
-		CallSign: fmt.Sprintf("TRUCK%s", id[len(id)-3:]),
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
+// CreateM2Bradley creates an M2 Bradley Infantry Fighting Vehicle
+func CreateM2Bradley(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Infantry Fighting Vehicle",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      18.3, // m/s (66 km/h)
+			CruiseSpeed:   11.1, // m/s (40 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 6.0,  // meters
 		},
-		MaxSpeed:     33.5,    // m/s (75 mph)
-		CruiseSpeed:  29.1,    // m/s (65 mph)
-		MaxGradient:  15,      // degrees
-		FuelCapacity: 1135,    // liters (300 gallons)
-		Range:        1600000, // meters (1000 miles)
-		Length:       6.1,     // meters (tractor only)
-		Width:        2.6,     // meters
-		Height:       4.0,     // meters
-		Mass:         16000,   // kg (tractor only)
+		Physical: PhysicalCharacteristics{
+			Length: 6.55,  // meters
+			Width:  3.6,   // meters
+			Height: 2.98,  // meters
+			Mass:   27600, // kg
+		},
+	}
+
+	base := createLandPlatformBase(id, "M2 Bradley", "Infantry Fighting Vehicle", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       60,    // degrees
+		GroundClearance:   0.432, // meters
+		TurningRadius:     6.0,   // meters
+		FuelConsumption:   1.5,   // liters per km
+		CargoCapacity:     2000,  // kg
+		CrewCapacity:      9,     // 3 crew + 6 infantry
+		OffRoadCapable:    true,
+		WaterFording:      1.0, // meters
+		ClimbAngle:        60,  // degrees
 	}
 }
 
-// NewPolicePatrolCar creates a police patrol vehicle
-func NewPolicePatrolCar(id, unitNumber string, startPos Position) *LandPlatform {
-	return &LandPlatform{
-		ID:       id,
-		Class:    "Ford Police Interceptor",
-		Name:     fmt.Sprintf("Unit %s", unitNumber),
-		CallSign: fmt.Sprintf("PATROL%s", unitNumber),
-		State: PlatformState{
-			ID:          id,
-			Position:    startPos,
-			Velocity:    Velocity{},
-			Heading:     0,
-			Speed:       0,
-			LastUpdated: time.Now(),
+// CreateHumvee creates a High Mobility Multipurpose Wheeled Vehicle
+func CreateHumvee(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", HumveeCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Utility Vehicle",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      31.4, // m/s (113 km/h)
+			CruiseSpeed:   19.4, // m/s (70 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 7.6,  // meters
 		},
-		MaxSpeed:     50,     // m/s (112 mph)
-		CruiseSpeed:  26.8,   // m/s (60 mph)
-		MaxGradient:  25,     // degrees
-		FuelCapacity: 68,     // liters (18 gallons)
-		Range:        640000, // meters (400 miles)
-		Length:       5.2,    // meters
-		Width:        1.9,    // meters
-		Height:       1.5,    // meters
-		Mass:         2000,   // kg
+		Physical: PhysicalCharacteristics{
+			Length: 4.57, // meters
+			Width:  2.16, // meters
+			Height: 1.75, // meters
+			Mass:   2359, // kg
+		},
+	}
+
+	base := createLandPlatformBase(id, "HMMWV", "Utility Vehicle", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       60,    // degrees
+		GroundClearance:   0.406, // meters
+		TurningRadius:     7.6,   // meters
+		FuelConsumption:   0.8,   // liters per km
+		CargoCapacity:     1200,  // kg
+		CrewCapacity:      4,
+		OffRoadCapable:    true,
+		WaterFording:      0.76, // meters
+		ClimbAngle:        60,   // degrees
+	}
+}
+
+// CreateLAV25 creates a Light Armored Vehicle-25
+func CreateLAV25(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Light Armored Vehicle",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      27.8, // m/s (100 km/h)
+			CruiseSpeed:   16.7, // m/s (60 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 5.5,  // meters
+		},
+		Physical: PhysicalCharacteristics{
+			Length: 6.39,  // meters
+			Width:  2.5,   // meters
+			Height: 2.69,  // meters
+			Mass:   12900, // kg
+		},
+	}
+
+	base := createLandPlatformBase(id, "LAV-25", "Light Armored Vehicle", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       60,   // degrees
+		GroundClearance:   0.5,  // meters
+		TurningRadius:     5.5,  // meters
+		FuelConsumption:   1.2,  // liters per km
+		CargoCapacity:     1500, // kg
+		CrewCapacity:      6,    // 3 crew + 3 marines
+		OffRoadCapable:    true,
+		WaterFording:      1.5, // meters (amphibious)
+		ClimbAngle:        60,  // degrees
+	}
+}
+
+// CreateM35Truck creates an M35 2.5-ton cargo truck
+func CreateM35Truck(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", TruckCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Cargo Truck",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      25.0, // m/s (90 km/h)
+			CruiseSpeed:   16.7, // m/s (60 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 8.7,  // meters
+		},
+		Physical: PhysicalCharacteristics{
+			Length: 6.71, // meters
+			Width:  2.44, // meters
+			Height: 2.94, // meters
+			Mass:   6350, // kg empty
+		},
+	}
+
+	base := createLandPlatformBase(id, "M35 Truck", "Cargo Truck", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       30,    // degrees
+		GroundClearance:   0.279, // meters
+		TurningRadius:     8.7,   // meters
+		FuelConsumption:   0.6,   // liters per km
+		CargoCapacity:     2268,  // kg (5000 lbs)
+		CrewCapacity:      3,     // driver + 2 passengers
+		OffRoadCapable:    true,
+		WaterFording:      0.76, // meters
+		ClimbAngle:        30,   // degrees
+	}
+}
+
+// CreateM1126Stryker creates an M1126 Stryker Infantry Carrier Vehicle
+func CreateM1126Stryker(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", ArmorCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Infantry Carrier Vehicle",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      27.8, // m/s (100 km/h)
+			CruiseSpeed:   19.4, // m/s (70 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 7.0,  // meters
+		},
+		Physical: PhysicalCharacteristics{
+			Length: 6.95,  // meters
+			Width:  2.72,  // meters
+			Height: 2.64,  // meters
+			Mass:   16470, // kg
+		},
+	}
+
+	base := createLandPlatformBase(id, "M1126 Stryker", "Infantry Carrier Vehicle", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       60,    // degrees
+		GroundClearance:   0.533, // meters
+		TurningRadius:     7.0,   // meters
+		FuelConsumption:   1.1,   // liters per km
+		CargoCapacity:     1800,  // kg
+		CrewCapacity:      11,    // 2 crew + 9 infantry
+		OffRoadCapable:    true,
+		WaterFording:      1.0, // meters
+		ClimbAngle:        60,  // degrees
+	}
+}
+
+// CreateMRAP creates a Mine-Resistant Ambush Protected vehicle
+func CreateMRAP(id string, callsign string, startPos Position) *LandPlatform {
+	if callsign == "" {
+		callsign = fmt.Sprintf("%s-%s", PatrolCallsignPrefix, id)
+	}
+
+	typeDef := &PlatformTypeDefinition{
+		Class:    "Mine-Resistant Vehicle",
+		Category: "military",
+		Performance: PerformanceCharacteristics{
+			MaxSpeed:      29.2, // m/s (105 km/h)
+			CruiseSpeed:   19.4, // m/s (70 km/h)
+			MaxAltitude:   4267, // meters
+			TurningRadius: 8.0,  // meters
+		},
+		Physical: PhysicalCharacteristics{
+			Length: 6.7,   // meters
+			Width:  2.7,   // meters
+			Height: 2.7,   // meters
+			Mass:   14500, // kg
+		},
+	}
+
+	base := createLandPlatformBase(id, "MRAP", "Mine-Resistant Vehicle", callsign, startPos, typeDef)
+
+	return &LandPlatform{
+		UniversalPlatform: base,
+		MaxGradient:       30,    // degrees
+		GroundClearance:   0.406, // meters
+		TurningRadius:     8.0,   // meters
+		FuelConsumption:   1.0,   // liters per km
+		CargoCapacity:     1000,  // kg
+		CrewCapacity:      6,     // crew + passengers
+		OffRoadCapable:    true,
+		WaterFording:      0.6, // meters
+		ClimbAngle:        30,  // degrees
 	}
 }

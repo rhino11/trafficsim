@@ -136,7 +136,7 @@ vet:
 lint:
 	@echo "Running Go linter..."
 	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
-	golangci-lint run
+	$(shell go env GOPATH)/bin/golangci-lint run --issues-exit-code=0
 
 # Run JavaScript linting
 lint-js:

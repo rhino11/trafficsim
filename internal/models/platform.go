@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+// String constants to fix linting issues
+const (
+	WeaponStatusArmed = "ARMED"
+	WeaponStatusSafe  = "SAFE"
+	WeaponStatusNA    = "N/A"
+
+	PlatformTypeMilitary   = "military"
+	PlatformTypeCommercial = "commercial"
+	PlatformTypeCivilian   = "civilian"
+
+	TestPlatformID = "TEST001"
+
+	Boeing737Class  = "Boeing 737-800"
+	AirbusA320Class = "Airbus A320"
+	F16Class        = "F-16 Fighting Falcon"
+	C130Class       = "C-130 Hercules"
+)
+
 // PlatformType represents the category of platform
 type PlatformType string
 
@@ -909,30 +927,6 @@ func (up *UniversalPlatform) Update3DPhysics(deltaTime time.Duration) error {
 	return nil
 }
 
-// updateAircraft3DPhysics applies aircraft-specific physics
-func (up *UniversalPlatform) updateAircraft3DPhysics(deltaTime float64) {
-	// For aircraft, update position based on speed and heading
-	up.updatePositionFromHeadingAndSpeed(deltaTime)
-}
-
-// updateLand3DPhysics applies land vehicle physics
-func (up *UniversalPlatform) updateLand3DPhysics(deltaTime float64) {
-	// For land vehicles, update position based on speed and heading
-	up.updatePositionFromHeadingAndSpeed(deltaTime)
-}
-
-// updateMaritime3DPhysics applies maritime vehicle physics
-func (up *UniversalPlatform) updateMaritime3DPhysics(deltaTime float64) {
-	// For maritime vehicles, update position based on speed and heading
-	up.updatePositionFromHeadingAndSpeed(deltaTime)
-}
-
-// updateSpace3DPhysics applies space vehicle physics
-func (up *UniversalPlatform) updateSpace3DPhysics(deltaTime float64) {
-	// For space vehicles, update position based on speed and heading
-	up.updatePositionFromHeadingAndSpeed(deltaTime)
-}
-
 // Force represents a 3D force vector
 type Force struct {
 	X float64 `json:"x"` // Forward/backward force (N)
@@ -1115,8 +1109,8 @@ func (up *UniversalPlatform) ApplyForce(force Force) {
 	up.State.Physics.Forces.Lift += force.Z
 }
 
-// calculateTurningRate calculates the turning rate for the platform
-func (p *UniversalPlatform) calculateTurningRate(deltaTime time.Duration) float64 {
+// calculateTurningRate calculates the turning rate for the platform in radians per second
+func (p *UniversalPlatform) calculateTurningRate(_ time.Duration) float64 {
 	// Get turning radius from performance characteristics
 	turningRadius := p.TypeDef.Performance.TurningRadius
 	if turningRadius == 0 {

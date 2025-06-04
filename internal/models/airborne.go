@@ -375,7 +375,10 @@ func (a *AirbornePlatform) updatePosition(deltaSeconds float64) {
 
 	// Calculate new position
 	deltaLat := (distance * math.Cos(headingRad)) / earthRadius * 180.0 / math.Pi
-	deltaLon := (distance * math.Sin(headingRad)) / earthRadius * 180.0 / math.Pi / math.Cos(a.UniversalPlatform.State.Position.Latitude*math.Pi/180.0)
+
+	// Split long calculation for longitude delta
+	latRad := a.UniversalPlatform.State.Position.Latitude * math.Pi / 180.0
+	deltaLon := (distance * math.Sin(headingRad)) / earthRadius * 180.0 / math.Pi / math.Cos(latRad)
 
 	a.UniversalPlatform.State.Position.Latitude += deltaLat
 	a.UniversalPlatform.State.Position.Longitude += deltaLon
