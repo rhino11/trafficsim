@@ -1,0 +1,53 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Package",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/simrunner",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}",
+            "args": [
+                "-test.v"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Current Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${fileDirname}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Specific Test Function",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${fileDirname}",
+            "args": [
+                "-test.run",
+                "^${input:testName}$",
+                "-test.v"
+            ],
+            "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testName",
+            "description": "Enter the test function name",
+            "default": "TestUniversalPlatformGetID",
+            "type": "promptString"
+        }
+    ]
+}

@@ -22,6 +22,7 @@ type MaritimePlatform struct {
 	CruiseSpeed  float64 // m/s
 	Draft        float64 // meters (depth below waterline)
 	Displacement float64 // tonnes
+	Range        float64 // nautical miles (required by tests)
 
 	// Physical characteristics
 	Length float64 // meters
@@ -124,8 +125,9 @@ func NewArleighBurkeDestroyer(id, shipName string, startPos Position) *MaritimeP
 		Displacement: 9200,    // tonnes
 		Length:       155,     // meters
 		Width:        20,      // meters
-		Height:       18,      // meters (above waterline)
+		Height:       18,      // meters
 		Mass:         9200000, // kg
+		Range:        4000,    // nautical miles
 	}
 }
 
@@ -153,6 +155,7 @@ func NewTiconderogaCruiser(id, shipName string, startPos Position) *MaritimePlat
 		Width:        16.8,    // meters
 		Height:       20,      // meters
 		Mass:         9800000, // kg
+		Range:        5000,    // nautical miles
 	}
 }
 
@@ -180,6 +183,7 @@ func NewContainerShip(id, shipName string, startPos Position) *MaritimePlatform 
 		Width:        59,        // meters
 		Height:       73,        // meters
 		Mass:         200000000, // kg
+		Range:        10000,     // nautical miles
 	}
 }
 
@@ -207,6 +211,7 @@ func NewOilTanker(id, shipName string, startPos Position) *MaritimePlatform {
 		Width:        60,        // meters
 		Height:       35,        // meters
 		Mass:         320000000, // kg
+		Range:        12000,     // nautical miles
 	}
 }
 
@@ -234,5 +239,6 @@ func NewCoastGuardCutter(id, shipName string, startPos Position) *MaritimePlatfo
 		Width:        16.4,    // meters
 		Height:       15,      // meters
 		Mass:         4500000, // kg
+		Range:        3000,    // nautical miles
 	}
 }

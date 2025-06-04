@@ -1,0 +1,52 @@
+{
+    "go.toolsManagement.autoUpdate": true,
+    "go.useLanguageServer": true,
+    "go.lintOnSave": "package",
+    "go.vetOnSave": "package",
+    "go.formatTool": "goimports",
+    "go.buildOnSave": "package",
+    "go.testOnSave": false,
+    "go.coverOnSave": false,
+    "go.testFlags": [
+        "-v"
+    ],
+    "go.testTimeout": "30s",
+    "go.buildFlags": [],
+    "go.buildTags": "",
+    "go.generateTestsFlags": [
+        "-exported"
+    ],
+    "go.coverageDecorator": {
+        "type": "gutter",
+        "coveredHighlightColor": "rgba(64,128,128,0.5)",
+        "uncoveredHighlightColor": "rgba(128,64,64,0.25)",
+        "coveredGutterStyle": "blockblue",
+        "uncoveredGutterStyle": "blockred"
+    },
+    "go.coverageOptions": "showUncoveredCodeOnly",
+    "go.testExplorer.enable": true,
+    "go.testExplorer.showDynamicSubtestsInEditor": true,
+    "go.alternateTools": {
+        "go": "go"
+    },
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        },
+        "editor.suggest.snippetsPreventQuickSuggestions": false
+    },
+    "[go.mod]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true
+}

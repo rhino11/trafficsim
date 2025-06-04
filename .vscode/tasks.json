@@ -1,0 +1,169 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "go: test all",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "test"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: test with coverage",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "test-coverage"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: test race",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "test-race"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: run",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: lint",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "lint"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: format",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "fmt"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "go: vet",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "vet"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "go: install tools",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "install-tools"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}
