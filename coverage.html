@@ -4172,6 +4172,7 @@ import (
         "html/template"
         "log"
         "net/http"
+        "strings"
         "sync"
         "time"
 
@@ -4182,6 +4183,40 @@ import (
         "github.com/rhino11/trafficsim/internal/models"
         "github.com/rhino11/trafficsim/internal/sim"
 )
+
+// Enhanced logging for web interface debugging
+func logWebRequest(r *http.Request, status string) <span class="cov0" title="0">{
+        log.Printf("[WEB] %s %s - %s - User-Agent: %s - RemoteAddr: %s",
+                r.Method, r.URL.Path, status, r.UserAgent(), r.RemoteAddr)
+}</span>
+
+func logWebError(context string, err error) <span class="cov0" title="0">{
+        log.Printf("[WEB-ERROR] %s: %v", context, err)
+}</span>
+
+func logWebSocket(action string, clientCount int) <span class="cov0" title="0">{
+        log.Printf("[WEBSOCKET] %s - Active clients: %d", action, clientCount)
+}</span>
+
+func logJSLoad(filename string, status string) <span class="cov0" title="0">{
+        log.Printf("[JS-LOAD] %s - %s", filename, status)
+}</span>
+
+func logInitialization(component string, status string, duration time.Duration) <span class="cov0" title="0">{
+        log.Printf("[INIT] %s - %s (took %v)", component, status, duration)
+}</span>
+
+func logSimulationEvent(event string, details interface{}) <span class="cov0" title="0">{
+        log.Printf("[SIM] %s - %+v", event, details)
+}</span>
+
+func logPerformance(metric string, value interface{}) <span class="cov0" title="0">{
+        log.Printf("[PERF] %s: %v", metric, value)
+}</span>
+
+func logDebug(component string, message string, data interface{}) <span class="cov0" title="0">{
+        log.Printf("[DEBUG] [%s] %s - %+v", component, message, data)
+}</span>
 
 // Server represents the web server for the traffic simulation
 type Server struct {
@@ -4250,15 +4285,34 @@ func NewServer(cfg *config.Config, simulation *sim.Engine) *Server <span class="
 
 // setupRoutes configures all HTTP routes
 func (s *Server) setupRoutes() <span class="cov0" title="0">{
-        // Static files
-        s.router.PathPrefix("/static/").Handler(http.StripPrefix("/static/",
-                http.FileServer(http.Dir("web/static/"))))
+        // Static files with logging
+        staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                start := time.Now()
+                logWebRequest(r, "SERVING_STATIC")
+
+                // Serve the file
+                fileServer := http.FileServer(http.Dir("web/static/"))
+                fileServer.ServeHTTP(w, r)
+
+                duration := time.Since(start)
+                logPerformance("static_file_serve", map[string]interface{}{
+                        "file":     r.URL.Path,
+                        "duration": duration,
+                })
+
+                // Log JavaScript file loads specifically
+                if strings.HasSuffix(r.URL.Path, ".js") </span><span class="cov0" title="0">{
+                        logJSLoad(r.URL.Path, "LOADED")
+                }</span>
+        }))
+        <span class="cov0" title="0">s.router.PathPrefix("/static/").Handler(staticHandler)
 
         // WebSocket endpoint
         s.router.HandleFunc("/ws", s.handleWebSocket)
 
-        // API endpoints
+        // API endpoints with logging middleware
         api := s.router.PathPrefix("/api").Subrouter()
+        api.Use(s.loggingMiddleware)
         api.HandleFunc("/platforms", s.handleGetPlatforms).Methods("GET")
         api.HandleFunc("/simulation/start", s.handleStartSimulation).Methods("POST")
         api.HandleFunc("/simulation/stop", s.handleStopSimulation).Methods("POST")
@@ -4268,7 +4322,9 @@ func (s *Server) setupRoutes() <span class="cov0" title="0">{
 
         // Main page
         s.router.HandleFunc("/", s.handleIndex).Methods("GET")
-}</span>
+
+        logInitialization("Router", "CONFIGURED", 0)</span>
+}
 
 // Start starts the web server
 func (s *Server) Start(port string) error <span class="cov0" title="0">{
@@ -4333,7 +4389,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) <span c
         s.clients[conn] = true
         s.clientsMux.Unlock()
 
-        log.Printf("New WebSocket client connected. Total clients: %d", len(s.clients))
+        logWebSocket("New connection", len(s.clients))
 
         // Send initial data
         go s.sendInitialData(client)
@@ -4650,6 +4706,38 @@ func (c *Client) handleMessage(data []byte) <span class="cov0" title="0">{
                 log.Printf("Unknown message type: %s", msg.Type)</span>
         }
 }
+
+// loggingMiddleware adds request/response logging to API endpoints
+func (s *Server) loggingMiddleware(next http.Handler) http.Handler <span class="cov0" title="0">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                start := time.Now()
+                logWebRequest(r, "API_REQUEST_START")
+
+                // Create a response writer wrapper to capture status code
+                wrapper := &amp;responseWriter{ResponseWriter: w, statusCode: 200}
+
+                next.ServeHTTP(wrapper, r)
+
+                duration := time.Since(start)
+                logPerformance("api_request", map[string]interface{}{
+                        "endpoint": r.URL.Path,
+                        "method":   r.Method,
+                        "status":   wrapper.statusCode,
+                        "duration": duration,
+                })
+        }</span>)
+}
+
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+        http.ResponseWriter
+        statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) <span class="cov0" title="0">{
+        rw.statusCode = code
+        rw.ResponseWriter.WriteHeader(code)
+}</span>
 </pre>
 		
 		<pre class="file" id="file11" style="display: none">package sim

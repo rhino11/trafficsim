@@ -39,49 +39,54 @@ class MapEngine {
             overlays: new Map()
         };
 
+        // Callback handlers
+        this.onViewportChangeCallback = null;
+        this.viewportChangeCallbacks = []; // Initialize as empty array
+
         // Don't auto-initialize - wait for explicit call
     }
 
     async initialize() {
-        return new Promise((resolve, reject) => {
-            try {
-                console.log('Initializing MapEngine...');
+        // Check if container exists
+        const container = document.getElementById(this.containerId);
+        if (!container) {
+            throw new Error(`Container element not found: ${this.containerId}`);
+        }
 
-                // Initialize Leaflet map with performance optimizations
-                this.map = L.map(this.containerId, {
-                    center: this.options.center,
-                    zoom: this.options.zoom,
-                    minZoom: this.options.minZoom,
-                    maxZoom: this.options.maxZoom,
-                    preferCanvas: this.options.preferCanvas,
-                    zoomSnap: this.options.zoomSnap,
-                    zoomDelta: this.options.zoomDelta,
-                    wheelPxPerZoomLevel: this.options.wheelPxPerZoomLevel,
-                    updateWhenIdle: this.options.updateWhenIdle,
-                    updateWhenZooming: this.options.updateWhenZooming,
-                    keepBuffer: this.options.keepBuffer,
-                    // Disable default animations for better performance
-                    zoomAnimation: true,
-                    fadeAnimation: true,
-                    markerZoomAnimation: false
-                });
+        // Initialize map
+        this.map = L.map(this.containerId, this.options);
 
-                this.setupOfflineTiles();
-                this.setupLayers();
-                this.setupEventHandlers();
-                this.setupViewportTracking();
+        // Add tile layer
+        this.setupTileLayer();
 
-                this.isInitialized = true;
-                console.log('MapEngine initialized successfully');
-                resolve(this);
-            } catch (error) {
-                console.error('MapEngine initialization failed:', error);
-                reject(error);
-            }
-        });
+        // Create platform and trail layers
+        this.layers.platforms = L.layerGroup().addTo(this.map);
+        this.layers.trails = L.layerGroup().addTo(this.map);
+
+        // Add aliases for test compatibility
+        this.platformLayer = this.layers.platforms;
+        this.trailLayer = this.layers.trails;
+
+        // Initialize other overlay layers
+        this.layers.overlays.set('geofences', L.layerGroup());
+        this.layers.overlays.set('routes', L.layerGroup());
+        this.layers.overlays.set('zones', L.layerGroup());
+        this.layers.overlays.set('annotations', L.layerGroup());
+        this.layers.overlays.set('weather', L.layerGroup());
+        this.layers.overlays.set('terrain', L.layerGroup());
+
+        // Set up event handlers
+        this.setupEventHandlers();
+
+        // Initialize viewport bounds
+        this.updateViewportBounds();
+
+        this.isInitialized = true;
+
+        return this;
     }
 
-    setupOfflineTiles() {
+    setupTileLayer() {
         // Use OpenStreetMap tiles with offline caching capabilities
         this.offlineTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
@@ -159,6 +164,13 @@ class MapEngine {
         this.map.on('moveend zoomend', () => {
             this.updateViewportBounds();
             this.onViewportChange();
+        });
+
+        // Handle resize events
+        this.map.on('resize', () => {
+            if (this.map && this.map.invalidateSize) {
+                this.map.invalidateSize();
+            }
         });
 
         // Performance monitoring
@@ -266,104 +278,280 @@ class MapEngine {
         }
     }
 
-    // Performance optimization utilities
-    throttle(func, limit) {
-        let inThrottle;
-        return function () {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
+    // Check if map is ready/initialized
+    isReady() {
+        return this.isInitialized && this.map !== null;
     }
 
-    debounce(func, delay) {
-        let timeoutId;
-        return function (...args) {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func.apply(this, args), delay);
-        };
-    }
-
-    // Event handlers for external components
-    onViewportChange() {
-        // Override in external components
-        if (this.onViewportChangeCallback) {
-            this.onViewportChangeCallback(this.viewportBounds);
-        }
-    }
-
-    onPerformanceUpdate(metric, value) {
-        // Override in external components
-        if (this.onPerformanceUpdateCallback) {
-            this.onPerformanceUpdateCallback(metric, value);
-        }
-    }
-
-    // Public API methods
-    getMap() {
-        return this.map;
-    }
-
-    getViewportBounds() {
-        return this.viewportBounds;
-    }
-
-    getPlatformLayer() {
-        return this.layers.platforms;
-    }
-
-    getTrailLayer() {
-        return this.layers.trails;
-    }
-
-    getOverlayLayer(type) {
-        return this.layers.overlays.get(type);
-    }
-
-    // Center map on coordinates
+    /**
+     * Center map on specific coordinates
+     * @param {number} lat - Latitude
+     * @param {number} lng - Longitude
+     * @param {number} zoom - Zoom level (optional, defaults to current zoom)
+     */
     centerOn(lat, lng, zoom = null) {
-        if (zoom !== null) {
-            this.map.setView([lat, lng], zoom);
-        } else {
-            this.map.panTo([lat, lng]);
+        this.validateCoordinates(lat, lng);
+        const zoomLevel = zoom !== null ? zoom : this.getZoom();
+        this.map.setView([lat, lng], zoomLevel);
+    }
+
+    /**
+     * Smoothly fly to location
+     * @param {number} lat - Latitude
+     * @param {number} lng - Longitude
+     * @param {number} zoom - Zoom level
+     */
+    flyTo(lat, lng, zoom) {
+        this.validateCoordinates(lat, lng);
+        this.map.flyTo([lat, lng], zoom);
+    }
+
+    /**
+     * Fit map to bounds
+     * @param {Array} bounds - Bounds array [[south, west], [north, east]]
+     */
+    fitBounds(bounds) {
+        this.map.fitBounds(bounds);
+    }
+
+    /**
+     * Set zoom level
+     * @param {number} zoom - Zoom level
+     */
+    setZoom(zoom) {
+        this.map.setZoom(zoom);
+    }
+
+    /**
+     * Get current zoom level
+     * @returns {number} Current zoom level
+     */
+    getZoom() {
+        return this.map.getZoom();
+    }
+
+    /**
+     * Get platform layer
+     * @returns {L.LayerGroup} Platform layer
+     */
+    getPlatformLayer() {
+        return this.platformLayer;
+    }
+
+    /**
+     * Get trail layer
+     * @returns {L.LayerGroup} Trail layer
+     */
+    getTrailLayer() {
+        return this.trailLayer;
+    }
+
+    /**
+     * Add layer to map
+     * @param {L.Layer} layer - Layer to add
+     */
+    addLayer(layer) {
+        this.map.addLayer(layer);
+    }
+
+    /**
+     * Remove layer from map
+     * @param {L.Layer} layer - Layer to remove
+     */
+    removeLayer(layer) {
+        this.map.removeLayer(layer);
+    }
+
+    /**
+     * Convert lat/lng to screen coordinates
+     * @param {number} lat - Latitude
+     * @param {number} lng - Longitude
+     * @returns {Object} Screen coordinates {x, y}
+     */
+    latLngToScreen(lat, lng) {
+        return this.map.latLngToContainerPoint([lat, lng]);
+    }
+
+    /**
+     * Convert screen coordinates to lat/lng
+     * @param {number} x - Screen X coordinate
+     * @param {number} y - Screen Y coordinate
+     * @returns {Object} Lat/lng coordinates {lat, lng}
+     */
+    screenToLatLng(x, y) {
+        return this.map.containerPointToLatLng([x, y]);
+    }
+
+    /**
+     * Project coordinates
+     * @param {number} lat - Latitude
+     * @param {number} lng - Longitude
+     * @returns {Object} Projected coordinates {x, y}
+     */
+    project(lat, lng) {
+        return this.map.project([lat, lng]);
+    }
+
+    /**
+     * Unproject coordinates
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @returns {Object} Unprojected coordinates {lat, lng}
+     */
+    unproject(x, y) {
+        return this.map.unproject([x, y]);
+    }
+
+    /**
+     * Get map size
+     * @returns {Object} Map size {width, height}
+     */
+    getMapSize() {
+        return this.map.getSize();
+    }
+
+    /**
+     * Get map container element
+     * @returns {HTMLElement} Container element
+     */
+    getContainer() {
+        return this.map.getContainer();
+    }
+
+    /**
+     * Invalidate map size
+     */
+    invalidateSize() {
+        this.map.invalidateSize();
+    }
+
+    /**
+     * Check if map is ready
+     * @returns {boolean} True if map is initialized
+     */
+    isReady() {
+        return this.isInitialized && this.map !== null;
+    }
+
+    /**
+     * Add event listener
+     * @param {string} event - Event name
+     * @param {Function} callback - Event callback
+     */
+    on(event, callback) {
+        this.map.on(event, callback);
+    }
+
+    /**
+     * Remove event listener
+     * @param {string} event - Event name
+     * @param {Function} callback - Event callback
+     */
+    off(event, callback) {
+        this.map.off(event, callback);
+    }
+
+    /**
+     * Get viewport bounds with padding
+     * @param {number} padding - Padding ratio (0.1 = 10% padding)
+     * @returns {Object} Padded bounds
+     */
+    getViewportBoundsWithPadding(padding = 0.1) {
+        const bounds = this.getViewportBounds();
+        const latPadding = (bounds.north - bounds.south) * padding;
+        const lngPadding = (bounds.east - bounds.west) * padding;
+
+        return {
+            north: bounds.north + latPadding,
+            south: bounds.south - latPadding,
+            east: bounds.east + lngPadding,
+            west: bounds.west - lngPadding
+        };
+    }
+
+    /**
+     * Add scale control
+     */
+    addScaleControl() {
+        if (L.control && L.control.scale) {
+            const scaleControl = L.control.scale();
+            scaleControl.addTo(this.map);
         }
     }
 
-    // Fit map to bounds
-    fitBounds(bounds, options = {}) {
-        this.map.fitBounds(bounds, {
-            padding: [20, 20],
-            maxZoom: 15,
-            ...options
-        });
+    /**
+     * Add layer control
+     * @param {Object} baseLayers - Base layers
+     * @param {Object} overlayLayers - Overlay layers
+     */
+    addLayerControl(baseLayers, overlayLayers) {
+        if (L.control && L.control.layers) {
+            const layerControl = L.control.layers(baseLayers, overlayLayers);
+            layerControl.addTo(this.map);
+        }
     }
 
-    // Get current map state for persistence
-    getMapState() {
+    /**
+     * Export map state
+     * @returns {Object} Map state
+     */
+    exportState() {
         return {
             center: this.map.getCenter(),
             zoom: this.map.getZoom(),
-            bounds: this.viewportBounds
+            bounds: this.getViewportBounds()
         };
     }
 
-    // Restore map state
-    setMapState(state) {
+    /**
+     * Restore map state
+     * @param {Object} state - Map state to restore
+     */
+    restoreState(state) {
         if (state.center && state.zoom) {
             this.map.setView([state.center.lat, state.center.lng], state.zoom);
         }
     }
 
-    // Cleanup method
+    /**
+     * Validate coordinates
+     * @param {number} lat - Latitude
+     * @param {number} lng - Longitude
+     */
+    validateCoordinates(lat, lng) {
+        if (lat === null || lat === undefined || lng === null || lng === undefined) {
+            throw new Error('Latitude and longitude cannot be null or undefined');
+        }
+        if (lat < -90 || lat > 90) {
+            throw new Error('Latitude must be between -90 and 90 degrees');
+        }
+        if (lng < -180 || lng > 180) {
+            throw new Error('Longitude must be between -180 and 180 degrees');
+        }
+    }
+
+    /**
+     * Destroy map and clean up resources
+     */
     destroy() {
         if (this.map) {
+            // Remove event listeners
+            this.map.off('moveend');
+            this.map.off('zoomend');
+            this.map.off('resize');
+
+            // Remove map
             this.map.remove();
             this.map = null;
         }
+
+        // Clear layer references
+        this.platformLayer = null;
+        this.trailLayer = null;
+        this.layers.platforms = null;
+        this.layers.trails = null;
+        this.layers.overlays.clear();
+
         this.isInitialized = false;
     }
 }

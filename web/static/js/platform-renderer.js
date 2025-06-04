@@ -15,6 +15,13 @@ class PlatformRenderer {
         this.trails = new Map();    // platformId -> trail polyline
         this.trailPoints = new Map(); // platformId -> array of trail points
 
+        // Layer management for different platform types
+        this.layers = new Map();
+        this.layers.set('airborne', L.layerGroup());
+        this.layers.set('maritime', L.layerGroup());
+        this.layers.set('land', L.layerGroup());
+        this.layers.set('space', L.layerGroup());
+
         // Performance optimizations
         this.useCanvas = true;
         this.canvasRenderer = null;
@@ -31,6 +38,7 @@ class PlatformRenderer {
         this.maxTrailLength = 20;
         this.showTrails = true;
         this.markerSize = 8;
+        this.defaultOpacity = 1.0;
         this.zoomBasedSizing = true;
 
         // Performance tracking
@@ -124,45 +132,43 @@ class PlatformRenderer {
 
     // Create optimized marker for platform
     createPlatformMarker(platform) {
-        const position = [platform.position.latitude, platform.position.longitude];
-        const size = this.calculateMarkerSize(platform);
+        const { latitude, longitude } = platform.position;
 
-        let marker;
-
-        if (this.useCanvas && this.canvasRenderer) {
-            // Use canvas-based circle marker for better performance
-            marker = L.circleMarker(position, {
-                radius: size,
-                fillColor: this.getPlatformColor(platform.platform_type),
-                color: '#ffffff',
-                weight: 1,
-                opacity: 0.9,
-                fillOpacity: 0.8,
-                // Use canvas renderer
-                renderer: this.canvasRenderer,
-                // Disable unnecessary features for performance
-                bubblingMouseEvents: false,
-                interactive: true
-            });
-        } else {
-            // Fallback to regular marker
-            const icon = this.createPlatformIcon(platform);
-            marker = L.marker(position, {
-                icon: icon,
-                bubblingMouseEvents: false
-            });
+        // Validate coordinates
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            console.warn(`Invalid coordinates for platform ${platform.id}: ${latitude}, ${longitude}`);
+            return null;
         }
 
-        // Add platform data to marker
-        marker.platformData = platform;
+        const position = [latitude, longitude];
+        const icon = this.createPlatformIcon(platform);
 
-        // Add popup with platform information
-        this.attachPlatformPopup(marker, platform);
-
-        // Add click handler
-        marker.on('click', (e) => {
-            this.onPlatformClick(platform, e);
+        // Create marker with proper options
+        const marker = L.marker(position, {
+            icon: icon,
+            title: `${platform.platform_type} - ${platform.id}`,
+            alt: platform.id,
+            opacity: this.defaultOpacity,
+            riseOnHover: true,
+            riseOffset: 250
         });
+
+        // Add platform data to marker - ensure marker object exists first
+        if (marker) {
+            marker.platformData = platform;
+
+            // Add popup with platform information
+            this.attachPlatformPopup(marker, platform);
+
+            // Store marker reference
+            this.markers.set(platform.id, marker);
+
+            // Add to appropriate layer
+            const layer = this.layers.get(platform.platform_type);
+            if (layer && this.map) {
+                layer.addLayer(marker);
+            }
+        }
 
         return marker;
     }
@@ -232,7 +238,10 @@ class PlatformRenderer {
 
     createPopupContent(platform) {
         const pos = platform.position;
-        const vel = platform.velocity;
+        const vel = platform.velocity || { north: 0, east: 0, up: 0 };
+        const altitude = pos.altitude || 0;
+        const speed = platform.speed || 0;
+        const heading = platform.heading || 0;
 
         return `
             <div class="platform-popup">
@@ -243,15 +252,15 @@ class PlatformRenderer {
                 </div>
                 <div class="popup-field">
                     <span class="popup-label">Altitude:</span>
-                    <span class="popup-value">${pos.altitude.toFixed(0)} m</span>
+                    <span class="popup-value">${altitude.toFixed(0)} m</span>
                 </div>
                 <div class="popup-field">
                     <span class="popup-label">Speed:</span>
-                    <span class="popup-value">${platform.speed.toFixed(1)} m/s</span>
+                    <span class="popup-value">${speed.toFixed(1)} m/s</span>
                 </div>
                 <div class="popup-field">
                     <span class="popup-label">Heading:</span>
-                    <span class="popup-value">${platform.heading.toFixed(0)}°</span>
+                    <span class="popup-value">${heading.toFixed(0)}°</span>
                 </div>
                 <div class="popup-field">
                     <span class="popup-label">Velocity:</span>
@@ -259,7 +268,7 @@ class PlatformRenderer {
                 </div>
                 <div class="popup-field">
                     <span class="popup-label">Last Updated:</span>
-                    <span class="popup-value">${new Date(platform.lastUpdated).toLocaleTimeString()}</span>
+                    <span class="popup-value">${new Date(platform.lastUpdated || Date.now()).toLocaleTimeString()}</span>
                 </div>
             </div>
         `;

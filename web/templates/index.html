@@ -52,7 +52,9 @@
             <h2>TrafficSim Loading...</h2>
             <p id="loading-status">Initializing high-performance mapping engine</p>
             <div style="width: 300px; height: 4px; background: #333; border-radius: 2px; margin: 20px auto;">
-                <div id="loading-progress" style="width: 0%; height: 100%; background: #00ff00; border-radius: 2px; transition: width 0.3s ease;"></div>
+                <div id="loading-progress"
+                    style="width: 0%; height: 100%; background: #00ff00; border-radius: 2px; transition: width 0.3s ease;">
+                </div>
             </div>
         </div>
     </div>
@@ -184,27 +186,99 @@
 
     <!-- Application initialization -->
     <script>
+        // Enhanced client-side logging for debugging
+        function logInit(step, message, data = null) {
+            const timestamp = new Date().toISOString();
+            console.log(`[INIT-${step}] ${timestamp}: ${message}`, data || '');
+
+            // Also log to server if possible
+            if (navigator.sendBeacon) {
+                const logData = JSON.stringify({
+                    type: 'client_log',
+                    step: step,
+                    message: message,
+                    timestamp: timestamp,
+                    userAgent: navigator.userAgent,
+                    data: data
+                });
+                navigator.sendBeacon('/api/log', logData);
+            }
+        }
+
+        function logError(step, error, context = '') {
+            const timestamp = new Date().toISOString();
+            console.error(`[ERROR-${step}] ${timestamp}: ${error.message || error}`, {
+                error: error,
+                context: context,
+                stack: error.stack
+            });
+
+            // Send error to server
+            if (navigator.sendBeacon) {
+                const errorData = JSON.stringify({
+                    type: 'client_error',
+                    step: step,
+                    error: error.message || error.toString(),
+                    stack: error.stack,
+                    context: context,
+                    timestamp: timestamp,
+                    userAgent: navigator.userAgent,
+                    url: window.location.href
+                });
+                navigator.sendBeacon('/api/log', errorData);
+            }
+        }
+
         // Progress tracking functions
         function updateLoadingProgress(percent, status) {
+            logInit('PROGRESS', `${percent}% - ${status}`);
             document.getElementById('loading-progress').style.width = percent + '%';
             document.getElementById('loading-status').textContent = status;
         }
 
+        // Check if all required scripts are loaded
+        function checkScriptDependencies() {
+            const requiredClasses = ['PerformanceMonitor', 'DataStreamer', 'MapEngine'];
+            const missing = [];
+
+            requiredClasses.forEach(className => {
+                if (typeof window[className] === 'undefined') {
+                    missing.push(className);
+                }
+            });
+
+            if (missing.length > 0) {
+                throw new Error(`Missing required classes: ${missing.join(', ')}`);
+            }
+
+            logInit('DEPS', 'All script dependencies loaded successfully');
+        }
+
         // Application entry point
         document.addEventListener('DOMContentLoaded', async function () {
+            logInit('START', 'DOM Content Loaded - Starting application initialization');
+
             try {
+                updateLoadingProgress(5, 'Checking script dependencies...');
+                checkScriptDependencies();
+
                 updateLoadingProgress(10, 'Initializing performance monitor...');
-                
+                logInit('PERF', 'Creating PerformanceMonitor instance');
+
                 // Initialize performance monitoring
                 const perfMonitor = new PerformanceMonitor();
-                
+                logInit('PERF', 'PerformanceMonitor created successfully');
+
                 updateLoadingProgress(20, 'Setting up data streaming...');
-                
+                logInit('DATA', 'Creating DataStreamer instance');
+
                 // Initialize data streaming (fixed constructor)
                 const dataStreamer = new DataStreamer();
-                
+                logInit('DATA', 'DataStreamer created successfully');
+
                 updateLoadingProgress(40, 'Initializing map engine...');
-                
+                logInit('MAP', 'Creating MapEngine instance');
+
                 // Initialize map engine with high-performance settings
                 const mapEngine = new MapEngine('map', {
                     maxZoom: 20,
@@ -217,32 +291,43 @@
                     wheelPxPerZoomLevel: 120,
                     bounceAtZoomLimits: false
                 });
+                logInit('MAP', 'MapEngine instance created, calling initialize()');
+
+                // Check if initialize method exists
+                if (typeof mapEngine.initialize !== 'function') {
+                    throw new Error('MapEngine.initialize method does not exist');
+                }
 
                 // Wait for map to initialize
+                logInit('MAP', 'Calling mapEngine.initialize()...');
                 await mapEngine.initialize();
-                
+                logInit('MAP', 'MapEngine initialization completed successfully');
+
                 updateLoadingProgress(60, 'Setting up platform renderer...');
-                
+                logInit('RENDERER', 'Setting up platform renderer');
+
                 // Initialize platform renderer (mock implementation for now)
                 const platformRenderer = {
-                    updatePlatforms: function(platforms) {
-                        console.log('Platform update received:', platforms.length, 'platforms');
+                    updatePlatforms: function (platforms) {
+                        logInit('RENDERER', `Platform update received: ${platforms.length} platforms`);
                         // Update platform counter
                         document.getElementById('platform-counter').textContent = platforms.length;
                     },
-                    clearAll: function() {
-                        console.log('Clearing all platforms');
+                    clearAll: function () {
+                        logInit('RENDERER', 'Clearing all platforms');
                         document.getElementById('platform-counter').textContent = '0';
                     },
-                    setTrailsVisible: function(visible) { console.log('Trails visible:', visible); },
-                    setLabelsVisible: function(visible) { console.log('Labels visible:', visible); },
-                    setSensorRangeVisible: function(visible) { console.log('Sensor range visible:', visible); },
-                    setClusteringEnabled: function(enabled) { console.log('Clustering enabled:', enabled); },
-                    setPlatformTypeVisible: function(type, visible) { console.log('Platform type', type, 'visible:', visible); },
-                    onPlatformSelect: function(callback) { this.platformSelectCallback = callback; }
+                    setTrailsVisible: function (visible) { logInit('RENDERER', `Trails visible: ${visible}`); },
+                    setLabelsVisible: function (visible) { logInit('RENDERER', `Labels visible: ${visible}`); },
+                    setSensorRangeVisible: function (visible) { logInit('RENDERER', `Sensor range visible: ${visible}`); },
+                    setClusteringEnabled: function (enabled) { logInit('RENDERER', `Clustering enabled: ${enabled}`); },
+                    setPlatformTypeVisible: function (type, visible) { logInit('RENDERER', `Platform type ${type} visible: ${visible}`); },
+                    onPlatformSelect: function (callback) { this.platformSelectCallback = callback; }
                 };
+                logInit('RENDERER', 'Platform renderer setup completed');
 
                 updateLoadingProgress(80, 'Connecting to data stream...');
+                logInit('CONNECTION', 'Setting up data stream connection');
 
                 // Connect data stream to renderer
                 dataStreamer.onPlatformUpdate((platforms) => {
@@ -262,90 +347,138 @@
                     });
                 }
 
+                logInit('EVENTS', 'Setting up UI event handlers');
+
                 // Control panel event handlers
                 document.getElementById('play-pause-btn').addEventListener('click', function () {
+                    logInit('UI', 'Play/Pause button clicked');
                     const isRunning = dataStreamer.toggleSimulation();
                     this.textContent = isRunning ? '⏸️ Pause' : '▶️ Play';
                 });
 
                 document.getElementById('reset-btn').addEventListener('click', function () {
+                    logInit('UI', 'Reset button clicked');
                     dataStreamer.resetSimulation();
                     platformRenderer.clearAll();
                 });
 
                 document.getElementById('speed-slider').addEventListener('input', function () {
                     const speed = parseFloat(this.value);
+                    logInit('UI', `Speed slider changed to: ${speed}x`);
                     document.getElementById('speed-display').textContent = `${speed}x`;
                     dataStreamer.setSimulationSpeed(speed);
                 });
 
                 // Display option handlers
                 document.getElementById('show-trails').addEventListener('change', function () {
+                    logInit('UI', `Show trails toggled: ${this.checked}`);
                     platformRenderer.setTrailsVisible(this.checked);
                 });
 
                 document.getElementById('show-labels').addEventListener('change', function () {
+                    logInit('UI', `Show labels toggled: ${this.checked}`);
                     platformRenderer.setLabelsVisible(this.checked);
                 });
 
                 document.getElementById('show-sensors').addEventListener('change', function () {
+                    logInit('UI', `Show sensors toggled: ${this.checked}`);
                     platformRenderer.setSensorRangeVisible(this.checked);
                 });
 
                 document.getElementById('cluster-platforms').addEventListener('change', function () {
+                    logInit('UI', `Clustering toggled: ${this.checked}`);
                     platformRenderer.setClusteringEnabled(this.checked);
                 });
 
                 // Platform filter handlers
                 ['airborne', 'land', 'maritime', 'space'].forEach(type => {
                     document.getElementById(`filter-${type}`).addEventListener('change', function () {
+                        logInit('UI', `Filter ${type} toggled: ${this.checked}`);
                         platformRenderer.setPlatformTypeVisible(type, this.checked);
                     });
                 });
 
                 // Platform info panel handlers
                 document.getElementById('close-info').addEventListener('click', function () {
+                    logInit('UI', 'Platform info panel closed');
                     document.getElementById('platform-info').classList.add('hidden');
                 });
 
                 updateLoadingProgress(95, 'Starting data connection...');
+                logInit('CONNECTION', 'Starting data streamer connection');
 
                 // Start the data connection
                 dataStreamer.connect();
-                
+                logInit('CONNECTION', 'Data streamer connection initiated');
+
                 // Start performance monitoring if available
                 if (perfMonitor.start) {
                     perfMonitor.start();
+                    logInit('PERF', 'Performance monitoring started');
                 }
 
                 updateLoadingProgress(100, 'Ready!');
+                logInit('COMPLETE', 'Application initialization completed successfully');
 
                 // Hide loading screen after a brief delay
                 setTimeout(() => {
                     document.getElementById('loading-screen').classList.add('hidden');
-                    console.log('TrafficSim initialized successfully');
-                    console.log('Map engine ready for platform visualization');
+                    logInit('UI', 'Loading screen hidden - application ready');
+                    console.log('🚀 TrafficSim initialized successfully');
+                    console.log('📊 Map engine ready for platform visualization');
+                    console.log('🔧 Check browser console for detailed initialization logs');
                 }, 500);
 
             } catch (error) {
-                console.error('Application initialization failed:', error);
+                logError('INIT', error, 'Application initialization failed');
+                console.error('💥 Application initialization failed:', error);
                 updateLoadingProgress(0, 'Initialization failed: ' + error.message);
-                
+
+                // Show detailed error information
+                const errorDetails = `
+                    Error: ${error.message}
+                    Stack: ${error.stack}
+                    User Agent: ${navigator.userAgent}
+                    URL: ${window.location.href}
+                `;
+                console.error('Error Details:', errorDetails);
+
                 // Show error in loading screen for a few seconds, then hide it
                 setTimeout(() => {
                     document.getElementById('loading-screen').classList.add('hidden');
-                    alert('TrafficSim failed to initialize. Please check the console for details.');
+                    alert(`TrafficSim failed to initialize.\n\nError: ${error.message}\n\nPlease check the browser console for detailed logs.`);
                 }, 3000);
             }
 
             // Global error handling
             window.addEventListener('error', function (e) {
-                console.error('Application error:', e.error);
+                logError('RUNTIME', e.error || e, `${e.filename}:${e.lineno}`);
                 if (perfMonitor && perfMonitor.recordError) {
-                    perfMonitor.recordError(e.error);
+                    perfMonitor.recordError(e.error || e);
                 }
             });
+
+            // Unhandled promise rejection handling
+            window.addEventListener('unhandledrejection', function (e) {
+                logError('PROMISE', e.reason, 'Unhandled promise rejection');
+                console.error('Unhandled promise rejection:', e.reason);
+            });
         });
+
+        // Additional debugging utilities
+        window.debugTrafficSim = {
+            logInit: logInit,
+            logError: logError,
+            checkDependencies: checkScriptDependencies,
+            getLoadedClasses: () => {
+                const classes = ['PerformanceMonitor', 'DataStreamer', 'MapEngine', 'PlatformRenderer'];
+                return classes.map(name => ({
+                    name,
+                    loaded: typeof window[name] !== 'undefined',
+                    type: typeof window[name]
+                }));
+            }
+        };
     </script>
 </body>
 

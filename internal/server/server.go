@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,40 @@ import (
 	"github.com/rhino11/trafficsim/internal/models"
 	"github.com/rhino11/trafficsim/internal/sim"
 )
+
+// Enhanced logging for web interface debugging
+func logWebRequest(r *http.Request, status string) {
+	log.Printf("[WEB] %s %s - %s - User-Agent: %s - RemoteAddr: %s",
+		r.Method, r.URL.Path, status, r.UserAgent(), r.RemoteAddr)
+}
+
+func logWebError(context string, err error) {
+	log.Printf("[WEB-ERROR] %s: %v", context, err)
+}
+
+func logWebSocket(action string, clientCount int) {
+	log.Printf("[WEBSOCKET] %s - Active clients: %d", action, clientCount)
+}
+
+func logJSLoad(filename string, status string) {
+	log.Printf("[JS-LOAD] %s - %s", filename, status)
+}
+
+func logInitialization(component string, status string, duration time.Duration) {
+	log.Printf("[INIT] %s - %s (took %v)", component, status, duration)
+}
+
+func logSimulationEvent(event string, details interface{}) {
+	log.Printf("[SIM] %s - %+v", event, details)
+}
+
+func logPerformance(metric string, value interface{}) {
+	log.Printf("[PERF] %s: %v", metric, value)
+}
+
+func logDebug(component string, message string, data interface{}) {
+	log.Printf("[DEBUG] [%s] %s - %+v", component, message, data)
+}
 
 // Server represents the web server for the traffic simulation
 type Server struct {
@@ -85,15 +120,34 @@ func NewServer(cfg *config.Config, simulation *sim.Engine) *Server {
 
 // setupRoutes configures all HTTP routes
 func (s *Server) setupRoutes() {
-	// Static files
-	s.router.PathPrefix("/static/").Handler(http.StripPrefix("/static/",
-		http.FileServer(http.Dir("web/static/"))))
+	// Static files with logging
+	staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		logWebRequest(r, "SERVING_STATIC")
+
+		// Serve the file
+		fileServer := http.FileServer(http.Dir("web/static/"))
+		fileServer.ServeHTTP(w, r)
+
+		duration := time.Since(start)
+		logPerformance("static_file_serve", map[string]interface{}{
+			"file":     r.URL.Path,
+			"duration": duration,
+		})
+
+		// Log JavaScript file loads specifically
+		if strings.HasSuffix(r.URL.Path, ".js") {
+			logJSLoad(r.URL.Path, "LOADED")
+		}
+	}))
+	s.router.PathPrefix("/static/").Handler(staticHandler)
 
 	// WebSocket endpoint
 	s.router.HandleFunc("/ws", s.handleWebSocket)
 
-	// API endpoints
+	// API endpoints with logging middleware
 	api := s.router.PathPrefix("/api").Subrouter()
+	api.Use(s.loggingMiddleware)
 	api.HandleFunc("/platforms", s.handleGetPlatforms).Methods("GET")
 	api.HandleFunc("/simulation/start", s.handleStartSimulation).Methods("POST")
 	api.HandleFunc("/simulation/stop", s.handleStopSimulation).Methods("POST")
@@ -103,6 +157,8 @@ func (s *Server) setupRoutes() {
 
 	// Main page
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
+
+	logInitialization("Router", "CONFIGURED", 0)
 }
 
 // Start starts the web server
@@ -168,7 +224,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.clients[conn] = true
 	s.clientsMux.Unlock()
 
-	log.Printf("New WebSocket client connected. Total clients: %d", len(s.clients))
+	logWebSocket("New connection", len(s.clients))
 
 	// Send initial data
 	go s.sendInitialData(client)
@@ -484,4 +540,36 @@ func (c *Client) handleMessage(data []byte) {
 	default:
 		log.Printf("Unknown message type: %s", msg.Type)
 	}
+}
+
+// loggingMiddleware adds request/response logging to API endpoints
+func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		logWebRequest(r, "API_REQUEST_START")
+
+		// Create a response writer wrapper to capture status code
+		wrapper := &responseWriter{ResponseWriter: w, statusCode: 200}
+
+		next.ServeHTTP(wrapper, r)
+
+		duration := time.Since(start)
+		logPerformance("api_request", map[string]interface{}{
+			"endpoint": r.URL.Path,
+			"method":   r.Method,
+			"status":   wrapper.statusCode,
+			"duration": duration,
+		})
+	})
+}
+
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }

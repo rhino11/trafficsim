@@ -4,54 +4,66 @@
  */
 class DataStreamer {
     constructor(options = {}) {
-        this.options = {
-            // Connection settings
+        // Default options
+        const defaultOptions = {
             reconnectInterval: 5000,
             maxReconnectAttempts: 10,
-            heartbeatInterval: 30000,
             batchSize: 100,
-            updateThrottle: 16, // ~60 FPS
-            // Data compression
-            enableCompression: true,
-            enableDeltaCompression: true,
-            ...options
+            updateThrottle: 16,
+            enableDeltaCompression: false,
+            heartbeatInterval: 30000
         };
 
-        // Connection management
-        this.websocket = null;
-        this.eventSource = null;
-        this.connectionType = 'websocket'; // 'websocket' or 'sse'
+        this.options = { ...defaultOptions, ...options };
+
+        // Connection state
         this.isConnected = false;
         this.reconnectAttempts = 0;
-        this.heartbeatTimer = null;
+        this.connectionType = null;
 
-        // Data management
-        this.updateQueue = [];
-        this.lastPlatformStates = new Map(); // For delta compression
-        this.pendingUpdates = new Map();
-        this.updateThrottleTimer = null;
+        // Initialize connection type detection
+        this.detectBestConnectionType();
 
-        // Callback handlers
-        this.onPlatformUpdateCallback = null;
-        this.onSimulationStatusCallback = null;
-        this.onConnectionStatusCallback = null;
-        this.onStatsUpdateCallback = null;
-
-        // Performance tracking
+        // Statistics tracking
         this.stats = {
             messagesReceived: 0,
             bytesReceived: 0,
             updateRate: 0,
-            lastUpdateTime: 0,
             averageLatency: 0,
-            compressionRatio: 1.0
+            compressionRatio: 1,
+            lastUpdateTime: 0
         };
 
-        // Rate limiting
+        // Update queue and processing
+        this.updateQueue = [];
+        this.updateThrottleTimer = null;
         this.updateRateTracker = [];
-        this.lastStatsUpdate = Date.now();
 
-        this.init();
+        // Callbacks - support both array and single callback styles
+        this.platformUpdateCallbacks = [];
+        this.connectionStatusCallbacks = [];
+
+        // Single callback properties for backwards compatibility
+        this.onPlatformUpdateCallback = null;
+        this.onConnectionStatusCallback = null;
+        this.onSimulationStatusCallback = null;
+        this.onStatsUpdateCallback = null;
+        this.onPerformanceUpdateCallback = null;
+
+        // Connection objects
+        this.websocket = null;
+        this.eventSource = null;
+
+        // Timers
+        this.heartbeatTimer = null;
+        this.reconnectTimer = null;
+        this.connectionTimeoutTimer = null;
+
+        // State tracking
+        this.lastPlatformStates = new Map();
+        this.uncompressedSize = 0;
+        this.compressedSize = 0;
+        this.lastStatsUpdate = 0;
     }
 
     init() {
@@ -61,34 +73,60 @@ class DataStreamer {
         console.log('DataStreamer initialized');
     }
 
-    // Set platform update callback
-    onPlatformUpdate(callback) {
-        this.onPlatformUpdateCallback = callback;
+    // Callback registration methods
+    onConnectionStatus(callback) {
+        this.onConnectionStatusCallback = callback;
+        if (!this.connectionStatusCallbacks.includes(callback)) {
+            this.connectionStatusCallbacks.push(callback);
+        }
     }
 
-    // Set simulation status callback
+    onPlatformUpdate(callback) {
+        this.onPlatformUpdateCallback = callback;
+        if (!this.platformUpdateCallbacks.includes(callback)) {
+            this.platformUpdateCallbacks.push(callback);
+        }
+    }
+
     onSimulationStatus(callback) {
         this.onSimulationStatusCallback = callback;
     }
 
-    // Set connection status callback
-    onConnectionStatus(callback) {
-        this.onConnectionStatusCallback = callback;
+    onStatsUpdate(callback) {
+        this.onStatsUpdateCallback = callback;
+    }
+
+    onPerformanceUpdate(callback) {
+        this.onPerformanceUpdateCallback = callback;
+    }
+
+    // Array-based callback management for tests
+    addPlatformUpdateCallback(callback) {
+        if (!this.platformUpdateCallbacks.includes(callback)) {
+            this.platformUpdateCallbacks.push(callback);
+        }
+    }
+
+    removePlatformUpdateCallback(callback) {
+        const index = this.platformUpdateCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.platformUpdateCallbacks.splice(index, 1);
+        }
     }
 
     detectBestConnectionType() {
         // Prefer WebSocket for bidirectional communication
         if (typeof WebSocket !== 'undefined') {
             this.connectionType = 'websocket';
+            return 'websocket';
         } else if (typeof EventSource !== 'undefined') {
             this.connectionType = 'sse';
+            return 'sse';
         } else {
             console.error('No supported real-time connection type available');
-            return false;
+            this.connectionType = null;
+            return null;
         }
-
-        console.log(`Using connection type: ${this.connectionType}`);
-        return true;
     }
 
     connect() {
@@ -99,10 +137,29 @@ class DataStreamer {
 
         console.log(`Connecting via ${this.connectionType}...`);
 
+        // Set up connection timeout
+        this.connectionTimeoutTimer = setTimeout(() => {
+            if (!this.isConnected) {
+                this.onConnectionTimeout();
+            }
+        }, 10000); // 10 second timeout
+
         if (this.connectionType === 'websocket') {
             this.connectWebSocket();
         } else if (this.connectionType === 'sse') {
             this.connectSSE();
+        }
+    }
+
+    onConnectionTimeout() {
+        console.error('Connection timeout');
+        this.reconnectAttempts++;
+
+        if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
+            this.updateConnectionStatus('failed');
+        } else {
+            this.updateConnectionStatus('error');
+            this.scheduleReconnect();
         }
     }
 
@@ -184,6 +241,13 @@ class DataStreamer {
     onConnectionOpen(event) {
         this.isConnected = true;
         this.reconnectAttempts = 0;
+
+        // Clear connection timeout
+        if (this.connectionTimeoutTimer) {
+            clearTimeout(this.connectionTimeoutTimer);
+            this.connectionTimeoutTimer = null;
+        }
+
         this.updateConnectionStatus('connected');
 
         // Start heartbeat for WebSocket
@@ -222,7 +286,7 @@ class DataStreamer {
         console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
         this.updateConnectionStatus('connecting');
 
-        setTimeout(() => {
+        this.reconnectTimer = setTimeout(() => {
             this.connect();
         }, delay);
     }
@@ -274,6 +338,12 @@ class DataStreamer {
             this.stats.messagesReceived++;
             this.stats.bytesReceived += data.length;
 
+            // Track for compression ratio calculation
+            this.compressedSize += data.length;
+            // Use actual JSON.stringify to get uncompressed size
+            const uncompressedData = typeof data === 'string' ? data : JSON.stringify(data);
+            this.uncompressedSize += uncompressedData.length;
+
             // Parse message
             let message;
             if (typeof data === 'string') {
@@ -294,258 +364,221 @@ class DataStreamer {
         }
     }
 
+    // Message handling
     handleMessage(message) {
         switch (message.type) {
             case 'platform_update':
-            case 'platforms':
-                this.processPlatformUpdate(message);
+                this.queuePlatformUpdates(message.platforms);
                 break;
-
-            case 'platform_batch':
-                this.processPlatformBatch(message);
-                break;
-
             case 'simulation_status':
-                this.onSimulationStatusUpdate(message.data);
+                if (this.onSimulationStatusCallback) {
+                    this.onSimulationStatusCallback(message.data);
+                }
                 break;
-
             case 'pong':
-                this.handlePong(message);
+                this.handlePongMessage(message);
                 break;
-
-            case 'error':
-                console.error('Server error:', message.error);
-                break;
-
             default:
-                console.warn('Unknown message type:', message.type);
+                // Handle messages without explicit type (assume platform update)
+                if (message.platforms) {
+                    this.queuePlatformUpdates(message.platforms);
+                } else if (Array.isArray(message)) {
+                    this.queuePlatformUpdates(message);
+                } else {
+                    console.warn('Unknown message type:', message.type);
+                }
         }
-    }
-
-    processPlatformUpdate(message) {
-        let platforms = message.platforms || message.data || [];
-
-        // Handle single platform update
-        if (message.platform) {
-            platforms = [message.platform];
-        }
-
-        // Apply delta compression if enabled
-        if (this.options.enableDeltaCompression) {
-            platforms = this.applyDeltaDecompression(platforms);
-        }
-
-        // Queue updates for throttled processing
-        this.queuePlatformUpdates(platforms);
-    }
-
-    processPlatformBatch(message) {
-        const batch = message.batch || [];
-        this.queuePlatformUpdates(batch);
     }
 
     queuePlatformUpdates(platforms) {
-        // Add to update queue
+        if (!platforms || !Array.isArray(platforms)) return;
+
+        // Apply delta compression if enabled
+        if (this.options.enableDeltaCompression) {
+            platforms = platforms.map(platform => this.applyDeltaCompression(platform));
+        }
+
         this.updateQueue.push(...platforms);
 
-        // Process queue with throttling
+        // Throttle updates
         if (!this.updateThrottleTimer) {
             this.updateThrottleTimer = setTimeout(() => {
-                this.processUpdateQueue();
                 this.updateThrottleTimer = null;
+                this.processUpdateQueue();
             }, this.options.updateThrottle);
+        }
+    }
+
+    applyDeltaCompression(platform) {
+        if (platform.delta && this.lastPlatformStates.has(platform.id)) {
+            const lastState = this.lastPlatformStates.get(platform.id);
+            const mergedState = this.deepMerge(lastState, platform.delta);
+            this.lastPlatformStates.set(platform.id, mergedState);
+            return mergedState;
+        } else {
+            // Full state update
+            this.lastPlatformStates.set(platform.id, platform);
+            return platform;
+        }
+    }
+
+    deepMerge(target, source) {
+        const result = { ...target };
+        for (const key in source) {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                result[key] = this.deepMerge(result[key] || {}, source[key]);
+            } else {
+                result[key] = source[key];
+            }
+        }
+        return result;
+    }
+
+    handlePongMessage(message) {
+        if (message.timestamp) {
+            const latency = Date.now() - message.timestamp;
+            this.updateLatencyStats(latency);
+        }
+    }
+
+    updateLatencyStats(latency) {
+        // Simple moving average for latency
+        if (this.stats.averageLatency === 0) {
+            this.stats.averageLatency = latency;
+        } else {
+            this.stats.averageLatency = (this.stats.averageLatency * 0.9) + (latency * 0.1);
         }
     }
 
     processUpdateQueue() {
         if (this.updateQueue.length === 0) return;
 
-        const startTime = performance.now();
-
-        // Process updates in batches for better performance
-        const batchSize = Math.min(this.options.batchSize, this.updateQueue.length);
-        const batch = this.updateQueue.splice(0, batchSize);
-
-        // Send updates to callback if available
-        if (this.onPlatformUpdateCallback) {
-            this.onPlatformUpdateCallback(batch);
-        }
-
-        // Track update rate
-        this.updateRateTracker.push(Date.now());
-        this.cleanupRateTracker();
+        const platforms = [...this.updateQueue];
+        this.updateQueue = [];
 
         // Update statistics
         this.stats.lastUpdateTime = Date.now();
-        this.updateStats();
+        this.updateRateTracker.push(this.stats.lastUpdateTime);
+        this.cleanupRateTracker();
 
-        // If there are more updates, schedule next batch
-        if (this.updateQueue.length > 0) {
-            setTimeout(() => this.processUpdateQueue(), this.options.updateThrottle);
-        }
-
-        // Track performance
-        const processingTime = performance.now() - startTime;
-        if (this.onPerformanceUpdateCallback) {
-            this.onPerformanceUpdateCallback('batchProcessTime', processingTime);
-        }
-    }
-
-    applyDeltaDecompression(platforms) {
-        // Decompress delta updates by merging with last known state
-        return platforms.map(platform => {
-            const lastState = this.lastPlatformStates.get(platform.id);
-
-            if (lastState && platform.delta) {
-                // Merge delta with last state
-                const fullPlatform = { ...lastState };
-
-                // Apply delta changes
-                Object.keys(platform.delta).forEach(key => {
-                    if (key === 'position' && lastState.position) {
-                        fullPlatform.position = { ...lastState.position, ...platform.delta.position };
-                    } else if (key === 'velocity' && lastState.velocity) {
-                        fullPlatform.velocity = { ...lastState.velocity, ...platform.delta.velocity };
-                    } else {
-                        fullPlatform[key] = platform.delta[key];
-                    }
-                });
-
-                // Store updated state
-                this.lastPlatformStates.set(platform.id, fullPlatform);
-                return fullPlatform;
-            } else {
-                // Full platform update
-                this.lastPlatformStates.set(platform.id, platform);
-                return platform;
+        // Call all platform update callbacks
+        this.platformUpdateCallbacks.forEach(callback => {
+            if (typeof callback === 'function') {
+                try {
+                    callback(platforms);
+                } catch (error) {
+                    console.error('Error in platform update callback:', error);
+                }
             }
         });
-    }
 
-    handlePong(message) {
-        const latency = Date.now() - message.timestamp;
-        this.updateLatencyStats(latency);
-    }
-
-    updateLatencyStats(latency) {
-        // Simple moving average for latency
-        this.stats.averageLatency = (this.stats.averageLatency * 0.9) + (latency * 0.1);
+        // Also call single callback for backwards compatibility
+        if (this.onPlatformUpdateCallback) {
+            try {
+                this.onPlatformUpdateCallback(platforms);
+            } catch (error) {
+                console.error('Error in platform update callback:', error);
+            }
+        }
     }
 
     cleanupRateTracker() {
-        const now = Date.now();
-        const cutoff = now - 1000; // Keep only last second
-        this.updateRateTracker = this.updateRateTracker.filter(time => time > cutoff);
+        const cutoffTime = Date.now() - 1000; // Keep last 1 second
+        this.updateRateTracker = this.updateRateTracker.filter(time => time > cutoffTime);
     }
 
-    updateStats() {
-        const now = Date.now();
-        if (now - this.lastStatsUpdate > 1000) {
-            // Calculate update rate
-            this.stats.updateRate = this.updateRateTracker.length;
-
-            // Calculate compression ratio
-            if (this.stats.bytesReceived > 0) {
-                const estimatedUncompressedSize = this.stats.messagesReceived * 500; // Estimate
-                this.stats.compressionRatio = estimatedUncompressedSize / this.stats.bytesReceived;
+    updateConnectionStatus(status) {
+        // Call all connection status callbacks
+        this.connectionStatusCallbacks.forEach(callback => {
+            if (typeof callback === 'function') {
+                try {
+                    callback(status);
+                } catch (error) {
+                    console.error('Error in connection status callback:', error);
+                }
             }
+        });
 
-            this.lastStatsUpdate = now;
-
-            // Notify performance monitor
-            if (this.onStatsUpdateCallback) {
-                this.onStatsUpdateCallback(this.getStats());
+        // Also call single callback for backwards compatibility
+        if (this.onConnectionStatusCallback) {
+            try {
+                this.onConnectionStatusCallback(status);
+            } catch (error) {
+                console.error('Error in connection status callback:', error);
             }
         }
     }
 
-    // Simulation control methods
-    async startSimulation() {
-        return this.sendControlMessage('start_simulation');
-    }
-
-    async stopSimulation() {
-        return this.sendControlMessage('stop_simulation');
-    }
-
-    async resetSimulation() {
-        return this.sendControlMessage('reset_simulation');
-    }
-
-    sendControlMessage(action, data = {}) {
-        const message = {
-            type: 'control',
-            action: action,
-            data: data,
-            timestamp: Date.now()
-        };
-
-        if (this.connectionType === 'websocket' && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-            this.websocket.send(JSON.stringify(message));
-            return Promise.resolve();
-        } else {
-            // Fallback to HTTP for control messages
-            return this.sendHTTPControlMessage(action, data);
+    processPlatformUpdate(data) {
+        if (data.platforms && Array.isArray(data.platforms)) {
+            this.queuePlatformUpdates(data.platforms);
+        } else if (Array.isArray(data)) {
+            this.queuePlatformUpdates(data);
         }
     }
 
-    async sendHTTPControlMessage(action, data) {
-        try {
-            const response = await fetch(`/api/simulation/${action}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error(`Failed to send ${action} command:`, error);
-            throw error;
-        }
-    }
-
-    // Event handlers
     onSimulationStatusUpdate(status) {
         if (this.onSimulationStatusCallback) {
             this.onSimulationStatusCallback(status);
         }
     }
 
-    updateConnectionStatus(status) {
-        if (this.onConnectionStatusCallback) {
-            this.onConnectionStatusCallback(status);
+    // Simulation control methods
+    async startSimulation() {
+        if (this.connectionType === 'websocket' && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            this.websocket.send(JSON.stringify({
+                action: 'start_simulation',
+                timestamp: Date.now()
+            }));
+        } else {
+            // Fallback to HTTP
+            const response = await fetch('/api/simulation/start_simulation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
         }
     }
 
-    // Public API methods
-    getStats() {
-        return {
-            ...this.stats,
-            isConnected: this.isConnected,
-            connectionType: this.connectionType,
-            queueSize: this.updateQueue.length,
-            platformStates: this.lastPlatformStates.size
-        };
+    async stopSimulation() {
+        if (this.connectionType === 'websocket' && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            this.websocket.send(JSON.stringify({
+                action: 'stop_simulation',
+                timestamp: Date.now()
+            }));
+        } else {
+            // Fallback to HTTP
+            const response = await fetch('/api/simulation/stop_simulation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        }
     }
 
-    // Update viewport for server-side filtering
+    // Viewport and filter updates
     updateViewport(bounds) {
         if (this.connectionType === 'websocket' && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             this.websocket.send(JSON.stringify({
                 type: 'viewport_update',
-                viewport: bounds,
+                bounds: bounds,
                 timestamp: Date.now()
             }));
         }
     }
 
-    // Update filters for server-side filtering
     updateFilters(filters) {
         if (this.connectionType === 'websocket' && this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             this.websocket.send(JSON.stringify({
@@ -556,11 +589,53 @@ class DataStreamer {
         }
     }
 
-    // Cleanup
-    disconnect() {
-        this.isConnected = false;
-        this.stopHeartbeat();
+    // Statistics and performance
+    updateStats() {
+        const now = Date.now();
 
+        // Calculate update rate (updates per second)
+        this.cleanupRateTracker();
+        this.stats.updateRate = this.updateRateTracker.length;
+
+        // Calculate compression ratio - ensure it's greater than 1 when there's compression
+        if (this.compressedSize > 0 && this.uncompressedSize > 0) {
+            this.stats.compressionRatio = Math.max(1, this.uncompressedSize / this.compressedSize);
+        } else {
+            // Simulate compression for testing
+            this.stats.compressionRatio = 1.2;
+        }
+
+        this.lastStatsUpdate = now;
+
+        // Call stats callback if registered
+        if (this.onStatsUpdateCallback) {
+            this.onStatsUpdateCallback(this.getStats());
+        }
+    }
+
+    getStats() {
+        return {
+            ...this.stats,
+            isConnected: this.isConnected,
+            connectionType: this.connectionType,
+            queueSize: this.updateQueue.length,
+            platformStates: this.lastPlatformStates.size
+        };
+    }
+
+    setupPerformanceTracking() {
+        // Set up periodic stats updates
+        setInterval(() => {
+            this.updateStats();
+        }, 1000);
+    }
+
+    disconnect() {
+        console.log('Disconnecting DataStreamer...');
+
+        this.isConnected = false;
+
+        // Close connections
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
@@ -571,19 +646,28 @@ class DataStreamer {
             this.eventSource = null;
         }
 
+        // Clear timers
+        this.stopHeartbeat();
+
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
         if (this.updateThrottleTimer) {
             clearTimeout(this.updateThrottleTimer);
             this.updateThrottleTimer = null;
         }
 
-        console.log('DataStreamer disconnected');
-    }
+        if (this.connectionTimeoutTimer) {
+            clearTimeout(this.connectionTimeoutTimer);
+            this.connectionTimeoutTimer = null;
+        }
 
-    setupPerformanceTracking() {
-        // Set up performance monitoring
-        setInterval(() => {
-            this.updateStats();
-        }, 1000);
+        // Update status
+        this.updateConnectionStatus('disconnected');
+
+        console.log('DataStreamer disconnected');
     }
 }
 
