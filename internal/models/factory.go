@@ -32,7 +32,7 @@ func createBasePlatform(id string, platformType PlatformType, typeDef *PlatformT
 		CallSign:      callSign,
 		FuelRemaining: fuelRemaining,
 		MissionTime:   0,
-		SystemStatus:  createSystemStatus(platformType),
+		SystemStatus:  createSystemStatus(platformType, typeDef.Class),
 		lastPosition:  startPos,
 		acceleration:  0,
 	}
@@ -74,19 +74,33 @@ func calculateMomentOfInertia(mass float64, platformType PlatformType) MomentOfI
 	}
 }
 
-// Helper function to create system status based on platform type
-func createSystemStatus(platformType PlatformType) SystemStatus {
+// Helper function to create system status based on platform type and class
+func createSystemStatus(platformType PlatformType, class string) SystemStatus {
+	// Determine if this is a civilian/commercial platform
+	isCivilian := isCivilianPlatform(class)
+	
 	switch platformType {
 	case PlatformTypeAirborne, PlatformTypeLand, PlatformTypeMaritime:
+		weaponStatus := WeaponStatusArmed
+		weaponSystemOperational := true
+		weaponSystemEfficiency := 1.0
+		
+		// Civilian platforms should not be armed
+		if isCivilian {
+			weaponStatus = WeaponStatusNA
+			weaponSystemOperational = false
+			weaponSystemEfficiency = 0.0
+		}
+		
 		return SystemStatus{
 			PowerSystem:         SystemState{Operational: true, Efficiency: 1.0},
 			PropulsionSystem:    SystemState{Operational: true, Efficiency: 0.98},
 			NavigationSystem:    SystemState{Operational: true, Efficiency: 1.0},
 			CommunicationSystem: SystemState{Operational: true, Efficiency: 0.99},
 			SensorSystem:        SystemState{Operational: true, Efficiency: 0.95},
-			WeaponSystem:        SystemState{Operational: true, Efficiency: 1.0},
+			WeaponSystem:        SystemState{Operational: weaponSystemOperational, Efficiency: weaponSystemEfficiency},
 			FuelSystem:          SystemState{Operational: true, Efficiency: 1.0},
-			WeaponStatus:        WeaponStatusArmed,
+			WeaponStatus:        weaponStatus,
 		}
 	case PlatformTypeSpace:
 		return SystemStatus{
@@ -111,6 +125,26 @@ func createSystemStatus(platformType PlatformType) SystemStatus {
 			WeaponStatus:        WeaponStatusNA,
 		}
 	}
+}
+
+// Helper function to determine if a platform class represents a civilian platform
+func isCivilianPlatform(class string) bool {
+	civilianClasses := []string{
+		"Civilian Car",
+		"Commercial Aircraft", 
+		"Commercial Ship",
+		"Cargo Aircraft",
+		"Passenger Aircraft",
+		"Commercial Truck",
+		"Civilian Vehicle",
+	}
+	
+	for _, civilianClass := range civilianClasses {
+		if class == civilianClass {
+			return true
+		}
+	}
+	return false
 }
 
 // Aircraft Factories
@@ -403,7 +437,7 @@ func NewCivilianCarUniversal(id, model string, startPos Position) *UniversalPlat
 	mass := 1500.0 // kg typical passenger car
 
 	typeDef := &PlatformTypeDefinition{
-		Class:    model,
+		Class:    "Civilian Car", // Changed from model to "Civilian Car"
 		Category: "civilian",
 		Physical: PhysicalCharacteristics{
 			Length:       4.5,
@@ -451,7 +485,7 @@ func NewContainerShipUniversal(id, shipName string, startPos Position) *Universa
 	mass := 200000000.0   // kg (200,000 tonnes)
 
 	typeDef := &PlatformTypeDefinition{
-		Class:    "Ultra Large Container Vessel",
+		Class:    "Commercial Ship", // Changed from "Ultra Large Container Vessel" to "Commercial Ship"
 		Category: "commercial",
 		Physical: PhysicalCharacteristics{
 			Length:       400,
