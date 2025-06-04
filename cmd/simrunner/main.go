@@ -1,115 +1,118 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/rhino11/trafficsim/internal/config"
 	"github.com/rhino11/trafficsim/internal/models"
+	"github.com/rhino11/trafficsim/internal/server"
+	"github.com/rhino11/trafficsim/internal/sim"
 )
 
 func main() {
-	// Parse command line flags
-	configFile := flag.String("config", "data/config.yaml", "Path to configuration file")
-	scenario := flag.String("scenario", "east_coast_demo", "Scenario name to run")
+	// Command line flags
+	var (
+		configPath = flag.String("config", "data/config.yaml", "Path to configuration file")
+		webMode    = flag.Bool("web", false, "Run in web server mode")
+		port       = flag.String("port", "8080", "Port for web server")
+	)
 	flag.Parse()
 
 	fmt.Println("Global Traffic Simulator - Configuration-Driven Demo")
 	fmt.Println("====================================================")
 
 	// Load configuration
-	fmt.Printf("Loading configuration from: %s\n", *configFile)
-	cfg, err := config.LoadConfig(*configFile)
+	fmt.Printf("Loading configuration from: %s\n", *configPath)
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Display configuration summary
-	fmt.Printf("Simulation Settings:\n")
-	fmt.Printf("  Update Interval: %s\n", cfg.Simulation.UpdateInterval)
-	fmt.Printf("  Time Scale: %.1fx\n", cfg.Simulation.TimeScale)
-	fmt.Printf("  Max Duration: %s\n", cfg.Simulation.MaxDuration)
-	fmt.Printf("  Server: %s:%d\n", cfg.Server.Host, cfg.Server.Port)
-	fmt.Printf("  CoT Output: %s (rate: %s)\n", cfg.Output.CoT.Endpoint, cfg.Output.CoT.UpdateRate)
+	// Create simulation engine
+	engine := sim.NewEngine(cfg)
 
-	// Display platform type registry
-	fmt.Printf("\nPlatform Type Registry:\n")
-	fmt.Printf("  Airborne Types: %d\n", len(cfg.Platforms.AirborneTypes))
-	fmt.Printf("  Maritime Types: %d\n", len(cfg.Platforms.MaritimeTypes))
-	fmt.Printf("  Land Types: %d\n", len(cfg.Platforms.LandTypes))
-	fmt.Printf("  Space Types: %d\n", len(cfg.Platforms.SpaceTypes))
-	fmt.Printf("  Available Scenarios: %d\n", len(cfg.Platforms.Scenarios))
+	if *webMode {
+		// Run web server mode
+		fmt.Printf("Starting web server on port %s...\n", *port)
 
-	// List available scenarios
-	fmt.Printf("\nAvailable Scenarios:\n")
-	for name, scenarioCfg := range cfg.Platforms.Scenarios {
-		fmt.Printf("  - %s: %s (%d platforms)\n", name, scenarioCfg.Description, len(scenarioCfg.Instances))
+		// Create server
+		srv := server.NewServer(cfg, engine)
+
+		// Start server
+		if err := srv.Start(*port); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	} else {
+		// Run command-line mode
+		runCLISimulation(engine, cfg)
+	}
+}
+
+func runCLISimulation(engine *sim.Engine, cfg *config.Config) {
+	fmt.Println("Starting traffic simulation...")
+
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		fmt.Println("\nReceived interrupt signal, shutting down...")
+		cancel()
+	}()
+
+	// Load platforms from configuration or create examples
+	if err := engine.LoadPlatformsFromConfig(); err != nil {
+		log.Fatalf("Failed to load platforms: %v", err)
 	}
 
-	// Create platform factory
-	factory := config.NewPlatformFactory(&cfg.Platforms)
-
-	// Load the specified scenario
-	fmt.Printf("\nLoading scenario: %s\n", *scenario)
-	platforms, err := factory.CreateScenario(*scenario)
-	if err != nil {
-		log.Fatalf("Failed to create scenario: %v", err)
-	}
-
-	fmt.Printf("Created %d platform instances from configuration\n", len(platforms))
+	platforms := engine.GetAllPlatforms()
+	fmt.Printf("Loaded %d platforms\n", len(platforms))
 
 	// Display platform information
-	fmt.Println("\nPlatform Instances:")
 	for _, platform := range platforms {
 		displayPlatformInfo(platform)
 	}
 
-	// Parse update interval
-	updateInterval, err := time.ParseDuration(cfg.Simulation.UpdateInterval)
-	if err != nil {
-		log.Fatalf("Invalid update interval: %v", err)
+	// Start simulation
+	if err := engine.Start(); err != nil {
+		log.Fatalf("Failed to start simulation: %v", err)
 	}
 
-	// Parse max duration
-	maxDuration, err := time.ParseDuration(cfg.Simulation.MaxDuration)
-	if err != nil {
-		log.Fatalf("Invalid max duration: %v", err)
-	}
-
-	// Run simulation
-	fmt.Printf("\nRunning simulation for %s with %s updates...\n", maxDuration, updateInterval)
-
-	startTime := time.Now()
-	ticker := time.NewTicker(updateInterval)
+	// Run simulation monitoring loop
+	ticker := time.NewTicker(1 * time.Second) // Status updates every second
 	defer ticker.Stop()
 
-	lastStatusTime := time.Now()
-	statusInterval := 10 * time.Second
-
+	startTime := time.Now()
 	for {
 		select {
+		case <-ctx.Done():
+			fmt.Println("Simulation stopped")
+			engine.Stop()
+			return
 		case <-ticker.C:
-			// Update all platforms
-			for _, platform := range platforms {
-				err := platform.Update(updateInterval)
-				if err != nil {
-					log.Printf("Error updating platform %s: %v", platform.GetID(), err)
-				}
-			}
+			// Display status
+			elapsed := time.Since(startTime)
+			simTime := engine.GetSimulationTime()
+			platforms := engine.GetAllPlatforms()
 
-			// Display status periodically
-			if time.Since(lastStatusTime) >= statusInterval {
-				fmt.Printf("\n--- Status after %.0f seconds ---\n", time.Since(startTime).Seconds())
+			fmt.Printf("Real time: %.1fs, Sim time: %.1fs, Platforms: %d\n",
+				elapsed.Seconds(), simTime, len(platforms))
+
+			// Display platform positions
+			if len(platforms) > 0 {
 				displayPlatformStatus(platforms)
-				lastStatusTime = time.Now()
-			}
-
-			// Check if simulation should end
-			if time.Since(startTime) >= maxDuration {
-				fmt.Printf("\nSimulation completed after %s\n", time.Since(startTime))
-				return
 			}
 		}
 	}
