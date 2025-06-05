@@ -79,15 +79,17 @@
 				
 				<option value="file11">github.com/rhino11/trafficsim/internal/output/cot.go (90.9%)</option>
 				
-				<option value="file12">github.com/rhino11/trafficsim/internal/output/multicast.go (0.0%)</option>
+				<option value="file12">github.com/rhino11/trafficsim/internal/output/multicast.go (70.0%)</option>
 				
-				<option value="file13">github.com/rhino11/trafficsim/internal/server/server.go (44.4%)</option>
+				<option value="file13">github.com/rhino11/trafficsim/internal/output/platform_converter.go (0.0%)</option>
 				
-				<option value="file14">github.com/rhino11/trafficsim/internal/sim/engine.go (0.0%)</option>
+				<option value="file14">github.com/rhino11/trafficsim/internal/server/server.go (44.7%)</option>
 				
-				<option value="file15">github.com/rhino11/trafficsim/internal/sim/physics.go (66.9%)</option>
+				<option value="file15">github.com/rhino11/trafficsim/internal/sim/engine.go (0.0%)</option>
 				
-				<option value="file16">github.com/rhino11/trafficsim/internal/testutil/logger.go (0.0%)</option>
+				<option value="file16">github.com/rhino11/trafficsim/internal/sim/physics.go (66.9%)</option>
+				
+				<option value="file17">github.com/rhino11/trafficsim/internal/testutil/logger.go (0.0%)</option>
 				
 				</select>
 			</div>
@@ -116,6 +118,7 @@ import (
 
         "github.com/rhino11/trafficsim/internal/config"
         "github.com/rhino11/trafficsim/internal/models"
+        "github.com/rhino11/trafficsim/internal/output"
         "github.com/rhino11/trafficsim/internal/server"
         "github.com/rhino11/trafficsim/internal/sim"
 )
@@ -248,6 +251,13 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config, multicastConn *net
                 log.Fatalf("Failed to start simulation: %v", err)
         }</span>
 
+        // Create CoT generator for multicast transmission
+        <span class="cov0" title="0">var cotGenerator *output.CoTGenerator
+        if multicastConn != nil </span><span class="cov0" title="0">{
+                cotGenerator = output.NewCoTGenerator()
+                fmt.Println("CoT message generation enabled for multicast transmission")
+        }</span>
+
         // Run simulation monitoring loop
         <span class="cov0" title="0">ticker := time.NewTicker(1 * time.Second) // Status updates every second
         defer ticker.Stop()
@@ -274,32 +284,31 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config, multicastConn *net
                         }</span>
 
                         // Send multicast updates if enabled
-                        <span class="cov0" title="0">if multicastConn != nil </span><span class="cov0" title="0">{
-                                sendMulticastUpdates(multicastConn, platforms)
+                        <span class="cov0" title="0">if multicastConn != nil &amp;&amp; cotGenerator != nil </span><span class="cov0" title="0">{
+                                sendCoTMulticastUpdates(multicastConn, cotGenerator, platforms)
                         }</span>
                 }
         }
 }
 
-func sendMulticastUpdates(conn *net.UDPConn, platforms []models.Platform) <span class="cov0" title="0">{
+func sendCoTMulticastUpdates(conn *net.UDPConn, generator *output.CoTGenerator, platforms []models.Platform) <span class="cov0" title="0">{
         for _, platform := range platforms </span><span class="cov0" title="0">{
-                state := platform.GetState()
-                // Create a simple JSON message with platform update
-                message := fmt.Sprintf(`{"callsign":"%s","type":"%s","timestamp":"%s","position":{"lat":%.6f,"lon":%.6f,"alt":%.1f},"speed":%.2f,"heading":%.1f}`,
-                        platform.GetCallSign(),
-                        platform.GetType(),
-                        time.Now().UTC().Format(time.RFC3339),
-                        state.Position.Latitude,
-                        state.Position.Longitude,
-                        state.Position.Altitude,
-                        state.Speed,
-                        state.Heading,
-                )
+                // Convert platform to CoT state
+                cotState := output.PlatformToCoTState(platform)
 
-                // Send the message
-                _, err := conn.Write([]byte(message + "\n"))
+                // Generate CoT XML message
+                cotMessage, err := generator.GenerateCoTMessage(cotState)
                 if err != nil </span><span class="cov0" title="0">{
-                        log.Printf("Failed to send multicast update for %s: %v", platform.GetCallSign(), err)
+                        log.Printf("Failed to generate CoT message for %s: %v", platform.GetCallSign(), err)
+                        continue</span>
+                }
+
+                // Send the CoT XML message
+                <span class="cov0" title="0">_, err = conn.Write(cotMessage)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Failed to send CoT message for %s: %v", platform.GetCallSign(), err)
+                }</span> else<span class="cov0" title="0"> {
+                        log.Printf("Sent CoT message for %s (Type: %s)", platform.GetCallSign(), cotState.CoTType)
                 }</span>
         }
 }
@@ -5396,18 +5405,18 @@ type MulticastPublisher struct {
 }
 
 // NewMulticastPublisher creates a new multicast publisher for CoT messages
-func NewMulticastPublisher(multicastIP string, port int) (*MulticastPublisher, error) <span class="cov0" title="0">{
+func NewMulticastPublisher(multicastIP string, port int) (*MulticastPublisher, error) <span class="cov8" title="1">{
         addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", multicastIP, port))
         if err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to resolve multicast address: %w", err)
         }</span>
 
-        <span class="cov0" title="0">conn, err := net.DialUDP("udp", nil, addr)
+        <span class="cov8" title="1">conn, err := net.DialUDP("udp", nil, addr)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to create UDP connection: %w", err)
         }</span>
 
-        <span class="cov0" title="0">return &amp;MulticastPublisher{
+        <span class="cov8" title="1">return &amp;MulticastPublisher{
                 conn:          conn,
                 multicastAddr: addr,
                 generator:     NewCoTGenerator(),
@@ -5416,36 +5425,36 @@ func NewMulticastPublisher(multicastIP string, port int) (*MulticastPublisher, e
 }
 
 // SetPublishInterval sets the interval for publishing CoT messages
-func (p *MulticastPublisher) SetPublishInterval(interval time.Duration) <span class="cov0" title="0">{
+func (p *MulticastPublisher) SetPublishInterval(interval time.Duration) <span class="cov8" title="1">{
         p.interval = interval
 }</span>
 
 // PublishPlatformState publishes a single platform state as CoT message
-func (p *MulticastPublisher) PublishPlatformState(state PlatformState) error <span class="cov0" title="0">{
+func (p *MulticastPublisher) PublishPlatformState(state PlatformState) error <span class="cov8" title="1">{
         cotMessage, err := p.generator.GenerateCoTMessage(state)
         if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("failed to generate CoT message: %w", err)
         }</span>
 
-        <span class="cov0" title="0">_, err = p.conn.Write(cotMessage)
+        <span class="cov8" title="1">_, err = p.conn.Write(cotMessage)
         if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("failed to send CoT message: %w", err)
         }</span>
 
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
 // StartPublishing starts a goroutine that continuously publishes platform states
-func (p *MulticastPublisher) StartPublishing(platformStates chan PlatformState, stopChan chan bool) <span class="cov0" title="0">{
+func (p *MulticastPublisher) StartPublishing(platformStates chan PlatformState, stopChan chan bool) <span class="cov8" title="1">{
         ticker := time.NewTicker(p.interval)
         defer ticker.Stop()
 
         var latestStates = make(map[string]PlatformState)
 
-        go func() </span><span class="cov0" title="0">{
-                for </span><span class="cov0" title="0">{
+        go func() </span><span class="cov8" title="1">{
+                for </span><span class="cov8" title="1">{
                         select </span>{
-                        case state := &lt;-platformStates:<span class="cov0" title="0">
+                        case state := &lt;-platformStates:<span class="cov8" title="1">
                                 latestStates[state.ID] = state</span>
                         case &lt;-ticker.C:<span class="cov0" title="0">
                                 // Publish all latest platform states
@@ -5454,7 +5463,7 @@ func (p *MulticastPublisher) StartPublishing(platformStates chan PlatformState, 
                                                 log.Printf("Error publishing CoT message for platform %s: %v", state.ID, err)
                                         }</span>
                                 }
-                        case &lt;-stopChan:<span class="cov0" title="0">
+                        case &lt;-stopChan:<span class="cov8" title="1">
                                 return</span>
                         }
                 }
@@ -5462,8 +5471,8 @@ func (p *MulticastPublisher) StartPublishing(platformStates chan PlatformState, 
 }
 
 // Close closes the multicast connection
-func (p *MulticastPublisher) Close() error <span class="cov0" title="0">{
-        if p.conn != nil </span><span class="cov0" title="0">{
+func (p *MulticastPublisher) Close() error <span class="cov8" title="1">{
+        if p.conn != nil </span><span class="cov8" title="1">{
                 return p.conn.Close()
         }</span>
         <span class="cov0" title="0">return nil</span>
@@ -5475,7 +5484,154 @@ func (p *MulticastPublisher) GetMulticastAddress() string <span class="cov0" tit
 }</span>
 </pre>
 		
-		<pre class="file" id="file13" style="display: none">package server
+		<pre class="file" id="file13" style="display: none">package output
+
+import (
+        "strings"
+
+        "github.com/rhino11/trafficsim/internal/models"
+)
+
+// PlatformToCoTState converts a platform interface to a CoT PlatformState
+// This function maps platform data to the structure needed for CoT generation
+func PlatformToCoTState(platform models.Platform) PlatformState <span class="cov0" title="0">{
+        state := platform.GetState()
+
+        // Extract CoT type and affiliation from platform category and type
+        cotType, affiliation := determinePlatformCoTInfo(platform)
+
+        return PlatformState{
+                ID:          platform.GetID(),
+                Callsign:    platform.GetCallSign(),
+                Latitude:    state.Position.Latitude,
+                Longitude:   state.Position.Longitude,
+                Altitude:    state.Position.Altitude,
+                Speed:       state.Speed,
+                Course:      state.Heading,
+                CoTType:     cotType,
+                Affiliation: affiliation,
+        }
+}</span>
+
+// determinePlatformCoTInfo extracts CoT type and affiliation from platform data
+func determinePlatformCoTInfo(platform models.Platform) (cotType, affiliation string) <span class="cov0" title="0">{
+        platformType := strings.ToLower(string(platform.GetType()))
+        class := strings.ToLower(platform.GetClass())
+
+        // Try to get category from the platform if it's a UniversalPlatform
+        category := "unknown"
+        if up, ok := platform.(*models.UniversalPlatform); ok </span><span class="cov0" title="0">{
+                category = strings.ToLower(up.TypeDef.Category)
+        }</span>
+
+        // Determine affiliation based on category and class
+        <span class="cov0" title="0">affiliation = "neutral" // Default
+        if strings.Contains(category, "military") || strings.Contains(class, "military") ||
+                strings.Contains(class, "f-16") || strings.Contains(class, "f-22") ||
+                strings.Contains(class, "abrams") || strings.Contains(class, "arleigh burke") ||
+                strings.Contains(class, "destroyer") || strings.Contains(class, "hmmwv") </span><span class="cov0" title="0">{
+                affiliation = "friend"
+        }</span> else<span class="cov0" title="0"> if strings.Contains(category, "commercial") || strings.Contains(category, "civilian") ||
+                strings.Contains(class, "boeing") || strings.Contains(class, "airbus") ||
+                strings.Contains(class, "container") || strings.Contains(class, "tesla") </span><span class="cov0" title="0">{
+                affiliation = "neutral"
+        }</span>
+
+        // Determine dimension
+        <span class="cov0" title="0">var dimension string
+        switch platformType </span>{
+        case "airborne":<span class="cov0" title="0">
+                dimension = DimensionAir</span>
+        case "land":<span class="cov0" title="0">
+                dimension = DimensionGround</span>
+        case "maritime":<span class="cov0" title="0">
+                dimension = DimensionSea</span>
+        case "space":<span class="cov0" title="0">
+                dimension = DimensionSpace</span>
+        default:<span class="cov0" title="0">
+                dimension = DimensionGround</span>
+        }
+
+        // Map specific platform categories to more specific CoT categories for better type generation
+        <span class="cov0" title="0">mappedCategory := mapCategoryForCoT(category, class)
+
+        // Generate CoT type using the existing function
+        cotType = GenerateMILSTD2525Type(mappedCategory, affiliation, dimension)
+
+        return cotType, affiliation</span>
+}
+
+// mapCategoryForCoT maps platform categories/classes to CoT-specific categories
+func mapCategoryForCoT(category, class string) string <span class="cov0" title="0">{
+        classLower := strings.ToLower(class)
+        categoryLower := strings.ToLower(category)
+
+        // Aircraft types
+        if strings.Contains(classLower, "f-16") || strings.Contains(classLower, "f-22") ||
+                strings.Contains(classLower, "fighter") </span><span class="cov0" title="0">{
+                return "fighter_aircraft"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "boeing") || strings.Contains(classLower, "airbus") ||
+                strings.Contains(categoryLower, "commercial") </span><span class="cov0" title="0">{
+                return "commercial_aircraft"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "c-130") || strings.Contains(classLower, "hercules") </span><span class="cov0" title="0">{
+                return "transport_aircraft"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "mq-9") || strings.Contains(classLower, "reaper") ||
+                strings.Contains(categoryLower, "drone") </span><span class="cov0" title="0">{
+                return "unmanned_aircraft"
+        }</span>
+
+        // Ground vehicle types
+        <span class="cov0" title="0">if strings.Contains(classLower, "abrams") || strings.Contains(categoryLower, "tank") </span><span class="cov0" title="0">{
+                return "main_battle_tank"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "hmmwv") || strings.Contains(categoryLower, "tactical") </span><span class="cov0" title="0">{
+                return "tactical_vehicle"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "tesla") || strings.Contains(classLower, "truck") ||
+                strings.Contains(categoryLower, "commercial") || strings.Contains(categoryLower, "civilian") </span><span class="cov0" title="0">{
+                return "commercial_vehicle"
+        }</span>
+
+        // Maritime types
+        <span class="cov0" title="0">if strings.Contains(classLower, "destroyer") || strings.Contains(classLower, "arleigh burke") </span><span class="cov0" title="0">{
+                return "destroyer"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "container") || strings.Contains(classLower, "cargo") </span><span class="cov0" title="0">{
+                return "cargo_vessel"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "submarine") </span><span class="cov0" title="0">{
+                return "submarine"
+        }</span>
+
+        // Space types
+        <span class="cov0" title="0">if strings.Contains(classLower, "satellite") || strings.Contains(classLower, "starlink") </span><span class="cov0" title="0">{
+                return "satellite"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "station") || strings.Contains(classLower, "iss") </span><span class="cov0" title="0">{
+                return "space_station"
+        }</span>
+        <span class="cov0" title="0">if strings.Contains(classLower, "gps") </span><span class="cov0" title="0">{
+                return "navigation_satellite"
+        }</span>
+
+        // Fall back to the original category
+        <span class="cov0" title="0">return categoryLower</span>
+}
+
+// ConvertPlatformListToCoTStates converts a list of platforms to CoT states
+func ConvertPlatformListToCoTStates(platforms []models.Platform) []PlatformState <span class="cov0" title="0">{
+        states := make([]PlatformState, len(platforms))
+        for i, platform := range platforms </span><span class="cov0" title="0">{
+                states[i] = PlatformToCoTState(platform)
+        }</span>
+        <span class="cov0" title="0">return states</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package server
 
 import (
         "context"
@@ -5485,6 +5641,7 @@ import (
         "log"
         "net/http"
         "os"
+        "path/filepath"
         "strings"
         "sync"
         "time"
@@ -6003,9 +6160,23 @@ func (s *Server) loadPlatformTypesFromFiles() ([]PlatformTypeInfo, error) <span 
 
 // loadPlatformFromFile loads a single platform type from a YAML file
 func (s *Server) loadPlatformFromFile(filePath, domain, category string) (*PlatformTypeInfo, error) <span class="cov8" title="1">{
-        data, err := os.ReadFile(filePath)
+        // Validate and clean the file path to prevent directory traversal attacks
+        cleanPath := filepath.Clean(filePath)
+
+        // Ensure the path is within the expected data/platforms directory
+        expectedPrefix := filepath.Clean("data/platforms/")
+        if !strings.HasPrefix(cleanPath, expectedPrefix) </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid file path: %s is outside allowed directory", filePath)
+        }</span>
+
+        // Additional validation: ensure no directory traversal sequences
+        <span class="cov8" title="1">if strings.Contains(filePath, "..") </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid file path: directory traversal detected in %s", filePath)
+        }</span>
+
+        <span class="cov8" title="1">data, err := os.ReadFile(cleanPath)
         if err != nil </span><span class="cov8" title="1">{
-                return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+                return nil, fmt.Errorf("failed to read file %s: %w", cleanPath, err)
         }</span>
 
         // Parse the YAML structure
@@ -6774,7 +6945,7 @@ func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) <s
 }
 </pre>
 		
-		<pre class="file" id="file14" style="display: none">package sim
+		<pre class="file" id="file15" style="display: none">package sim
 
 import (
         "fmt"
@@ -7293,7 +7464,7 @@ type PlatformStatus struct {
 }
 </pre>
 		
-		<pre class="file" id="file15" style="display: none">package sim
+		<pre class="file" id="file16" style="display: none">package sim
 
 import (
         "math"
@@ -7703,7 +7874,7 @@ func (pe *PhysicsEngine) CalculateBearing(from, to models.Position) float64 <spa
 }</span>
 </pre>
 		
-		<pre class="file" id="file16" style="display: none">package testutil
+		<pre class="file" id="file17" style="display: none">package testutil
 
 import (
         "log/slog"
