@@ -39,6 +39,7 @@ describe('PlatformRenderer', () => {
             addLayer: jest.fn(),
             removeLayer: jest.fn(),
             clearLayers: jest.fn(),
+            hasLayer: jest.fn(() => false),
             getChildCount: jest.fn(() => 5)
         };
 
@@ -46,13 +47,15 @@ describe('PlatformRenderer', () => {
         mockPlatformLayer = {
             addLayer: jest.fn(),
             removeLayer: jest.fn(),
-            clearLayers: jest.fn()
+            clearLayers: jest.fn(),
+            hasLayer: jest.fn(() => false)
         };
 
         mockTrailLayer = {
             addLayer: jest.fn(),
             removeLayer: jest.fn(),
-            clearLayers: jest.fn()
+            clearLayers: jest.fn(),
+            hasLayer: jest.fn(() => false)
         };
 
         // Mock map
@@ -71,6 +74,7 @@ describe('PlatformRenderer', () => {
             getTrailLayer: jest.fn(() => mockTrailLayer),
             isInViewport: jest.fn(() => true),
             centerOn: jest.fn(),
+            addViewportChangeListener: jest.fn(),
             onViewportChangeCallback: null
         };
 
@@ -197,7 +201,9 @@ describe('PlatformRenderer', () => {
             const platform = {
                 id: 'test-1',
                 platform_type: 'airborne',
-                position: { latitude: 40.0, longitude: -75.0 }
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0 }
+                }
             };
 
             const mockTrail = {
@@ -207,7 +213,7 @@ describe('PlatformRenderer', () => {
 
             // Add two positions to create a trail
             platformRenderer.updatePlatformTrail(platform);
-            platform.position.latitude = 40.1;
+            platform.state.position.latitude = 40.1;
             platformRenderer.updatePlatformTrail(platform);
 
             expect(global.L.polyline).toHaveBeenCalledWith(
@@ -227,12 +233,14 @@ describe('PlatformRenderer', () => {
             const platform = {
                 id: 'test-1',
                 platform_type: 'airborne',
-                position: { latitude: 40.0, longitude: -75.0 }
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0 }
+                }
             };
 
             // Add more points than max trail length
             for (let i = 0; i < 5; i++) {
-                platform.position.latitude = 40.0 + i * 0.1;
+                platform.state.position.latitude = 40.0 + i * 0.1;
                 platformRenderer.updatePlatformTrail(platform);
             }
 
@@ -245,7 +253,9 @@ describe('PlatformRenderer', () => {
             const platform = {
                 id: 'test-1',
                 platform_type: 'airborne',
-                position: { latitude: 40.0, longitude: -75.0 }
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0 }
+                }
             };
 
             const mockTrail = {
@@ -255,11 +265,11 @@ describe('PlatformRenderer', () => {
 
             // Create trail
             platformRenderer.updatePlatformTrail(platform);
-            platform.position.latitude = 40.1;
+            platform.state.position.latitude = 40.1;
             platformRenderer.updatePlatformTrail(platform);
 
             // Update trail
-            platform.position.latitude = 40.2;
+            platform.state.position.latitude = 40.2;
             platformRenderer.updatePlatformTrail(platform);
 
             expect(mockTrail.setLatLngs).toHaveBeenCalledWith([
@@ -280,21 +290,26 @@ describe('PlatformRenderer', () => {
                 {
                     id: 'test-1',
                     platform_type: 'airborne',
-                    position: { latitude: 40.0, longitude: -75.0 }
+                    state: {
+                        position: { latitude: 40.0, longitude: -75.0 }
+                    }
                 },
                 {
                     id: 'test-2',
                     platform_type: 'maritime',
-                    position: { latitude: 41.0, longitude: -76.0 }
+                    state: {
+                        position: { latitude: 41.0, longitude: -76.0 }
+                    }
                 }
             ];
 
             const mockMarker = {
                 platformData: null,
                 bindPopup: jest.fn(),
-                on: jest.fn()
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
             };
-            global.L.circleMarker.mockReturnValue(mockMarker);
+            global.L.marker.mockReturnValue(mockMarker);
 
             platformRenderer.updatePlatforms(platforms);
 
@@ -306,23 +321,36 @@ describe('PlatformRenderer', () => {
         it('should remove platforms not in update batch', () => {
             // Add initial platforms
             const initialPlatforms = [
-                { id: 'test-1', platform_type: 'airborne', position: { latitude: 40.0, longitude: -75.0 } },
-                { id: 'test-2', platform_type: 'maritime', position: { latitude: 41.0, longitude: -76.0 } }
+                {
+                    id: 'test-1',
+                    platform_type: 'airborne',
+                    state: { position: { latitude: 40.0, longitude: -75.0 } }
+                },
+                {
+                    id: 'test-2',
+                    platform_type: 'maritime',
+                    state: { position: { latitude: 41.0, longitude: -76.0 } }
+                }
             ];
 
             const mockMarker = {
                 platformData: null,
                 bindPopup: jest.fn(),
-                on: jest.fn()
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
             };
-            global.L.circleMarker.mockReturnValue(mockMarker);
+            global.L.marker.mockReturnValue(mockMarker);
 
             platformRenderer.updatePlatforms(initialPlatforms);
             expect(platformRenderer.platforms.size).toBe(2);
 
             // Update with only one platform
             const updatedPlatforms = [
-                { id: 'test-1', platform_type: 'airborne', position: { latitude: 40.1, longitude: -75.1 } }
+                {
+                    id: 'test-1',
+                    platform_type: 'airborne',
+                    state: { position: { latitude: 40.1, longitude: -75.1 } }
+                }
             ];
 
             platformRenderer.updatePlatforms(updatedPlatforms);
@@ -468,7 +496,9 @@ describe('PlatformRenderer', () => {
             const platform = {
                 id: 'test-1',
                 platform_type: 'airborne',
-                position: { latitude: 40.0, longitude: -75.0 }
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0 }
+                }
             };
 
             const mockMarker = {
@@ -502,15 +532,20 @@ describe('PlatformRenderer', () => {
 
         it('should track render statistics', () => {
             const platforms = [
-                { id: 'test-1', platform_type: 'airborne', position: { latitude: 40.0, longitude: -75.0 } }
+                { 
+                    id: 'test-1', 
+                    platform_type: 'airborne', 
+                    state: { position: { latitude: 40.0, longitude: -75.0 } }
+                }
             ];
 
             const mockMarker = {
                 platformData: null,
                 bindPopup: jest.fn(),
-                on: jest.fn()
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
             };
-            global.L.circleMarker.mockReturnValue(mockMarker);
+            global.L.marker.mockReturnValue(mockMarker);
 
             platformRenderer.updatePlatforms(platforms);
 
@@ -522,8 +557,16 @@ describe('PlatformRenderer', () => {
 
         it('should count visible platforms correctly', () => {
             const platforms = [
-                { id: 'test-1', platform_type: 'airborne', position: { latitude: 40.0, longitude: -75.0 } },
-                { id: 'test-2', platform_type: 'maritime', position: { latitude: 41.0, longitude: -76.0 } }
+                { 
+                    id: 'test-1', 
+                    platform_type: 'airborne', 
+                    state: { position: { latitude: 40.0, longitude: -75.0 } }
+                },
+                { 
+                    id: 'test-2', 
+                    platform_type: 'maritime', 
+                    state: { position: { latitude: 41.0, longitude: -76.0 } }
+                }
             ];
 
             platforms.forEach(platform => {
@@ -543,7 +586,7 @@ describe('PlatformRenderer', () => {
             const platform = {
                 id: 'test-1',
                 platform_type: 'airborne',
-                position: { latitude: 40.0, longitude: -75.0 }
+                state: { position: { latitude: 40.0, longitude: -75.0 } }
             };
 
             const mockMarker = {
@@ -595,11 +638,13 @@ describe('PlatformRenderer', () => {
             const platform = {
                 id: 'test-aircraft-1',
                 platform_type: 'airborne',
-                position: { latitude: 40.1234, longitude: -75.5678, altitude: 10000 },
-                velocity: { north: 100, east: 50, up: 10 },
-                speed: 150.5,
-                heading: 90,
-                lastUpdated: 1623456789000
+                state: {
+                    position: { latitude: 40.1234, longitude: -75.5678, altitude: 10000 },
+                    velocity: { north: 100, east: 50, up: 10 },
+                    speed: 150.5,
+                    heading: 90,
+                    lastUpdated: 1623456789000
+                }
             };
 
             const content = platformRenderer.createPopupContent(platform);
@@ -611,6 +656,325 @@ describe('PlatformRenderer', () => {
             expect(content).toContain('150.5 m/s');
             expect(content).toContain('90°');
             expect(content).toContain('N:100.0 E:50.0 U:10.0');
+        });
+    });
+
+    describe('Platform Data Structure Handling (Bug Fix)', () => {
+        beforeEach(() => {
+            platformRenderer = new PlatformRenderer(mockMapEngine);
+        });
+
+        it('should correctly access nested platform state data structure', () => {
+            const platformWithCorrectStructure = {
+                id: 'test-correct-structure',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.1234, longitude: -75.5678, altitude: 10000 },
+                    velocity: { north: 100, east: 50, up: 10 },
+                    speed: 150.5,
+                    heading: 90,
+                    lastUpdated: Date.now()
+                }
+            };
+
+            const mockMarker = {
+                platformData: null,
+                bindPopup: jest.fn(),
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
+            };
+            global.L.marker.mockReturnValue(mockMarker);
+
+            // Should not throw error and should create marker correctly
+            expect(() => {
+                platformRenderer.updatePlatform(platformWithCorrectStructure);
+            }).not.toThrow();
+
+            // Verify marker was created with correct position
+            expect(global.L.marker).toHaveBeenCalledWith(
+                [40.1234, -75.5678],
+                expect.any(Object)
+            );
+            expect(platformRenderer.platforms.has('test-correct-structure')).toBe(true);
+        });
+
+        it('should handle trail creation with nested state structure', () => {
+            const platform = {
+                id: 'test-trail-structure',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 }
+                }
+            };
+
+            const mockTrail = {
+                setLatLngs: jest.fn()
+            };
+            global.L.polyline.mockReturnValue(mockTrail);
+
+            // Should not throw error when accessing nested position
+            expect(() => {
+                platformRenderer.updatePlatformTrail(platform);
+                platform.state.position.latitude = 40.1;
+                platformRenderer.updatePlatformTrail(platform);
+            }).not.toThrow();
+
+            expect(global.L.polyline).toHaveBeenCalledWith(
+                [[40.0, -75.0], [40.1, -75.0]],
+                expect.any(Object)
+            );
+        });
+
+        it('should create popup content from nested state data', () => {
+            const platform = {
+                id: 'test-popup-structure',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.1234, longitude: -75.5678, altitude: 10000 },
+                    velocity: { north: 100, east: 50, up: 10 },
+                    speed: 150.5,
+                    heading: 90,
+                    lastUpdated: Date.now()
+                }
+            };
+
+            const content = platformRenderer.createPopupContent(platform);
+
+            // Should correctly extract data from nested structure
+            expect(content).toContain('test-popup-structure');
+            expect(content).toContain('40.1234, -75.5678');
+            expect(content).toContain('10000 m');
+            expect(content).toContain('150.5 m/s');
+            expect(content).toContain('90°');
+            expect(content).toContain('N:100.0 E:50.0 U:10.0');
+        });
+
+        it('should focus on platform using nested state position', () => {
+            const platform = {
+                id: 'test-focus-structure',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 }
+                }
+            };
+
+            const mockMarker = {
+                openPopup: jest.fn()
+            };
+
+            platformRenderer.platforms.set('test-focus-structure', platform);
+            platformRenderer.markers.set('test-focus-structure', mockMarker);
+
+            platformRenderer.focusOnPlatform('test-focus-structure');
+
+            expect(mockMapEngine.centerOn).toHaveBeenCalledWith(40.0, -75.0, 12);
+            expect(mockMarker.openPopup).toHaveBeenCalled();
+        });
+    });
+
+    describe('Viewport Culling Fix', () => {
+        beforeEach(() => {
+            platformRenderer = new PlatformRenderer(mockMapEngine);
+        });
+
+        it('should preserve platform data when outside viewport', () => {
+            const platform = {
+                id: 'test-viewport-culling',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 },
+                    speed: 150,
+                    heading: 90
+                }
+            };
+
+            const mockMarker = {
+                platformData: null,
+                bindPopup: jest.fn(),
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
+            };
+            global.L.marker.mockReturnValue(mockMarker);
+
+            // Initially in viewport
+            mockMapEngine.isInViewport.mockReturnValue(true);
+            platformRenderer.updatePlatform(platform);
+
+            expect(platformRenderer.platforms.has('test-viewport-culling')).toBe(true);
+            expect(platformRenderer.markers.has('test-viewport-culling')).toBe(true);
+            expect(mockPlatformLayer.addLayer).toHaveBeenCalledWith(mockMarker);
+
+            // Move outside viewport
+            mockMapEngine.isInViewport.mockReturnValue(false);
+            platform.state.position.latitude = 50.0; // Move platform
+            platformRenderer.updatePlatform(platform);
+
+            // Platform data should be preserved
+            expect(platformRenderer.platforms.has('test-viewport-culling')).toBe(true);
+            expect(platformRenderer.markers.has('test-viewport-culling')).toBe(true);
+            // But marker should be removed from layer
+            expect(mockPlatformLayer.removeLayer).toHaveBeenCalledWith(mockMarker);
+        });
+
+        it('should re-add marker to layer when platform returns to viewport', () => {
+            const platform = {
+                id: 'test-viewport-return',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 },
+                    speed: 150,
+                    heading: 90
+                }
+            };
+
+            const mockMarker = {
+                platformData: null,
+                bindPopup: jest.fn(),
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
+            };
+            global.L.marker.mockReturnValue(mockMarker);
+
+            // Add layer detection methods to mock
+            mockPlatformLayer.hasLayer = jest.fn();
+            mockMarkerCluster.hasLayer = jest.fn();
+
+            // Initially in viewport
+            mockMapEngine.isInViewport.mockReturnValue(true);
+            platformRenderer.updatePlatform(platform);
+
+            // Move outside viewport
+            mockMapEngine.isInViewport.mockReturnValue(false);
+            platform.state.position.latitude = 50.0;
+            platformRenderer.updatePlatform(platform);
+
+            // Clear the addLayer call history
+            mockPlatformLayer.addLayer.mockClear();
+
+            // Move back into viewport
+            mockMapEngine.isInViewport.mockReturnValue(true);
+            mockPlatformLayer.hasLayer.mockReturnValue(false); // Marker not on layer
+            platform.state.position.latitude = 40.1;
+            platformRenderer.updatePlatform(platform);
+
+            // Marker should be re-added to layer
+            expect(mockMarker.setLatLng).toHaveBeenCalledWith([40.1, -75.0]);
+            expect(mockPlatformLayer.addLayer).toHaveBeenCalledWith(mockMarker);
+        });
+
+        it('should handle viewport culling with clustering enabled', () => {
+            const platform = {
+                id: 'test-viewport-clustering',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 }
+                }
+            };
+
+            const mockMarker = {
+                platformData: null,
+                bindPopup: jest.fn(),
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
+            };
+            global.L.marker.mockReturnValue(mockMarker);
+
+            // Add layer detection methods to mocks
+            mockPlatformLayer.hasLayer = jest.fn();
+            mockMarkerCluster.hasLayer = jest.fn();
+
+            // Enable clustering
+            platformRenderer.clusteringEnabled = true;
+
+            // Initially in viewport
+            mockMapEngine.isInViewport.mockReturnValue(true);
+            platformRenderer.updatePlatform(platform);
+
+            // Move outside viewport
+            mockMapEngine.isInViewport.mockReturnValue(false);
+            platform.state.position.latitude = 50.0;
+            platformRenderer.updatePlatform(platform);
+
+            // Should remove from cluster instead of platform layer
+            expect(mockMarkerCluster.removeLayer).toHaveBeenCalledWith(mockMarker);
+
+            // Move back into viewport
+            mockMapEngine.isInViewport.mockReturnValue(true);
+            mockMarkerCluster.hasLayer.mockReturnValue(false);
+            platform.state.position.latitude = 40.1;
+            platformRenderer.updatePlatform(platform);
+
+            // Should re-add to cluster
+            expect(mockMarkerCluster.addLayer).toHaveBeenCalledWith(mockMarker);
+        });
+
+        it('should update platform position data even when outside viewport', () => {
+            const platform = {
+                id: 'test-position-update',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 },
+                    speed: 150,
+                    heading: 90
+                }
+            };
+
+            // Platform outside viewport
+            mockMapEngine.isInViewport.mockReturnValue(false);
+            platformRenderer.updatePlatform(platform);
+
+            // Platform data should still be stored/updated
+            expect(platformRenderer.platforms.has('test-position-update')).toBe(true);
+            const storedPlatform = platformRenderer.platforms.get('test-position-update');
+            expect(storedPlatform.state.position.latitude).toBe(40.0);
+
+            // Update position while still outside viewport
+            platform.state.position.latitude = 41.0;
+            platform.state.speed = 160;
+            platformRenderer.updatePlatform(platform);
+
+            // Data should be updated
+            const updatedPlatform = platformRenderer.platforms.get('test-position-update');
+            expect(updatedPlatform.state.position.latitude).toBe(41.0);
+            expect(updatedPlatform.state.speed).toBe(160);
+        });
+
+        it('should handle rapid viewport transitions correctly', () => {
+            const platform = {
+                id: 'test-rapid-transitions',
+                platform_type: 'airborne',
+                state: {
+                    position: { latitude: 40.0, longitude: -75.0, altitude: 5000 }
+                }
+            };
+
+            const mockMarker = {
+                platformData: null,
+                bindPopup: jest.fn(),
+                setLatLng: jest.fn(),
+                isPopupOpen: jest.fn(() => false)
+            };
+            global.L.marker.mockReturnValue(mockMarker);
+
+            mockPlatformLayer.hasLayer = jest.fn();
+
+            // Rapid transitions: in -> out -> in -> out -> in
+            const transitions = [true, false, true, false, true];
+
+            transitions.forEach((inViewport, index) => {
+                mockMapEngine.isInViewport.mockReturnValue(inViewport);
+                mockPlatformLayer.hasLayer.mockReturnValue(!inViewport);
+                platform.state.position.latitude = 40.0 + index * 0.1;
+
+                platformRenderer.updatePlatform(platform);
+
+                // Platform data should always be preserved
+                expect(platformRenderer.platforms.has('test-rapid-transitions')).toBe(true);
+                expect(platformRenderer.markers.has('test-rapid-transitions')).toBe(true);
+            });
+
+            // Final state should be in viewport with marker on layer
+            expect(mockPlatformLayer.addLayer).toHaveBeenCalledWith(mockMarker);
         });
     });
 });

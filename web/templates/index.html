@@ -507,11 +507,11 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-    <!-- Application modules -->
-    <script src="/static/js/performance-monitor.js"></script>
-    <script src="/static/js/data-streamer.js"></script>
-    <script src="/static/js/platform-renderer.js"></script>
-    <script src="/static/js/map-engine.js"></script>
+    <!-- Application modules with cache busting -->
+    <script src="/static/js/performance-monitor.js?v=1.4"></script>
+    <script src="/static/js/data-streamer.js?v=1.4"></script>
+    <script src="/static/js/platform-renderer.js?v=1.4"></script>
+    <script src="/static/js/map-engine.js?v=1.4"></script>
 
     <!-- Application initialization -->
     <script>
@@ -741,30 +741,6 @@
                 document.getElementById('close-info').addEventListener('click', function () {
                     logInit('UI', 'Platform info panel closed');
                     document.getElementById('platform-info').classList.add('hidden');
-                });
-
-                updateLoadingProgress(95, 'Starting data connection...');
-                logInit('CONNECTION', 'Starting data streamer connection');
-
-                // Start the data connection and wait for initial data
-                logInit('CONNECTION', 'Starting data streamer connection');
-                await dataStreamer.connect();
-                logInit('CONNECTION', 'Data streamer connection established');
-
-                // Connect data stream to renderer with proper error handling
-                dataStreamer.onPlatformUpdate((platforms) => {
-                    try {
-                        logInit('DATA', `Received platform update with ${platforms.length} platforms`);
-                        platformRenderer.updatePlatforms(platforms);
-
-                        // Update performance counters
-                        document.getElementById('platform-counter').textContent = platforms.length;
-                        if (perfMonitor.recordPlatformCount) {
-                            perfMonitor.recordPlatformCount(platforms.length);
-                        }
-                    } catch (error) {
-                        logError('RENDERER', error, 'Failed to update platforms in renderer');
-                    }
                 });
 
                 // Start performance monitoring if available

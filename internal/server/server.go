@@ -336,11 +336,15 @@ func (s *Server) setupRoutes() {
 			if strings.HasSuffix(r.URL.Path, ".css") {
 				w.Header().Set("Content-Type", "text/css")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("/* CSS file not found - fallback */"))
+				if _, err := w.Write([]byte("/* CSS file not found - fallback */")); err != nil {
+					logWebError("CSS fallback write", err)
+				}
 			} else if strings.HasSuffix(r.URL.Path, ".js") {
 				w.Header().Set("Content-Type", "application/javascript")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("// JS file not found - fallback\nconsole.log('Static file not found');"))
+				if _, err := w.Write([]byte("// JS file not found - fallback\nconsole.log('Static file not found');")); err != nil {
+					logWebError("JS fallback write", err)
+				}
 			} else {
 				http.NotFound(w, r)
 			}
@@ -454,7 +458,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		// Fallback to simple HTML response
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<!DOCTYPE html>
+		if _, err := w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head><title>TrafficSim - Web Interface</title></head>
 <body>
@@ -463,7 +467,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 <p><a href="/api/platforms">View Platform Data (JSON)</a></p>
 <p><a href="/api/simulation/status">View Simulation Status (JSON)</a></p>
 </body>
-</html>`))
+</html>`)); err != nil {
+			logWebError("Index fallback write", err)
+		}
 		return
 	}
 
@@ -506,7 +512,7 @@ func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
 		// Fallback to simple HTML response
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<!DOCTYPE html>
+		if _, err := w.Write([]byte(`<!DOCTYPE html>
 <html>
 <head><title>Scenario Builder - TrafficSim</title></head>
 <body>
@@ -514,7 +520,9 @@ func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
 <p>Template loading failed, but the server is running. This would be the scenario builder interface.</p>
 <p><a href="/">Back to Main Interface</a></p>
 </body>
-</html>`))
+</html>`)); err != nil {
+			logWebError("Scenario builder fallback write", err)
+		}
 		return
 	}
 
@@ -1608,7 +1616,10 @@ func (s *Server) handleMulticastEnable(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMulticastDisable(w http.ResponseWriter, r *http.Request) {
 	if s.multicastManager == nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "already_disabled"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "already_disabled"}); err != nil {
+			logWebError("Multicast disable response encoding", err)
+			http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		}
 		return
 	}
 

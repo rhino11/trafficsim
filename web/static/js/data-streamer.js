@@ -83,8 +83,10 @@ class DataStreamer {
 
     onPlatformUpdate(callback) {
         this.onPlatformUpdateCallback = callback;
-        // Replace all existing callbacks with the new one
-        this.platformUpdateCallbacks = [callback];
+        // Add callback to array instead of replacing it
+        if (!this.platformUpdateCallbacks.includes(callback)) {
+            this.platformUpdateCallbacks.push(callback);
+        }
     }
 
     onSimulationStatus(callback) {

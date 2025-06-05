@@ -650,8 +650,6 @@ describe('DataStreamer', () => {
             const callback2 = jest.fn();
 
             dataStreamer.onPlatformUpdate(callback1);
-
-            // Should replace previous callback
             dataStreamer.onPlatformUpdate(callback2);
 
             const platforms = [{ id: 'test', platform_type: 'airborne' }];
@@ -663,7 +661,8 @@ describe('DataStreamer', () => {
             jest.useFakeTimers();
             jest.advanceTimersByTime(20);
 
-            expect(callback1).not.toHaveBeenCalled();
+            // Both callbacks should be called since they're added to an array
+            expect(callback1).toHaveBeenCalledWith(platforms);
             expect(callback2).toHaveBeenCalledWith(platforms);
         });
 

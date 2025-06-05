@@ -61,6 +61,11 @@ class PlatformRenderer {
         // Set up clustering if available
         this.setupClustering();
 
+        // Add platform type layers to the map
+        this.layers.forEach((layer, type) => {
+            this.map.addLayer(layer);
+        });
+
         // Set up event handlers
         this.setupEventHandlers();
 
@@ -136,7 +141,9 @@ class PlatformRenderer {
 
     // Create optimized marker for platform
     createPlatformMarker(platform) {
-        const { latitude, longitude } = platform.position;
+        console.log(`createPlatformMarker called for ${platform.id} at ${platform.state.position.latitude}, ${platform.state.position.longitude}`);
+
+        const { latitude, longitude } = platform.state.position;
 
         // Validate coordinates
         if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
@@ -146,6 +153,8 @@ class PlatformRenderer {
 
         const position = [latitude, longitude];
         const icon = this.createPlatformIcon(platform);
+
+        console.log(`Creating icon for ${platform.id}:`, icon);
 
         // Create marker with proper options
         const marker = L.marker(position, {
@@ -157,6 +166,8 @@ class PlatformRenderer {
             riseOffset: 250
         });
 
+        console.log(`Created marker for ${platform.id}:`, marker);
+
         // Add platform data to marker - ensure marker object exists first
         if (marker) {
             marker.platformData = platform;
@@ -164,14 +175,10 @@ class PlatformRenderer {
             // Add popup with platform information
             this.attachPlatformPopup(marker, platform);
 
-            // Store marker reference
-            this.markers.set(platform.id, marker);
-
-            // Add to appropriate layer
-            const layer = this.layers.get(platform.platform_type);
-            if (layer && this.map) {
-                layer.addLayer(marker);
-            }
+            // SIMPLIFIED: Add directly to the main platform layer instead of separate type layers
+            console.log(`Adding marker ${platform.id} to platformLayer`);
+            this.platformLayer.addLayer(marker);
+            console.log(`Successfully added marker ${platform.id} to platformLayer`);
         }
 
         return marker;
@@ -241,11 +248,11 @@ class PlatformRenderer {
     }
 
     createPopupContent(platform) {
-        const pos = platform.position;
-        const vel = platform.velocity || { north: 0, east: 0, up: 0 };
+        const pos = platform.state.position;
+        const vel = platform.state.velocity || { north: 0, east: 0, up: 0 };
         const altitude = pos.altitude || 0;
-        const speed = platform.speed || 0;
-        const heading = platform.heading || 0;
+        const speed = platform.state.speed || 0;
+        const heading = platform.state.heading || 0;
 
         return `
             <div class="platform-popup">
@@ -272,7 +279,7 @@ class PlatformRenderer {
                 </div>
                 <div class="popup-field">
                     <span class="popup-label">Last Updated:</span>
-                    <span class="popup-value">${new Date(platform.lastUpdated || Date.now()).toLocaleTimeString()}</span>
+                    <span class="popup-value">${new Date(platform.state.lastUpdated || Date.now()).toLocaleTimeString()}</span>
                 </div>
             </div>
         `;
@@ -280,53 +287,75 @@ class PlatformRenderer {
 
     // Add or update platform on map
     updatePlatform(platform) {
+        console.log(`updatePlatform called for ${platform.id}`);
         const platformId = platform.id;
-        const position = [platform.position.latitude, platform.position.longitude];
+        const position = [platform.state.position.latitude, platform.state.position.longitude];
 
         // Check if platform should be visible
         if (!this.isPlatformVisible(platform)) {
+            console.log(`Platform ${platformId} not visible due to filters`);
             this.removePlatform(platformId);
             return;
         }
 
+        // Store platform data (always update this regardless of viewport)
+        this.platforms.set(platformId, platform);
+
         // Check viewport culling for performance
-        if (!this.mapEngine.isInViewport(platform.position.latitude, platform.position.longitude, 0.2)) {
-            // Platform is outside viewport, remove from rendering but keep in memory
-            if (this.markers.has(platformId)) {
-                const marker = this.markers.get(platformId);
+        const isInViewport = this.mapEngine.isInViewport(platform.state.position.latitude, platform.state.position.longitude, 0.2);
+        let marker = this.markers.get(platformId);
+
+        if (!isInViewport) {
+            console.log(`Platform ${platformId} outside viewport`);
+            // Platform is outside viewport, remove marker from rendering but keep platform data
+            if (marker) {
                 if (this.clusteringEnabled && this.markerCluster) {
                     this.markerCluster.removeLayer(marker);
                 } else {
                     this.platformLayer.removeLayer(marker);
                 }
+                // Don't delete the marker from this.markers - we'll reuse it when platform comes back into view
             }
             return;
         }
 
-        // Store platform data
-        this.platforms.set(platformId, platform);
-
-        let marker = this.markers.get(platformId);
-
+        // Platform is in viewport - ensure marker exists and is on the layer
         if (marker) {
+            console.log(`Updating existing marker for ${platformId}`);
             // Update existing marker position
             marker.setLatLng(position);
             marker.platformData = platform;
+
+            // Ensure marker is added back to the layer if it was removed due to viewport culling
+            if (this.clusteringEnabled && this.markerCluster) {
+                if (!this.markerCluster.hasLayer(marker)) {
+                    this.markerCluster.addLayer(marker);
+                }
+            } else {
+                if (!this.platformLayer.hasLayer(marker)) {
+                    this.platformLayer.addLayer(marker);
+                }
+            }
 
             // Update popup content if open
             if (marker.isPopupOpen()) {
                 marker.setPopupContent(this.createPopupContent(platform));
             }
         } else {
-            // Create new marker
+            console.log(`Creating new marker for ${platformId}`);
+            // Create new marker (createPlatformMarker now handles adding to layer)
             marker = this.createPlatformMarker(platform);
-            this.markers.set(platformId, marker);
+            if (marker) {
+                console.log(`Successfully created marker for ${platformId}`);
+                this.markers.set(platformId, marker);
 
-            // Add to appropriate layer
-            if (this.clusteringEnabled && this.markerCluster) {
-                this.markerCluster.addLayer(marker);
+                // If clustering is enabled, move the marker to cluster group
+                if (this.clusteringEnabled && this.markerCluster) {
+                    this.platformLayer.removeLayer(marker);
+                    this.markerCluster.addLayer(marker);
+                }
             } else {
-                this.platformLayer.addLayer(marker);
+                console.error(`Failed to create marker for ${platformId}`);
             }
         }
 
@@ -341,7 +370,7 @@ class PlatformRenderer {
 
     updatePlatformTrail(platform) {
         const platformId = platform.id;
-        const position = [platform.position.latitude, platform.position.longitude];
+        const position = [platform.state.position.latitude, platform.state.position.longitude];
 
         // Get or create trail points array
         let trailPoints = this.trailPoints.get(platformId) || [];
@@ -405,12 +434,16 @@ class PlatformRenderer {
 
     // Batch update multiple platforms for better performance
     updatePlatforms(platforms) {
+        console.log('PlatformRenderer.updatePlatforms called with:', platforms.length, 'platforms');
+        console.log('First platform data:', platforms[0]);
+
         const startTime = performance.now();
 
         // Track which platforms are in the update
         const updatedPlatformIds = new Set();
 
-        platforms.forEach(platform => {
+        platforms.forEach((platform, index) => {
+            console.log(`Processing platform ${index + 1}:`, platform.id, platform.platform_type, platform.state.position);
             this.updatePlatform(platform);
             updatedPlatformIds.add(platform.id);
         });
@@ -431,6 +464,8 @@ class PlatformRenderer {
         this.renderStats.renderTime = performance.now() - startTime;
         this.renderStats.lastUpdate = Date.now();
         this.renderStats.visiblePlatforms = this.countVisiblePlatforms();
+
+        console.log('PlatformRenderer.updatePlatforms completed. Visible platforms:', this.renderStats.visiblePlatforms);
     }
 
     // Check if platform should be visible based on filters
@@ -455,7 +490,7 @@ class PlatformRenderer {
     countVisiblePlatforms() {
         let count = 0;
         this.platforms.forEach(platform => {
-            if (this.mapEngine.isInViewport(platform.position.latitude, platform.position.longitude) &&
+            if (this.mapEngine.isInViewport(platform.state.position.latitude, platform.state.position.longitude) &&
                 this.isPlatformVisible(platform)) {
                 count++;
             }
@@ -587,8 +622,8 @@ class PlatformRenderer {
         const platform = this.platforms.get(platformId);
         if (platform) {
             this.mapEngine.centerOn(
-                platform.position.latitude,
-                platform.position.longitude,
+                platform.state.position.latitude,
+                platform.state.position.longitude,
                 12
             );
 

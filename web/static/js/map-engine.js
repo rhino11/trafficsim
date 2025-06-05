@@ -51,33 +51,46 @@ class MapEngine {
     }
 
     async initialize() {
+        console.log('MapEngine.initialize() called');
+
         // Check if Leaflet library is available
         if (typeof L === 'undefined') {
             throw new Error('Leaflet library not found. Please include Leaflet.js before using MapEngine.');
         }
+        console.log('Leaflet library found');
 
         // Check if container exists
         const container = document.getElementById(this.containerId);
         if (!container) {
             throw new Error(`Container element not found: ${this.containerId}`);
         }
+        console.log('Map container found:', this.containerId);
 
         // Initialize map
         this.map = L.map(this.containerId, this.options);
+        console.log('Leaflet map created');
 
         // Set initial view from options
         this.map.setView(this.options.center, this.options.zoom);
+        console.log('Map view set to:', this.options.center, 'zoom:', this.options.zoom);
 
         // Add tile layer
         this.setupTileLayer();
+        console.log('Tile layer added');
 
         // Create platform and trail layers (only 2 layer groups for tests)
         this.layers.platforms = L.layerGroup().addTo(this.map);
         this.layers.trails = L.layerGroup().addTo(this.map);
 
+        console.log('Created platform layer:', this.layers.platforms);
+        console.log('Created trail layer:', this.layers.trails);
+
         // Add aliases for test compatibility
         this.platformLayer = this.layers.platforms;
         this.trailLayer = this.layers.trails;
+
+        console.log('Platform layer alias set:', this.platformLayer);
+        console.log('Trail layer alias set:', this.trailLayer);
 
         // Set up event handlers
         this.setupEventHandlers();
@@ -86,6 +99,7 @@ class MapEngine {
         this.updateViewportBounds();
 
         this.isInitialized = true;
+        console.log('MapEngine initialization completed successfully');
 
         return this;
     }
