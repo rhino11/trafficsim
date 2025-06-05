@@ -96,27 +96,27 @@ func logPlatformUpdate(platformCount int, action string) {
 
 // MulticastManager handles multicast CoT transmission
 type MulticastManager struct {
-	enabled       bool
-	conn          *net.UDPConn
-	addr          string
-	port          string
-	cotGenerator  *output.CoTGenerator
-	lastSent      time.Time
-	messagesSent  int64
+	enabled        bool
+	conn           *net.UDPConn
+	addr           string
+	port           string
+	cotGenerator   *output.CoTGenerator
+	lastSent       time.Time
+	messagesSent   int64
 	messagesFailed int64
-	mutex         sync.RWMutex
+	mutex          sync.RWMutex
 }
 
 // MulticastStatus represents multicast transmission status
 type MulticastStatus struct {
-	Enabled       bool   `json:"enabled"`
-	Address       string `json:"address,omitempty"`
-	Port          string `json:"port,omitempty"`
-	Connected     bool   `json:"connected"`
-	MessagesSent  int64  `json:"messages_sent"`
+	Enabled        bool   `json:"enabled"`
+	Address        string `json:"address,omitempty"`
+	Port           string `json:"port,omitempty"`
+	Connected      bool   `json:"connected"`
+	MessagesSent   int64  `json:"messages_sent"`
 	MessagesFailed int64  `json:"messages_failed"`
-	LastSent      string `json:"last_sent,omitempty"`
-	Error         string `json:"error,omitempty"`
+	LastSent       string `json:"last_sent,omitempty"`
+	Error          string `json:"error,omitempty"`
 }
 
 // NewMulticastManager creates a new multicast manager
@@ -152,7 +152,7 @@ func (mm *MulticastManager) Enable() error {
 
 	mm.conn = conn
 	mm.enabled = true
-	
+
 	logf("[MULTICAST] Enabled on %s:%s", mm.addr, mm.port)
 	return nil
 }
@@ -238,16 +238,16 @@ func (mm *MulticastManager) GetStatus() MulticastStatus {
 
 // Server represents the web server for the traffic simulation
 type Server struct {
-	config            *config.Config
-	simulation        *sim.Engine
-	router            *mux.Router
-	upgrader          websocket.Upgrader
-	clients           map[*websocket.Conn]bool
-	clientsMux        sync.RWMutex
-	broadcast         chan []byte
-	ctx               context.Context
-	cancel            context.CancelFunc
-	multicastManager  *MulticastManager
+	config           *config.Config
+	simulation       *sim.Engine
+	router           *mux.Router
+	upgrader         websocket.Upgrader
+	clients          map[*websocket.Conn]bool
+	clientsMux       sync.RWMutex
+	broadcast        chan []byte
+	ctx              context.Context
+	cancel           context.CancelFunc
+	multicastManager *MulticastManager
 }
 
 // Client represents a connected WebSocket client
@@ -316,10 +316,10 @@ func (s *Server) setupRoutes() {
 			"../../web/static/",
 			"/Users/ryan/code/github.com/rhino11/trafficsim/web/static/",
 		}
-		
+
 		var fileServer http.Handler
 		served := false
-		
+
 		for _, staticPath := range staticPaths {
 			if _, err := os.Stat(staticPath); err == nil {
 				fileServer = http.FileServer(http.Dir(staticPath))
@@ -329,7 +329,7 @@ func (s *Server) setupRoutes() {
 				break
 			}
 		}
-		
+
 		if !served {
 			logWebError("Static file not found", fmt.Errorf("file %s not found in any static path", r.URL.Path))
 			// Fallback for missing CSS/JS files
@@ -437,10 +437,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"../../web/templates/index.html",
 		"/Users/ryan/code/github.com/rhino11/trafficsim/web/templates/index.html",
 	}
-	
+
 	var tmpl *template.Template
 	var err error
-	
+
 	for _, path := range templatePaths {
 		tmpl, err = template.ParseFiles(path)
 		if err == nil {
@@ -448,7 +448,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	
+
 	if err != nil {
 		logWebError("Template loading", err)
 		// Fallback to simple HTML response
@@ -485,14 +485,14 @@ func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
 	// Try multiple possible template paths
 	templatePaths := []string{
 		"web/templates/scenario-builder.html",
-		"../web/templates/scenario-builder.html", 
+		"../web/templates/scenario-builder.html",
 		"../../web/templates/scenario-builder.html",
 		"/Users/ryan/code/github.com/rhino11/trafficsim/web/templates/scenario-builder.html",
 	}
-	
+
 	var tmpl *template.Template
 	var err error
-	
+
 	for _, path := range templatePaths {
 		tmpl, err = template.ParseFiles(path)
 		if err == nil {
@@ -500,7 +500,7 @@ func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	
+
 	if err != nil {
 		logWebError("Scenario builder template loading", err)
 		// Fallback to simple HTML response
