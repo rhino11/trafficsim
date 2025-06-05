@@ -431,14 +431,22 @@ describe('ScenarioBuilder', () => {
         test('should toggle waypoint mode off', () => {
             scenarioBuilder.waypointMode = true;
             scenarioBuilder.currentRoute = [{ lat: 1, lng: 1 }];
-            scenarioBuilder.mapMarkers = [{ marker: { remove: jest.fn() } }];
-            scenarioBuilder.map = { removeLayer: jest.fn() };
+            scenarioBuilder.routePolylines = [{ remove: jest.fn() }];
+            scenarioBuilder.mapMarkers = [];
+            
+            // Ensure map is properly mocked
+            scenarioBuilder.map = {
+                on: jest.fn(),
+                off: jest.fn(),
+                removeLayer: jest.fn()
+            };
 
             scenarioBuilder.toggleWaypointMode(false);
 
             expect(scenarioBuilder.waypointMode).toBe(false);
             expect(scenarioBuilder.currentRoute.length).toBe(0);
-            expect(scenarioBuilder.map.removeLayer).toHaveBeenCalled();
+            expect(scenarioBuilder.map.off).toHaveBeenCalledWith('click');
+            expect(scenarioBuilder.map.on).toHaveBeenCalledWith('click', expect.any(Function));
         });
 
         test('should add waypoint in waypoint mode', () => {
