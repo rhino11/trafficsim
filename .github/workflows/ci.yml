@@ -52,7 +52,7 @@ jobs:
     - name: Generate Go coverage badge
       uses: schneegans/dynamic-badges-action@v1.7.0
       with:
-        auth: ${{ secrets.GITHUB_TOKEN }}
+        auth: ${{ secrets.GIST_TOKEN }}
         gistID: ${{ secrets.GIST_ID }}
         filename: go-coverage.json
         label: Go Coverage
@@ -105,7 +105,7 @@ jobs:
     - name: Generate JavaScript coverage badge
       uses: schneegans/dynamic-badges-action@v1.7.0
       with:
-        auth: ${{ secrets.GITHUB_TOKEN }}
+        auth: ${{ secrets.GIST_TOKEN }}
         gistID: ${{ secrets.GIST_ID }}
         filename: js-coverage.json
         label: JS Coverage
