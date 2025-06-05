@@ -532,9 +532,9 @@ describe('PlatformRenderer', () => {
 
         it('should track render statistics', () => {
             const platforms = [
-                { 
-                    id: 'test-1', 
-                    platform_type: 'airborne', 
+                {
+                    id: 'test-1',
+                    platform_type: 'airborne',
                     state: { position: { latitude: 40.0, longitude: -75.0 } }
                 }
             ];
@@ -557,14 +557,14 @@ describe('PlatformRenderer', () => {
 
         it('should count visible platforms correctly', () => {
             const platforms = [
-                { 
-                    id: 'test-1', 
-                    platform_type: 'airborne', 
+                {
+                    id: 'test-1',
+                    platform_type: 'airborne',
                     state: { position: { latitude: 40.0, longitude: -75.0 } }
                 },
-                { 
-                    id: 'test-2', 
-                    platform_type: 'maritime', 
+                {
+                    id: 'test-2',
+                    platform_type: 'maritime',
                     state: { position: { latitude: 41.0, longitude: -76.0 } }
                 }
             ];
