@@ -95,7 +95,15 @@ jobs:
       id: js-coverage
       run: |
         if [ -f coverage-js/lcov-report/index.html ]; then
-          COVERAGE=$(grep -o "([0-9]*\.[0-9]*%)" coverage-js/lcov-report/index.html | head -1 | sed 's/[()%]//g')
+          # Extract the first percentage from the coverage summary (Statements coverage)
+          COVERAGE=$(grep -o '<span class="strong">[0-9]*\.[0-9]*% </span>' coverage-js/lcov-report/index.html | head -1 | grep -o '[0-9]*\.[0-9]*')
+          if [ -z "$COVERAGE" ]; then
+            # Fallback to integer percentage if decimal not found
+            COVERAGE=$(grep -o '<span class="strong">[0-9]*% </span>' coverage-js/lcov-report/index.html | head -1 | grep -o '[0-9]*')
+          fi
+          if [ -z "$COVERAGE" ]; then
+            COVERAGE="0"
+          fi
         else
           COVERAGE="0"
         fi
