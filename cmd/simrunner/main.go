@@ -13,6 +13,7 @@ import (
 
 	"github.com/rhino11/trafficsim/internal/config"
 	"github.com/rhino11/trafficsim/internal/models"
+	"github.com/rhino11/trafficsim/internal/output"
 	"github.com/rhino11/trafficsim/internal/server"
 	"github.com/rhino11/trafficsim/internal/sim"
 )
@@ -145,6 +146,13 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config, multicastConn *net
 		log.Fatalf("Failed to start simulation: %v", err)
 	}
 
+	// Create CoT generator for multicast transmission
+	var cotGenerator *output.CoTGenerator
+	if multicastConn != nil {
+		cotGenerator = output.NewCoTGenerator()
+		fmt.Println("CoT message generation enabled for multicast transmission")
+	}
+
 	// Run simulation monitoring loop
 	ticker := time.NewTicker(1 * time.Second) // Status updates every second
 	defer ticker.Stop()
@@ -171,32 +179,31 @@ func runCLISimulation(engine *sim.Engine, cfg *config.Config, multicastConn *net
 			}
 
 			// Send multicast updates if enabled
-			if multicastConn != nil {
-				sendMulticastUpdates(multicastConn, platforms)
+			if multicastConn != nil && cotGenerator != nil {
+				sendCoTMulticastUpdates(multicastConn, cotGenerator, platforms)
 			}
 		}
 	}
 }
 
-func sendMulticastUpdates(conn *net.UDPConn, platforms []models.Platform) {
+func sendCoTMulticastUpdates(conn *net.UDPConn, generator *output.CoTGenerator, platforms []models.Platform) {
 	for _, platform := range platforms {
-		state := platform.GetState()
-		// Create a simple JSON message with platform update
-		message := fmt.Sprintf(`{"callsign":"%s","type":"%s","timestamp":"%s","position":{"lat":%.6f,"lon":%.6f,"alt":%.1f},"speed":%.2f,"heading":%.1f}`,
-			platform.GetCallSign(),
-			platform.GetType(),
-			time.Now().UTC().Format(time.RFC3339),
-			state.Position.Latitude,
-			state.Position.Longitude,
-			state.Position.Altitude,
-			state.Speed,
-			state.Heading,
-		)
+		// Convert platform to CoT state
+		cotState := output.PlatformToCoTState(platform)
 
-		// Send the message
-		_, err := conn.Write([]byte(message + "\n"))
+		// Generate CoT XML message
+		cotMessage, err := generator.GenerateCoTMessage(cotState)
 		if err != nil {
-			log.Printf("Failed to send multicast update for %s: %v", platform.GetCallSign(), err)
+			log.Printf("Failed to generate CoT message for %s: %v", platform.GetCallSign(), err)
+			continue
+		}
+
+		// Send the CoT XML message
+		_, err = conn.Write(cotMessage)
+		if err != nil {
+			log.Printf("Failed to send CoT message for %s: %v", platform.GetCallSign(), err)
+		} else {
+			log.Printf("Sent CoT message for %s (Type: %s)", platform.GetCallSign(), cotState.CoTType)
 		}
 	}
 }
