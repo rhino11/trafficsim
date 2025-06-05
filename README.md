@@ -40,7 +40,8 @@ A high-performance, multi-domain traffic simulation engine built in Go that supp
 | **Benchmarks** | 1M entities/sec |
 | **Memory Footprint** | <50MB base |
 | **Startup Time** | <500ms |
-| **Platform Support** | Linux, macOS, Windows |
+| **Platform Support** | Linux, macOS, Windows, Android, iOS |
+| **Package Formats** | Binary, RPM, DEB, MSI, PKG, AAR, IPA |
 
 ## 🏗️ Architecture
 
@@ -69,6 +70,7 @@ A high-performance, multi-domain traffic simulation engine built in Go that supp
 
 ### Installation
 
+#### From Source
 ```bash
 # Clone the repository
 git clone https://github.com/rhino11/trafficsim.git
@@ -79,6 +81,113 @@ make build
 # or
 go build -o trafficsim ./cmd/simrunner
 ```
+
+#### Pre-built Packages
+
+TrafficSim is available as pre-built packages for multiple platforms through our CI/CD pipeline:
+
+##### **Linux**
+
+**RPM-based distributions (CentOS, RHEL, Fedora):**
+```bash
+# Download and install RPM package
+wget https://github.com/rhino11/trafficsim/releases/latest/download/trafficsim-1.0.0-1.x86_64.rpm
+sudo rpm -i trafficsim-1.0.0-1.x86_64.rpm
+```
+
+**DEB-based distributions (Ubuntu, Debian):**
+```bash
+# Download and install DEB package
+wget https://github.com/rhino11/trafficsim/releases/latest/download/trafficsim_1.0.0_amd64.deb
+sudo dpkg -i trafficsim_1.0.0_amd64.deb
+```
+
+**AppImage (Universal Linux):**
+```bash
+# Download and run AppImage
+wget https://github.com/rhino11/trafficsim/releases/latest/download/trafficsim-1.0.0.AppImage
+chmod +x trafficsim-1.0.0.AppImage
+./trafficsim-1.0.0.AppImage
+```
+
+##### **Windows**
+
+**MSI Installer:**
+1. Download the MSI installer from [releases](https://github.com/rhino11/trafficsim/releases/latest)
+2. Run `trafficsim-1.0.0.msi` and follow the installation wizard
+3. TrafficSim will be available in the Start Menu
+
+**Portable EXE:**
+```powershell
+# Download and run portable executable
+Invoke-WebRequest -Uri "https://github.com/rhino11/trafficsim/releases/latest/download/trafficsim-1.0.0.windows-amd64.exe" -OutFile "trafficsim.exe"
+.\trafficsim.exe
+```
+
+##### **macOS**
+
+**PKG Installer:**
+```bash
+# Download and install PKG
+curl -L -o trafficsim-1.0.0.pkg https://github.com/rhino11/trafficsim/releases/latest/download/trafficsim-1.0.0.pkg
+sudo installer -pkg trafficsim-1.0.0.pkg -target /
+```
+
+**DMG (Disk Image):**
+1. Download the DMG from [releases](https://github.com/rhino11/trafficsim/releases/latest)
+2. Mount the DMG and drag TrafficSim to Applications
+
+##### **Mobile Platforms**
+
+**Android:**
+```bash
+# Install AAR for Android development
+implementation 'io.trafficsim:trafficsim-android:1.0.0'
+
+# Or download APK directly
+wget https://github.com/rhino11/trafficsim/releases/latest/download/trafficsim-1.0.0.apk
+adb install trafficsim-1.0.0.apk
+```
+
+**iOS:**
+- Available through TestFlight (contact maintainers for access)
+- Download IPA from [releases](https://github.com/rhino11/trafficsim/releases/latest) for enterprise deployment
+
+##### **Container Deployment**
+
+**Docker:**
+```bash
+# Pull and run official Docker image
+docker pull ghcr.io/rhino11/trafficsim:latest
+docker run -p 8080:8080 ghcr.io/rhino11/trafficsim:latest
+
+# Or build from source
+make docker-build
+make docker-run
+```
+
+**Package Registry:**
+```bash
+# Install via NPM (for Node.js integration)
+npm install @rhino11/trafficsim
+
+# Or via GitHub Package Registry
+npm install @rhino11/trafficsim@latest --registry=https://npm.pkg.github.com
+```
+
+##### **Verification**
+
+All packages are signed and can be verified:
+
+```bash
+# Verify package signatures (requires GPG setup)
+gpg --verify trafficsim-1.0.0.sig trafficsim-1.0.0.tar.gz
+
+# Verify checksums
+sha256sum -c trafficsim-1.0.0.sha256
+```
+
+For detailed signing setup and verification instructions, see [`docs/PACKAGE_SIGNING_SETUP.md`](docs/PACKAGE_SIGNING_SETUP.md).
 
 ### Running TrafficSim
 

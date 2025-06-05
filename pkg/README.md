@@ -7,7 +7,7 @@ This directory contains packages that are intended for external use and provide 
 ### geospatial/
 Geospatial calculations and utilities for geographic coordinate systems.
 
-**Purpose**: 
+**Purpose**:
 - Provide geographic coordinate calculations
 - Handle coordinate system transformations
 - Implement geospatial distance and bearing calculations
@@ -67,7 +67,7 @@ type Bearing struct {
 func DistanceHaversine(from, to Coordinate) Distance
 func DistanceVincenty(from, to Coordinate) Distance
 
-// Bearing calculations  
+// Bearing calculations
 func BearingTo(from, to Coordinate) Bearing
 func FinalBearing(from, to Coordinate) Bearing
 

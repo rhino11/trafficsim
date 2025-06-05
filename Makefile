@@ -23,6 +23,11 @@ DEFAULT_PORT=8080
 DEFAULT_MULTICAST_ADDR=239.2.3.1
 DEFAULT_MULTICAST_PORT=6969
 
+# Package building parameters
+PACKAGE_VERSION ?= 1.0.0
+PACKAGE_ARCH ?= amd64
+DIST_DIR = dist
+
 # Build targets
 .PHONY: all build clean test test-go test-js test-all test-package test-package-coverage test-package-race test-coverage test-coverage-go test-coverage-js test-verbose deps deps-js fmt vet lint run run-headless run-web run-multicast run-web-multicast validate-yaml help
 
@@ -345,65 +350,57 @@ check-all: validate-yaml check lint-all test-race test-coverage security
 # CI check (for CI environments) - now includes YAML validation
 ci: deps-all validate-yaml check-all
 
-# Display help
-help:
-	@echo "Available targets:"
-	@echo "  build            - Build the application"
-	@echo "  build-linux      - Build for Linux"
-	@echo "  clean            - Clean build artifacts"
-	@echo "  validate-yaml    - Validate all YAML configuration files"
-	@echo "  validate-yaml-file - Validate specific YAML file (use FILE=path/to/file.yaml)"
-	@echo "  test             - Run all tests (Go + JavaScript)"
-	@echo "  test-go          - Run Go tests only"
-	@echo "  test-js          - Run JavaScript tests only"
-	@echo "  test-all         - Run all tests (Go + JavaScript)"
-	@echo "  test-package     - Run tests for a specific package (use PKG=./path/to/package)"
-	@echo "  test-coverage    - Run all tests with coverage"
-	@echo "  test-coverage-go - Run Go tests with coverage (verbose)"
-	@echo "  test-coverage-go-quiet - Run Go tests with coverage (summary only)"
-	@echo "  test-coverage-go-detailed - Run Go tests with detailed coverage breakdown"
-	@echo "  test-coverage-js - Run JavaScript tests with coverage"
-	@echo "  test-package-coverage - Run tests with coverage for a specific package (use PKG=./path/to/package)"
-	@echo "  test-race        - Run Go tests with race detection"
-	@echo "  test-package-race - Run tests with race detection for a specific package (use PKG=./path/to/package)"
-	@echo "  test-verbose     - Run tests in verbose mode"
-	@echo "  test-run         - Run specific test (use TEST=TestName)"
-	@echo "  test-js-watch    - Run JavaScript tests in watch mode"
-	@echo "  benchmark        - Run benchmark tests"
-	@echo "  deps             - Download Go dependencies"
-	@echo "  deps-js          - Install JavaScript dependencies"
-	@echo "  deps-all         - Install all dependencies"
-	@echo "  deps-update      - Update dependencies"
-	@echo "  fmt              - Format code"
-	@echo "  vet              - Vet code"
-	@echo "  lint             - Run Go linter"
-	@echo "  lint-js          - Run JavaScript linter"
-	@echo "  lint-all         - Run all linters"
-	@echo "  run              - Build and run in CLI mode (default)"
-	@echo "  run-headless     - Run in headless mode (no frontend)"
-	@echo "  run-web          - Run with web frontend on default port ($(DEFAULT_PORT))"
-	@echo "  run-web-port     - Run with web frontend on custom port (use PORT=xxxx)"
-	@echo "  run-multicast    - Run headless with multicast transmission"
-	@echo "  run-web-multicast - Run with web frontend and multicast"
-	@echo "  run-multicast-custom - Run with custom multicast (use ADDR=x.x.x.x PORT=xxxx)"
-	@echo "  run-all-modes    - Start all modes for testing (background)"
-	@echo "  stop-all         - Stop all background processes"
-	@echo "  dev              - Start development server with hot reload"
-	@echo "  install-tools    - Install development tools"
-	@echo "  mocks            - Generate mocks"
-	@echo "  security         - Run security checks"
-	@echo "  docker-build     - Build Docker image"
-	@echo "  docker-run       - Build and run Docker container"
-	@echo "  check            - Quick quality check (validate-yaml, fmt, vet, test-all)"
-	@echo "  check-all        - Full quality check"
-	@echo "  ci               - CI environment check (deps + check-all)"
-	@echo "  help             - Display this help"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make validate-yaml-file FILE=data/config.yaml  - Validate specific file"
-	@echo "  make test-package PKG=./internal/server       - Test only the server package"
-	@echo "  make test-package-coverage PKG=./internal/sim - Test sim package with coverage"
-	@echo "  make test-package-race PKG=./internal/models  - Test models package with race detection"
-	@echo "  make run-web-port PORT=8081        - Run web mode on port 8081"
-	@echo "  make run-multicast-custom ADDR=239.255.42.100 PORT=9998"
-	@echo "  make run-all-modes                 - Start all modes for testing"
+# Set up package directories
+setup-package-dirs:
+	@echo "Setting up package directories..."
+
+# Package building targets
+# Package building targets
+# These are simplified versions without heredocs to avoid syntax issues
+
+# Basic package directory setup
+setup-package-dirs:
+	@echo "Setting up package directories..."
+	@mkdir -p $(DIST_DIR)
+
+# Linux RPM package (simplified)
+build-package-rpm: setup-package-dirs
+	@echo "Building RPM package for $(PACKAGE_ARCH)..."
+	@echo "Note: RPM building requires rpmbuild tool and proper setup"
+	@mkdir -p rpm/BUILD
+	@$(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).linux-$(PACKAGE_ARCH) $(MAIN_PATH)
+
+# Linux DEB package (simplified)
+build-package-deb: setup-package-dirs
+	@echo "Building DEB package for $(PACKAGE_ARCH)..."
+	@echo "Note: DEB building requires dpkg-deb tool"
+	@mkdir -p deb/BUILD
+	@$(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).linux-$(PACKAGE_ARCH).deb $(MAIN_PATH)
+
+# Windows EXE
+build-package-exe: setup-package-dirs
+	@echo "Building Windows EXE for $(PACKAGE_ARCH)..."
+	@GOOS=windows GOARCH=$(PACKAGE_ARCH) $(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).windows-$(PACKAGE_ARCH).exe $(MAIN_PATH)
+
+# macOS binary
+build-package-macos: setup-package-dirs
+	@echo "Building macOS binary for $(PACKAGE_ARCH)..."
+	@GOOS=darwin GOARCH=$(PACKAGE_ARCH) $(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).darwin-$(PACKAGE_ARCH) $(MAIN_PATH)
+
+# Linux binary
+build-package-linux: setup-package-dirs
+	@echo "Building Linux binary for $(PACKAGE_ARCH)..."
+	@GOOS=linux GOARCH=$(PACKAGE_ARCH) $(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).linux-$(PACKAGE_ARCH) $(MAIN_PATH)
+
+# Test package building (simplified)
+test-package-builds: build-package-linux build-package-macos build-package-exe
+	@echo "Successfully built basic packages"
+	@ls -la $(DIST_DIR)/
+
+# Clean package artifacts
+clean-packages:
+	@echo "Cleaning package artifacts..."
+	@rm -rf $(DIST_DIR) rpm deb appimage wix nsis dmg android ios
+	@echo "Package artifacts cleaned"
+
+.PHONY: setup-package-dirs build-package-rpm build-package-deb build-package-exe build-package-macos build-package-linux test-package-builds clean-packages

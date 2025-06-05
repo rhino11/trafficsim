@@ -7,7 +7,7 @@ This directory contains the core internal packages that implement the traffic si
 ### config/
 Configuration management and YAML parsing.
 
-**Purpose**: 
+**Purpose**:
 - Load and validate YAML configuration files
 - Provide typed configuration structures
 - Handle platform factory initialization

@@ -13,7 +13,7 @@ This directory contains comprehensive documentation for the TrafficSim project, 
 - Performance characteristics and scalability
 - Security architecture and considerations
 
-#### PROJECT_ASSESSMENT.md  
+#### PROJECT_ASSESSMENT.md
 **Purpose**: Comprehensive project evaluation
 - Current state analysis and capabilities
 - Technical debt assessment

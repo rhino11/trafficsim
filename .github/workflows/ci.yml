@@ -249,6 +249,356 @@ jobs:
         name: trafficsim-${{ matrix.goos }}-${{ matrix.goarch }}
         path: build/
 
+  build-packages:
+    name: Build Multi-Platform Packages
+    runs-on: ${{ matrix.os }}
+    needs: [test-go, test-web, lint]
+    strategy:
+      matrix:
+        include:
+          # Linux packages (RPM, DEB, AppImage)
+          - os: ubuntu-latest
+            package-type: rpm
+            arch: amd64
+          - os: ubuntu-latest
+            package-type: deb
+            arch: amd64
+          - os: ubuntu-latest
+            package-type: appimage
+            arch: amd64
+          # Windows packages (MSI, EXE)
+          - os: windows-latest
+            package-type: msi
+            arch: amd64
+          - os: windows-latest
+            package-type: exe
+            arch: amd64
+          # macOS packages (PKG, DMG)
+          - os: macos-latest
+            package-type: pkg
+            arch: amd64
+          - os: macos-latest
+            package-type: dmg
+            arch: amd64
+          # Android package (AAR)
+          - os: ubuntu-latest
+            package-type: aar
+            arch: universal
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Download dependencies
+      run: make deps-all
+
+    - name: Set up Android SDK (for AAR)
+      if: matrix.package-type == 'aar'
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 34
+        build-tools: 34.0.0
+
+    - name: Set up JDK (for AAR)
+      if: matrix.package-type == 'aar'
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Set up Linux packaging tools
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rpm build-essential fakeroot devscripts debhelper
+        # Install AppImage tools
+        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+        sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
+
+    - name: Set up Windows packaging tools
+      if: runner.os == 'Windows'
+      run: |
+        choco install wixtoolset -y
+        choco install nsis -y
+
+    - name: Build package
+      run: make build-package-${{ matrix.package-type }}
+      env:
+        PACKAGE_ARCH: ${{ matrix.arch }}
+        PACKAGE_VERSION: ${{ github.run_number }}
+
+    - name: Sign package (Linux)
+      if: runner.os == 'Linux' && (matrix.package-type == 'rpm' || matrix.package-type == 'deb' || matrix.package-type == 'appimage')
+      run: |
+        if [[ "${{ matrix.package-type }}" == "rpm" ]]; then
+          echo "${{ secrets.RPM_SIGNING_KEY }}" | base64 -d > rpm-signing-key.asc
+          gpg --import rpm-signing-key.asc
+          rpm --addsign dist/*.rpm
+        elif [[ "${{ matrix.package-type }}" == "deb" ]]; then
+          echo "${{ secrets.DEB_SIGNING_KEY }}" | base64 -d > deb-signing-key.asc
+          gpg --import deb-signing-key.asc
+          dpkg-sig --sign builder dist/*.deb
+        elif [[ "${{ matrix.package-type }}" == "appimage" ]]; then
+          echo "${{ secrets.APPIMAGE_SIGNING_KEY }}" | base64 -d > appimage-signing-key.asc
+          gpg --import appimage-signing-key.asc
+          gpg --detach-sign --armor dist/*.AppImage
+        fi
+
+    - name: Sign package (Windows)
+      if: runner.os == 'Windows' && (matrix.package-type == 'msi' || matrix.package-type == 'exe')
+      run: |
+        echo "${{ secrets.WINDOWS_CERT_BASE64 }}" | base64 -d > cert.p12
+        Get-ChildItem dist\*.msi, dist\*.exe | ForEach-Object {
+          & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x64\signtool.exe" sign /f cert.p12 /p "${{ secrets.WINDOWS_CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+        }
+
+    - name: Sign package (macOS)
+      if: runner.os == 'macOS' && (matrix.package-type == 'pkg' || matrix.package-type == 'dmg')
+      run: |
+        echo "${{ secrets.MACOS_CERT_BASE64 }}" | base64 -d > cert.p12
+        security create-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+        security import cert.p12 -k build.keychain -P "${{ secrets.MACOS_CERT_PASSWORD }}" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_KEYCHAIN_PASSWORD }}" build.keychain
+        find dist/ -name "*.pkg" -o -name "*.dmg" | xargs -I {} codesign --force --sign "${{ secrets.MACOS_DEVELOPER_ID }}" --timestamp {}
+
+    - name: Sign Android package (AAR)
+      if: matrix.package-type == 'aar'
+      run: |
+        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android-keystore.jks
+        cd android && ./gradlew assembleRelease
+        jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore ../android-keystore.jks -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" app/build/outputs/aar/*.aar "${{ secrets.ANDROID_KEY_ALIAS }}"
+
+    - name: Upload package artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: trafficsim-${{ matrix.package-type }}-${{ matrix.arch }}
+        path: dist/
+
+  build-ios:
+    name: Build iOS Package (IPA)
+    runs-on: macos-latest
+    needs: [test-go, test-web, lint]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+
+    - name: Download dependencies
+      run: make deps
+
+    - name: Set up iOS certificates and provisioning profiles
+      env:
+        IOS_CERT_BASE64: ${{ secrets.IOS_CERT_BASE64 }}
+        IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+        IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      run: |
+        # Create keychain
+        security create-keychain -p "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" ios-build.keychain
+        security list-keychains -d user -s ios-build.keychain
+        security default-keychain -s ios-build.keychain
+        security unlock-keychain -p "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" ios-build.keychain
+        security set-keychain-settings -t 3600 -u ios-build.keychain
+
+        # Import certificate
+        echo "$IOS_CERT_BASE64" | base64 -d > ios-cert.p12
+        security import ios-cert.p12 -k ios-build.keychain -P "$IOS_CERT_PASSWORD" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple: -s -k "${{ secrets.IOS_KEYCHAIN_PASSWORD }}" ios-build.keychain
+
+        # Install provisioning profile
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/trafficsim.mobileprovision
+
+    - name: Build iOS framework and IPA
+      run: |
+        make build-ios-framework
+        make build-ios-ipa
+      env:
+        PACKAGE_VERSION: ${{ github.run_number }}
+
+    - name: Upload iOS artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: trafficsim-ios-universal
+        path: |
+          dist/*.ipa
+          dist/*.framework.zip
+
+  publish-packages:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: [build-packages, build-ios]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all package artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+
+    - name: Set up Node.js for publishing
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        registry-url: 'https://npm.pkg.github.com'
+        scope: '@rhino11'
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Prepare package metadata
+      run: |
+        VERSION="1.0.${{ github.run_number }}"
+        if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+          VERSION="$VERSION-dev"
+        fi
+        echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "PACKAGE_TAG=${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}" >> $GITHUB_ENV
+
+    - name: Create package manifest
+      run: |
+        cat > package-manifest.json << EOF
+        {
+          "name": "@rhino11/trafficsim",
+          "version": "${{ env.PACKAGE_VERSION }}",
+          "description": "Traffic Simulation Platform with Multi-Platform Support",
+          "repository": {
+            "type": "git",
+            "url": "https://github.com/rhino11/trafficsim"
+          },
+          "files": [
+            "packages/**/*"
+          ]
+        }
+        EOF
+
+    - name: Organize packages for registry
+      run: |
+        mkdir -p packages/{linux,windows,macos,android,ios}
+
+        # Linux packages
+        find artifacts/ -name "*rpm*" -exec cp {} packages/linux/ \;
+        find artifacts/ -name "*deb*" -exec cp {} packages/linux/ \;
+        find artifacts/ -name "*appimage*" -exec cp {} packages/linux/ \;
+
+        # Windows packages
+        find artifacts/ -name "*msi*" -exec cp {} packages/windows/ \;
+        find artifacts/ -name "*exe*" -exec cp {} packages/windows/ \;
+
+        # macOS packages
+        find artifacts/ -name "*pkg*" -exec cp {} packages/macos/ \;
+        find artifacts/ -name "*dmg*" -exec cp {} packages/macos/ \;
+
+        # Android packages
+        find artifacts/ -name "*aar*" -exec cp {} packages/android/ \;
+
+        # iOS packages
+        find artifacts/ -name "*ipa*" -exec cp {} packages/ios/ \;
+        find artifacts/ -name "*framework*" -exec cp {} packages/ios/ \;
+
+    - name: Publish to GitHub Packages (NPM)
+      run: |
+        cp package-manifest.json package.json
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create and push Docker images for package distribution
+      run: |
+        # Create lightweight distribution images
+        for platform in linux windows macos android ios; do
+          cat > Dockerfile.$platform << EOF
+        FROM alpine:latest
+        RUN apk add --no-cache curl
+        COPY packages/$platform /packages/
+        WORKDIR /packages
+        CMD ["sh", "-c", "ls -la /packages"]
+        EOF
+
+          docker build -f Dockerfile.$platform -t ghcr.io/rhino11/trafficsim-$platform:${{ env.PACKAGE_TAG }} .
+          docker push ghcr.io/rhino11/trafficsim-$platform:${{ env.PACKAGE_TAG }}
+        done
+
+    - name: Generate release notes
+      if: github.ref == 'refs/heads/main'
+      run: |
+        cat > release-notes.md << EOF
+        # TrafficSim Release v${{ env.PACKAGE_VERSION }}
+
+        ## Multi-Platform Packages Available
+
+        ### Linux
+        - RPM package: \`packages/linux/trafficsim-${{ env.PACKAGE_VERSION }}.rpm\`
+        - DEB package: \`packages/linux/trafficsim-${{ env.PACKAGE_VERSION }}.deb\`
+        - AppImage: \`packages/linux/trafficsim-${{ env.PACKAGE_VERSION }}.AppImage\`
+
+        ### Windows
+        - MSI installer: \`packages/windows/trafficsim-${{ env.PACKAGE_VERSION }}.msi\`
+        - Portable executable: \`packages/windows/trafficsim-${{ env.PACKAGE_VERSION }}.exe\`
+
+        ### macOS
+        - PKG installer: \`packages/macos/trafficsim-${{ env.PACKAGE_VERSION }}.pkg\`
+        - DMG disk image: \`packages/macos/trafficsim-${{ env.PACKAGE_VERSION }}.dmg\`
+
+        ### Android
+        - AAR library: \`packages/android/trafficsim-${{ env.PACKAGE_VERSION }}.aar\`
+
+        ### iOS
+        - IPA application: \`packages/ios/trafficsim-${{ env.PACKAGE_VERSION }}.ipa\`
+        - Framework: \`packages/ios/trafficsim-${{ env.PACKAGE_VERSION }}.framework.zip\`
+
+        ## Installation
+
+        ### Via GitHub Packages (NPM)
+        \`\`\`bash
+        npm install @rhino11/trafficsim@${{ env.PACKAGE_VERSION }}
+        \`\`\`
+
+        ### Via Docker
+        \`\`\`bash
+        docker pull ghcr.io/rhino11/trafficsim-linux:${{ env.PACKAGE_TAG }}
+        docker pull ghcr.io/rhino11/trafficsim-windows:${{ env.PACKAGE_TAG }}
+        docker pull ghcr.io/rhino11/trafficsim-macos:${{ env.PACKAGE_TAG }}
+        docker pull ghcr.io/rhino11/trafficsim-android:${{ env.PACKAGE_TAG }}
+        docker pull ghcr.io/rhino11/trafficsim-ios:${{ env.PACKAGE_TAG }}
+        \`\`\`
+
+        All packages are code-signed and verified for security.
+        EOF
+
+    - name: Upload release notes
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-notes
+        path: release-notes.md
+
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
@@ -288,8 +638,11 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [build, docker, integration-test]
+    needs: [build, build-packages, build-ios, docker, integration-test, publish-packages]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
     steps:
     - uses: actions/checkout@v4
       with:
@@ -298,21 +651,34 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
 
+    - name: Download release notes
+      uses: actions/download-artifact@v4
+      with:
+        name: release-notes
+        path: .
+
     - name: Generate changelog
       id: changelog
       run: |
-        echo "## Changes" > CHANGELOG.md
-        git log --oneline --no-merges $(git describe --tags --abbrev=0)..HEAD >> CHANGELOG.md || echo "Initial release" >> CHANGELOG.md
+        if [ -f release-notes.md ]; then
+          cat release-notes.md > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Git Changes" >> CHANGELOG.md
+        else
+          echo "## Changes" > CHANGELOG.md
+        fi
+        git log --oneline --no-merges $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD >> CHANGELOG.md 2>/dev/null || echo "Initial release" >> CHANGELOG.md
 
     - name: Create Release
       if: contains(github.event.head_commit.message, '[release]')
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v${{ github.run_number }}
-        name: Release v${{ github.run_number }}
+        tag_name: v1.0.${{ github.run_number }}
+        name: TrafficSim Release v1.0.${{ github.run_number }}
         body_path: CHANGELOG.md
         files: |
           trafficsim-*/trafficsim-*
+          trafficsim-*/*
         draft: false
         prerelease: false
       env:

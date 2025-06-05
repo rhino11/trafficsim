@@ -74,7 +74,7 @@ templates/
 
 ### Upcoming Military Symbology (June 2025)
 - **MIL-STD-2525D+ Symbols**: Professional military symbology
-- **Affiliation Display**: Clear friendly/hostile/neutral/unknown indicators  
+- **Affiliation Display**: Clear friendly/hostile/neutral/unknown indicators
 - **Platform Recognition**: Immediate visual platform type identification
 - **Standards Compliance**: Full military symbology standards support
 
@@ -135,7 +135,7 @@ npm run test -- data-streamer.test.js
 
 JavaScript test coverage is comprehensive across all modules:
 - **map-engine.js**: Full coverage
-- **platform-renderer.js**: Full coverage  
+- **platform-renderer.js**: Full coverage
 - **data-streamer.js**: Full coverage
 - **performance-monitor.js**: Full coverage
 - **scenario-builder.js**: Full coverage

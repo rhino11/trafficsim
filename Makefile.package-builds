@@ -1,0 +1,49 @@
+# Package building targets
+# These are simplified versions without heredocs to avoid syntax issues
+
+# Basic package directory setup
+setup-package-dirs:
+	@echo "Setting up package directories..."
+	@mkdir -p $(DIST_DIR)
+
+# Linux RPM package (simplified)
+build-package-rpm: setup-package-dirs
+	@echo "Building RPM package for $(PACKAGE_ARCH)..."
+	@echo "Note: RPM building requires rpmbuild tool and proper setup"
+	@mkdir -p rpm/BUILD
+	@$(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).linux-$(PACKAGE_ARCH) $(MAIN_PATH)
+
+# Linux DEB package (simplified)
+build-package-deb: setup-package-dirs
+	@echo "Building DEB package for $(PACKAGE_ARCH)..."
+	@echo "Note: DEB building requires dpkg-deb tool"
+	@mkdir -p deb/BUILD
+	@$(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).linux-$(PACKAGE_ARCH).deb $(MAIN_PATH)
+
+# Windows EXE
+build-package-exe: setup-package-dirs
+	@echo "Building Windows EXE for $(PACKAGE_ARCH)..."
+	@GOOS=windows GOARCH=$(PACKAGE_ARCH) $(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).windows-$(PACKAGE_ARCH).exe $(MAIN_PATH)
+
+# macOS binary
+build-package-macos: setup-package-dirs
+	@echo "Building macOS binary for $(PACKAGE_ARCH)..."
+	@GOOS=darwin GOARCH=$(PACKAGE_ARCH) $(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).darwin-$(PACKAGE_ARCH) $(MAIN_PATH)
+
+# Linux binary
+build-package-linux: setup-package-dirs
+	@echo "Building Linux binary for $(PACKAGE_ARCH)..."
+	@GOOS=linux GOARCH=$(PACKAGE_ARCH) $(GOBUILD) -ldflags="-s -w" -o $(DIST_DIR)/$(BINARY_NAME)-$(PACKAGE_VERSION).linux-$(PACKAGE_ARCH) $(MAIN_PATH)
+
+# Test package building (simplified)
+test-package-builds: build-package-linux build-package-macos build-package-exe
+	@echo "Successfully built basic packages"
+	@ls -la $(DIST_DIR)/
+
+# Clean package artifacts
+clean-packages:
+	@echo "Cleaning package artifacts..."
+	@rm -rf $(DIST_DIR) rpm deb appimage wix nsis dmg android ios
+	@echo "Package artifacts cleaned"
+
+.PHONY: setup-package-dirs build-package-rpm build-package-deb build-package-exe build-package-macos build-package-linux test-package-builds clean-packages

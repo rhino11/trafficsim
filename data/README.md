@@ -11,7 +11,7 @@ Main simulation configuration file.
 
 **Key Sections**:
 - `simulation`: Timestep, duration, real-time settings
-- `physics`: Earth radius, gravity, air density constants  
+- `physics`: Earth radius, gravity, air density constants
 - `platforms`: Default platform configurations
 - `output`: CoT message and multicast settings
 - `web`: Web server and visualization settings
@@ -66,7 +66,7 @@ simulation:
   timestep: 1s              # Simulation update interval
   duration: 3600s           # Total simulation time
   realtime: true            # Real-time vs fast execution
-  
+
 physics:
   earth_radius: 6371000.0   # Earth radius in meters
   gravity: 9.81             # Gravitational acceleration
@@ -76,7 +76,7 @@ platforms:
   - type: "airborne"
     count: 100
     routes: "data/sample_routes/commercial_flights.yaml"
-    
+
 output:
   cot:
     enabled: true
@@ -103,16 +103,16 @@ specifications:
   turn_rate: 3.0            # degrees per second
   climb_rate: 5.0           # m/s
   fuel_capacity: 50000.0    # kg
-  
+
 physics:
   mass: 75000.0             # kg
   drag_coefficient: 0.02
   wing_area: 120.0          # m²
-  
+
 navigation:
   gps_accuracy: 5.0         # meters
   update_rate: 1.0          # Hz
-  
+
 visualization:
   symbol: "aircraft"
   color: "#0066CC"
@@ -135,7 +135,7 @@ waypoints:
     action: "descend"
   - position: {lat: 33.9425, lon: -118.4081, alt: 0}    # LAX Airport
     action: "landing"
-    
+
 flight_parameters:
   cruise_speed: 240.0       # m/s
   climb_rate: 8.0           # m/s
@@ -188,7 +188,7 @@ flight_parameters:
 - **Fishing**: Commercial fishing vessels
 - **Recreational**: Yachts, pleasure boats
 
-### Land Platforms  
+### Land Platforms
 - **Vehicles**: Cars, trucks, buses
 - **Military**: Tanks, APCs, support vehicles
 - **Rail**: Trains, light rail, subway systems
@@ -211,12 +211,12 @@ platforms:
     category: "emergency"
     count: 5
     aircraft_types: ["helicopter", "fixed_wing"]
-    
-  - type: "land" 
+
+  - type: "land"
     category: "emergency"
     count: 20
     vehicle_types: ["ambulance", "fire_truck", "police"]
-    
+
 areas_of_interest:
   - name: "incident_site"
     center: {lat: 40.7128, lon: -74.0060}
@@ -234,12 +234,12 @@ platforms:
     category: "military"
     count: 50
     mix: ["fighter", "transport", "reconnaissance"]
-    
+
   - type: "maritime"
-    category: "military" 
+    category: "military"
     count: 10
     mix: ["destroyer", "frigate", "support"]
-    
+
 exercise_parameters:
   duration: 7200s  # 2 hours
   real_time: false
