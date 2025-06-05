@@ -138,3 +138,97 @@ debug_*.go
 config.local.yaml
 config.dev.yaml
 config.override.yaml
+
+# Go build artifacts
+vendor/
+*.test
+*.prof
+coverage.out
+coverage.html
+*.cover
+*.coverage
+coverage.txt
+coverage.xml
+coverage.json
+c.out
+profile.out
+
+# Go coverage artifacts
+coverage/
+.coverage/
+coverage-*.out
+coverage-*.html
+coverage-*.xml
+coverage-*.json
+cover.out
+cover.html
+cover.xml
+cover.json
+
+# Test coverage reports
+test-coverage/
+coverage-report/
+htmlcov/
+.coverage.*
+.nyc_output/
+lcov.info
+*.lcov
+
+# Go test artifacts
+*.test.out
+*.bench.out
+*.cpu.prof
+*.mem.prof
+*.trace.out
+test-results/
+test-output/
+*.test.log
+benchmark-*.out
+
+# Profiling data
+*.pprof
+*.prof
+pprof/
+cpu.prof
+mem.prof
+mutex.prof
+block.prof
+trace.out
+goroutine.prof
+
+# Coverage tools output
+gocov.json
+gocov.html
+gocover-cobertura.xml
+*.cobertura.xml
+
+# SonarQube coverage
+.scannerwork/
+sonar-project.properties
+
+# Codecov
+codecov.yml
+.codecov.yml
+
+# Additional test artifacts
+*.bench
+*.benchmem
+*.cpu
+*.mem
+*.mutex
+*.block
+*.goroutine
+*.allocs
+*.heap
+
+# Code quality reports
+golangci-lint-report.xml
+golangci-lint-report.json
+lint-results.xml
+vet-results.txt
+fmt-results.txt
+
+# Go module download cache artifacts
+go.sum.backup
+*.mod.backup
+*.sum.backup
