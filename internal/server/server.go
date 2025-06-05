@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/rhino11/trafficsim/internal/config"
 	"github.com/rhino11/trafficsim/internal/models"
+	"github.com/rhino11/trafficsim/internal/output"
 	"github.com/rhino11/trafficsim/internal/sim"
 )
 
@@ -92,17 +94,160 @@ func logPlatformUpdate(platformCount int, action string) {
 	logf("[PLATFORM] %s - Count: %d", action, platformCount)
 }
 
+// MulticastManager handles multicast CoT transmission
+type MulticastManager struct {
+	enabled       bool
+	conn          *net.UDPConn
+	addr          string
+	port          string
+	cotGenerator  *output.CoTGenerator
+	lastSent      time.Time
+	messagesSent  int64
+	messagesFailed int64
+	mutex         sync.RWMutex
+}
+
+// MulticastStatus represents multicast transmission status
+type MulticastStatus struct {
+	Enabled       bool   `json:"enabled"`
+	Address       string `json:"address,omitempty"`
+	Port          string `json:"port,omitempty"`
+	Connected     bool   `json:"connected"`
+	MessagesSent  int64  `json:"messages_sent"`
+	MessagesFailed int64  `json:"messages_failed"`
+	LastSent      string `json:"last_sent,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// NewMulticastManager creates a new multicast manager
+func NewMulticastManager(addr, port string) *MulticastManager {
+	return &MulticastManager{
+		enabled:      false,
+		addr:         addr,
+		port:         port,
+		cotGenerator: output.NewCoTGenerator(),
+	}
+}
+
+// Enable enables multicast transmission
+func (mm *MulticastManager) Enable() error {
+	mm.mutex.Lock()
+	defer mm.mutex.Unlock()
+
+	if mm.enabled {
+		return nil // Already enabled
+	}
+
+	// Parse multicast address
+	multicastAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", mm.addr, mm.port))
+	if err != nil {
+		return fmt.Errorf("failed to resolve multicast address: %v", err)
+	}
+
+	// Create UDP connection
+	conn, err := net.DialUDP("udp", nil, multicastAddr)
+	if err != nil {
+		return fmt.Errorf("failed to create multicast connection: %v", err)
+	}
+
+	mm.conn = conn
+	mm.enabled = true
+	
+	logf("[MULTICAST] Enabled on %s:%s", mm.addr, mm.port)
+	return nil
+}
+
+// Disable disables multicast transmission
+func (mm *MulticastManager) Disable() error {
+	mm.mutex.Lock()
+	defer mm.mutex.Unlock()
+
+	if !mm.enabled {
+		return nil // Already disabled
+	}
+
+	if mm.conn != nil {
+		if err := mm.conn.Close(); err != nil {
+			logf("[MULTICAST] Error closing connection: %v", err)
+		}
+		mm.conn = nil
+	}
+
+	mm.enabled = false
+	logf("[MULTICAST] Disabled")
+	return nil
+}
+
+// SendPlatformUpdates sends platform updates via multicast
+func (mm *MulticastManager) SendPlatformUpdates(platforms []models.Platform) {
+	mm.mutex.RLock()
+	defer mm.mutex.RUnlock()
+
+	if !mm.enabled || mm.conn == nil {
+		return
+	}
+
+	for _, platform := range platforms {
+		// Convert platform to CoT state
+		cotState := output.PlatformToCoTState(platform)
+
+		// Generate CoT XML message
+		cotMessage, err := mm.cotGenerator.GenerateCoTMessage(cotState)
+		if err != nil {
+			mm.messagesFailed++
+			logf("[MULTICAST] Failed to generate CoT message for %s: %v", platform.GetCallSign(), err)
+			continue
+		}
+
+		// Send the CoT XML message
+		_, err = mm.conn.Write(cotMessage)
+		if err != nil {
+			mm.messagesFailed++
+			logf("[MULTICAST] Failed to send CoT message for %s: %v", platform.GetCallSign(), err)
+		} else {
+			mm.messagesSent++
+			mm.lastSent = time.Now()
+			logf("[MULTICAST] Sent CoT message for %s (Type: %s)", platform.GetCallSign(), cotState.CoTType)
+		}
+	}
+}
+
+// GetStatus returns the current multicast status
+func (mm *MulticastManager) GetStatus() MulticastStatus {
+	mm.mutex.RLock()
+	defer mm.mutex.RUnlock()
+
+	status := MulticastStatus{
+		Enabled:        mm.enabled,
+		Connected:      mm.enabled && mm.conn != nil,
+		MessagesSent:   mm.messagesSent,
+		MessagesFailed: mm.messagesFailed,
+	}
+
+	if mm.enabled {
+		status.Address = mm.addr
+		status.Port = mm.port
+	}
+
+	if !mm.lastSent.IsZero() {
+		status.LastSent = mm.lastSent.Format(time.RFC3339)
+	}
+
+	return status
+}
+
 // Server represents the web server for the traffic simulation
 type Server struct {
-	config     *config.Config
-	simulation *sim.Engine
-	router     *mux.Router
-	upgrader   websocket.Upgrader
-	clients    map[*websocket.Conn]bool
-	clientsMux sync.RWMutex
-	broadcast  chan []byte
-	ctx        context.Context
-	cancel     context.CancelFunc
+	config            *config.Config
+	simulation        *sim.Engine
+	router            *mux.Router
+	upgrader          websocket.Upgrader
+	clients           map[*websocket.Conn]bool
+	clientsMux        sync.RWMutex
+	broadcast         chan []byte
+	ctx               context.Context
+	cancel            context.CancelFunc
+	multicastManager  *MulticastManager
 }
 
 // Client represents a connected WebSocket client
@@ -159,14 +304,48 @@ func NewServer(cfg *config.Config, simulation *sim.Engine) *Server {
 
 // setupRoutes configures all HTTP routes
 func (s *Server) setupRoutes() {
-	// Static files with logging
+	// Static files with logging and multiple path handling
 	staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		logWebRequest(r, "SERVING_STATIC")
 
-		// Serve the file
-		fileServer := http.FileServer(http.Dir("web/static/"))
-		fileServer.ServeHTTP(w, r)
+		// Try multiple possible static directories
+		staticPaths := []string{
+			"web/static/",
+			"../web/static/",
+			"../../web/static/",
+			"/Users/ryan/code/github.com/rhino11/trafficsim/web/static/",
+		}
+		
+		var fileServer http.Handler
+		served := false
+		
+		for _, staticPath := range staticPaths {
+			if _, err := os.Stat(staticPath); err == nil {
+				fileServer = http.FileServer(http.Dir(staticPath))
+				fileServer.ServeHTTP(w, r)
+				served = true
+				logf("[STATIC] Successfully served from: %s", staticPath)
+				break
+			}
+		}
+		
+		if !served {
+			logWebError("Static file not found", fmt.Errorf("file %s not found in any static path", r.URL.Path))
+			// Fallback for missing CSS/JS files
+			if strings.HasSuffix(r.URL.Path, ".css") {
+				w.Header().Set("Content-Type", "text/css")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("/* CSS file not found - fallback */"))
+			} else if strings.HasSuffix(r.URL.Path, ".js") {
+				w.Header().Set("Content-Type", "application/javascript")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("// JS file not found - fallback\nconsole.log('Static file not found');"))
+			} else {
+				http.NotFound(w, r)
+			}
+			return
+		}
 
 		duration := time.Since(start)
 		logPerformance("static_file_serve", map[string]interface{}{
@@ -194,6 +373,10 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/simulation/reset", s.handleResetSimulation).Methods("POST")
 	api.HandleFunc("/simulation/status", s.handleSimulationStatus).Methods("GET")
 	api.HandleFunc("/stream/platforms", s.handleSSEPlatforms).Methods("GET")
+	// Multicast endpoints
+	api.HandleFunc("/multicast/status", s.handleMulticastStatus).Methods("GET")
+	api.HandleFunc("/multicast/enable", s.handleMulticastEnable).Methods("POST")
+	api.HandleFunc("/multicast/disable", s.handleMulticastDisable).Methods("POST")
 	// Performance monitoring endpoint
 	api.HandleFunc("/metrics", s.handleMetrics).Methods("GET")
 	// Client logging endpoint for debugging
@@ -247,9 +430,40 @@ func (s *Server) Stop() {
 
 // handleIndex serves the main HTML page
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("web/templates/index.html")
+	// Try multiple possible template paths to handle different working directories
+	templatePaths := []string{
+		"web/templates/index.html",
+		"../web/templates/index.html",
+		"../../web/templates/index.html",
+		"/Users/ryan/code/github.com/rhino11/trafficsim/web/templates/index.html",
+	}
+	
+	var tmpl *template.Template
+	var err error
+	
+	for _, path := range templatePaths {
+		tmpl, err = template.ParseFiles(path)
+		if err == nil {
+			logf("[TEMPLATE] Successfully loaded index template from: %s", path)
+			break
+		}
+	}
+	
 	if err != nil {
-		http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
+		logWebError("Template loading", err)
+		// Fallback to simple HTML response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`<!DOCTYPE html>
+<html>
+<head><title>TrafficSim - Web Interface</title></head>
+<body>
+<h1>TrafficSim Web Interface</h1>
+<p>Template loading failed, but the server is running. Check server logs for details.</p>
+<p><a href="/api/platforms">View Platform Data (JSON)</a></p>
+<p><a href="/api/simulation/status">View Simulation Status (JSON)</a></p>
+</body>
+</html>`))
 		return
 	}
 
@@ -260,6 +474,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
+		logWebError("Template execution", err)
 		http.Error(w, "Error executing template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -267,9 +482,39 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 // handleScenarioBuilder serves the scenario builder HTML page
 func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("web/templates/scenario-builder.html")
+	// Try multiple possible template paths
+	templatePaths := []string{
+		"web/templates/scenario-builder.html",
+		"../web/templates/scenario-builder.html", 
+		"../../web/templates/scenario-builder.html",
+		"/Users/ryan/code/github.com/rhino11/trafficsim/web/templates/scenario-builder.html",
+	}
+	
+	var tmpl *template.Template
+	var err error
+	
+	for _, path := range templatePaths {
+		tmpl, err = template.ParseFiles(path)
+		if err == nil {
+			logf("[TEMPLATE] Successfully loaded scenario-builder template from: %s", path)
+			break
+		}
+	}
+	
 	if err != nil {
-		http.Error(w, "Error loading scenario builder template: "+err.Error(), http.StatusInternalServerError)
+		logWebError("Scenario builder template loading", err)
+		// Fallback to simple HTML response
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`<!DOCTYPE html>
+<html>
+<head><title>Scenario Builder - TrafficSim</title></head>
+<body>
+<h1>Scenario Builder</h1>
+<p>Template loading failed, but the server is running. This would be the scenario builder interface.</p>
+<p><a href="/">Back to Main Interface</a></p>
+</body>
+</html>`))
 		return
 	}
 
@@ -280,6 +525,7 @@ func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
+		logWebError("Scenario builder template execution", err)
 		http.Error(w, "Error executing scenario builder template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -867,9 +1113,19 @@ func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) {
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		logWebError("SSE flusher not supported", fmt.Errorf("response writer does not support flushing"))
+		// Fallback: return platform data as regular JSON response instead of SSE
+		platforms := s.simulation.GetAllPlatforms()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(platforms); err != nil {
+			logWebError("SSE fallback JSON encoding", err)
+			http.Error(w, "Error encoding platform data", http.StatusInternalServerError)
+		}
 		return
 	}
+
+	logf("[SSE] Starting Server-Sent Events stream for client: %s", r.RemoteAddr)
 
 	// Send initial data
 	platforms := s.simulation.GetAllPlatforms()
@@ -877,7 +1133,7 @@ func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.Marshal(platforms)
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
-		log.Printf("SSE: Sent initial data with %d platforms", len(platforms))
+		logf("[SSE] Sent initial data with %d platforms", len(platforms))
 	}
 
 	// Create a ticker to send regular updates
@@ -891,7 +1147,7 @@ func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-r.Context().Done():
-			log.Printf("SSE: Client disconnected")
+			logf("[SSE] Client disconnected: %s", r.RemoteAddr)
 			return
 		case <-heartbeatTicker.C:
 			fmt.Fprintf(w, ": heartbeat\n\n")
@@ -908,7 +1164,7 @@ func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) {
 
 					data, err := json.Marshal(message)
 					if err != nil {
-						log.Printf("Error marshaling SSE platform update: %v", err)
+						logWebError("SSE platform update marshaling", err)
 						continue
 					}
 
@@ -1309,4 +1565,85 @@ func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		logWebError("Scenario creation response encoding", err)
 	}
+}
+
+// handleMulticastStatus returns the current multicast status
+func (s *Server) handleMulticastStatus(w http.ResponseWriter, r *http.Request) {
+	if s.multicastManager == nil {
+		// Initialize multicast manager with default values if not set
+		s.multicastManager = NewMulticastManager("239.2.3.1", "6969")
+	}
+
+	status := s.multicastManager.GetStatus()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		logWebError("Multicast status encoding", err)
+		http.Error(w, "Error encoding multicast status", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleMulticastEnable enables multicast transmission
+func (s *Server) handleMulticastEnable(w http.ResponseWriter, r *http.Request) {
+	if s.multicastManager == nil {
+		s.multicastManager = NewMulticastManager("239.2.3.1", "6969")
+	}
+
+	if err := s.multicastManager.Enable(); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to enable multicast: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Start sending platform updates via multicast
+	go s.sendMulticastUpdates()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "enabled"}); err != nil {
+		logWebError("Multicast enable response encoding", err)
+	}
+}
+
+// handleMulticastDisable disables multicast transmission
+func (s *Server) handleMulticastDisable(w http.ResponseWriter, r *http.Request) {
+	if s.multicastManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "already_disabled"})
+		return
+	}
+
+	if err := s.multicastManager.Disable(); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to disable multicast: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "disabled"}); err != nil {
+		logWebError("Multicast disable response encoding", err)
+	}
+}
+
+// sendMulticastUpdates sends regular platform updates via multicast
+func (s *Server) sendMulticastUpdates() {
+	ticker := time.NewTicker(5 * time.Second) // Send every 5 seconds as per CoT standard
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			if s.multicastManager != nil && s.simulation.IsRunning() {
+				platforms := s.simulation.GetAllPlatforms()
+				if len(platforms) > 0 {
+					s.multicastManager.SendPlatformUpdates(platforms)
+				}
+			}
+		}
+	}
+}
+
+// ServeHTTP implements the http.Handler interface
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(w, r)
 }
