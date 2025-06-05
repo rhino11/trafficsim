@@ -185,11 +185,42 @@ For the web UI, a modern browser is required.
 6.  **Logging:**
     *   Use a structured logging library (e.g., Go's built-in `slog` (Go 1.21+), or a library like `zerolog` or `zap`).
     *   Provide different log levels (DEBUG, INFO, WARN, ERROR).
-7.  **Testing:**
-    *   Write unit tests for all critical components and logic. Place them in `_test.go` files.
-    *   Aim for high test coverage.
-    *   Use table-driven tests where appropriate.
-    *   Consider integration tests for interactions between components.
+7.  **Testing (Test-Driven Development):**
+    *   **Unit Tests:**
+        *   **MANDATORY:** Write unit tests BEFORE implementing any new function in Go or JavaScript.
+        *   Follow the Red-Green-Refactor cycle: Write failing test → Implement function → Refactor if needed.
+        *   Place Go tests in `_test.go` files alongside the source code.
+        *   Place JavaScript tests in `__tests__/` directories or `.test.js` files.
+        *   Aim for high test coverage (>80% for critical components).
+        *   Use table-driven tests where appropriate (especially in Go).
+        *   Test edge cases, error conditions, and boundary values.
+    *   **Integration Tests:**
+        *   Write integration tests BEFORE implementing component interactions.
+        *   Test the boundaries between modules (e.g., config → simulation engine, simulation engine → output).
+        *   Create integration tests for API endpoints before implementing the handlers.
+        *   Use test fixtures and mock data for consistent, repeatable tests.
+        *   Place integration tests in `integration_test.go` files or dedicated `test/` directories.
+        *   Test data flow and state management between components.
+    *   **UI Tests (Frontend):**
+        *   Write UI tests BEFORE implementing frontend functionality.
+        *   Test component behavior and user interactions using testing frameworks (e.g., Jest + Testing Library).
+        *   Create tests for map rendering, real-time updates, and user interface elements.
+        *   Mock WebSocket/SSE connections for testing real-time features.
+        *   Test responsive design and cross-browser compatibility.
+        *   Place UI tests alongside components or in dedicated test directories.
+    *   **End-to-End (E2E) Tests:**
+        *   Write E2E tests BEFORE implementing complete user workflows.
+        *   Test critical user journeys: starting simulation → viewing tracks → receiving updates.
+        *   Use tools like Playwright or Cypress for browser automation.
+        *   Test the complete system including Go backend, web server, and frontend.
+        *   Verify CoT output generation and network communication.
+        *   Run E2E tests against different configuration scenarios.
+        *   Place E2E tests in a dedicated `e2e/` or `tests/e2e/` directory.
+    *   **Test Organization:**
+        *   Use build tags (`// +build integration`) to separate test types.
+        *   Implement test helpers and utilities in `internal/testutil/`.
+        *   Ensure tests can run in parallel where possible.
+        *   Use race detector for concurrent code (`go test -race`).
 8.  **Dependencies:**
     *   Manage dependencies using Go Modules (`go.mod`, `go.sum`).
     *   Minimize external dependencies. Justify additions.

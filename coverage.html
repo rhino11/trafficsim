@@ -81,7 +81,7 @@
 				
 				<option value="file12">github.com/rhino11/trafficsim/internal/output/multicast.go (0.0%)</option>
 				
-				<option value="file13">github.com/rhino11/trafficsim/internal/server/server.go (41.1%)</option>
+				<option value="file13">github.com/rhino11/trafficsim/internal/server/server.go (44.4%)</option>
 				
 				<option value="file14">github.com/rhino11/trafficsim/internal/sim/engine.go (0.0%)</option>
 				
@@ -5170,6 +5170,14 @@ import (
         "time"
 )
 
+// Dimension constants for CoT message generation
+const (
+        DimensionAir    = "air"
+        DimensionGround = "ground"
+        DimensionSea    = "sea"
+        DimensionSpace  = "space"
+)
+
 // CoTEvent represents a Cursor on Target event message
 type CoTEvent struct {
         XMLName xml.Name  `xml:"event"`
@@ -5307,13 +5315,13 @@ func GenerateMILSTD2525Type(category, affiliation, dimension string) string <spa
 
         <span class="cov8" title="1">var dimensionCode string
         switch dimension </span>{
-        case "air":<span class="cov8" title="1">
+        case DimensionAir:<span class="cov8" title="1">
                 dimensionCode = "A"</span>
-        case "ground":<span class="cov8" title="1">
+        case DimensionGround:<span class="cov8" title="1">
                 dimensionCode = "G"</span>
-        case "sea":<span class="cov8" title="1">
+        case DimensionSea:<span class="cov8" title="1">
                 dimensionCode = "S"</span>
-        case "space":<span class="cov8" title="1">
+        case DimensionSpace:<span class="cov8" title="1">
                 dimensionCode = "P"</span>
         default:<span class="cov0" title="0">
                 dimensionCode = "G"</span>
@@ -5321,23 +5329,23 @@ func GenerateMILSTD2525Type(category, affiliation, dimension string) string <spa
 
         // Generate type based on category and dimension
         <span class="cov8" title="1">switch </span>{
-        case dimension == "air" &amp;&amp; category == "fighter_aircraft":<span class="cov8" title="1">
+        case dimension == DimensionAir &amp;&amp; category == "fighter_aircraft":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-M-F", affiliationCode, dimensionCode)</span>
-        case dimension == "air" &amp;&amp; category == "unmanned_aircraft":<span class="cov8" title="1">
+        case dimension == DimensionAir &amp;&amp; category == "unmanned_aircraft":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-M-U", affiliationCode, dimensionCode)</span>
-        case dimension == "air" &amp;&amp; category == "commercial_aircraft":<span class="cov8" title="1">
+        case dimension == DimensionAir &amp;&amp; category == "commercial_aircraft":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-C-F", affiliationCode, dimensionCode)</span>
-        case dimension == "ground" &amp;&amp; category == "main_battle_tank":<span class="cov8" title="1">
+        case dimension == DimensionGround &amp;&amp; category == "main_battle_tank":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-U-C-I", affiliationCode, dimensionCode)</span>
-        case dimension == "ground" &amp;&amp; category == "tactical_vehicle":<span class="cov8" title="1">
+        case dimension == DimensionGround &amp;&amp; category == "tactical_vehicle":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-U-C-V", affiliationCode, dimensionCode)</span>
-        case dimension == "ground" &amp;&amp; category == "commercial_vehicle":<span class="cov8" title="1">
+        case dimension == DimensionGround &amp;&amp; category == "commercial_vehicle":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-U-C-V", affiliationCode, dimensionCode)</span>
-        case dimension == "sea" &amp;&amp; category == "destroyer":<span class="cov8" title="1">
+        case dimension == DimensionSea &amp;&amp; category == "destroyer":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-U-W-D", affiliationCode, dimensionCode)</span>
-        case dimension == "sea" &amp;&amp; category == "cargo_vessel":<span class="cov8" title="1">
+        case dimension == DimensionSea &amp;&amp; category == "cargo_vessel":<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-U-C-V", affiliationCode, dimensionCode)</span>
-        case dimension == "space":<span class="cov8" title="1">
+        case dimension == DimensionSpace:<span class="cov8" title="1">
                 return fmt.Sprintf("a-%s-%s-U-S", affiliationCode, dimensionCode)</span>
         default:<span class="cov0" title="0">
                 return fmt.Sprintf("a-%s-%s-U", affiliationCode, dimensionCode)</span>
@@ -5483,6 +5491,7 @@ import (
 
         "golang.org/x/text/cases"
         "golang.org/x/text/language"
+        "gopkg.in/yaml.v3"
 
         "github.com/gorilla/mux"
         "github.com/gorilla/websocket"
@@ -5814,19 +5823,19 @@ func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) <spa
         }</span>
 }
 
-// handleGetPlatformTypes returns all available platform types from configuration
+// handleGetPlatformTypes returns all available platform types from distributed files or configuration
 func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
-        // Load platform types from the configuration
-        platformTypes, err := s.loadPlatformTypesFromConfig()
-        if err != nil </span><span class="cov0" title="0">{
-                log.Printf("Error loading platform types: %v", err)
-                // Return fallback data if config loading fails
-                fallbackTypes := s.getFallbackPlatformTypes()
-                w.Header().Set("Content-Type", "application/json")
-                if err := json.NewEncoder(w).Encode(fallbackTypes); err != nil </span><span class="cov0" title="0">{
-                        http.Error(w, "Error encoding platform types: "+err.Error(), http.StatusInternalServerError)
+        // First try to load platform types from distributed files
+        platformTypes, err := s.loadPlatformTypesFromFiles()
+        if err != nil || len(platformTypes) == 0 </span><span class="cov0" title="0">{
+                logf("Failed to load platform types from files, trying config: %v", err)
+                // Fallback to configuration file loading
+                platformTypes, err = s.loadPlatformTypesFromConfig()
+                if err != nil || len(platformTypes) == 0 </span><span class="cov0" title="0">{
+                        logf("Failed to load platform types from config, using fallback: %v", err)
+                        // Final fallback to hardcoded data
+                        platformTypes = s.getFallbackPlatformTypes()
                 }</span>
-                <span class="cov0" title="0">return</span>
         }
 
         <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
@@ -5848,10 +5857,10 @@ type PlatformTypeInfo struct {
 }
 
 // loadPlatformTypesFromConfig loads platform types from YAML configuration files
-func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) <span class="cov8" title="1">{
+func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) <span class="cov0" title="0">{
         // Load configuration from file
         cfg, err := config.LoadConfig("data/config.yaml")
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov0" title="0">{
                 log.Printf("Could not load configuration: %v", err)
                 return s.getDefaultPlatformTypes(), nil
         }</span>
@@ -5932,6 +5941,114 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) <span
         }</span>
 
         <span class="cov0" title="0">return platformTypes, nil</span>
+}
+
+// loadPlatformTypesFromFiles loads platform types from distributed YAML files in data/platforms/
+func (s *Server) loadPlatformTypesFromFiles() ([]PlatformTypeInfo, error) <span class="cov8" title="1">{
+        var platformTypes []PlatformTypeInfo
+
+        // Define the domains and their subdirectories
+        domains := map[string][]string{
+                "airborne": {"commercial", "military"},
+                "land":     {"commercial", "military"},
+                "maritime": {"commercial", "military"},
+                "space":    {"commercial", "military"},
+        }
+
+        // Walk through each domain directory
+        for domain, categories := range domains </span><span class="cov8" title="1">{
+                for _, category := range categories </span><span class="cov8" title="1">{
+                        platformDir := fmt.Sprintf("data/platforms/%s/%s", domain, category)
+
+                        // Check if directory exists
+                        if _, err := os.Stat(platformDir); os.IsNotExist(err) </span><span class="cov8" title="1">{
+                                logf("Platform directory does not exist: %s", platformDir)
+                                continue</span>
+                        }
+
+                        // Read all YAML files in the directory
+                        <span class="cov8" title="1">files, err := os.ReadDir(platformDir)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logf("Error reading platform directory %s: %v", platformDir, err)
+                                continue</span>
+                        }
+
+                        <span class="cov8" title="1">for _, file := range files </span><span class="cov8" title="1">{
+                                if !strings.HasSuffix(file.Name(), ".yaml") &amp;&amp; !strings.HasSuffix(file.Name(), ".yml") </span><span class="cov8" title="1">{
+                                        continue</span>
+                                }
+
+                                <span class="cov8" title="1">filePath := fmt.Sprintf("%s/%s", platformDir, file.Name())
+                                platformInfo, err := s.loadPlatformFromFile(filePath, domain, category)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logf("Error loading platform from %s: %v", filePath, err)
+                                        continue</span>
+                                }
+
+                                <span class="cov8" title="1">if platformInfo != nil </span><span class="cov8" title="1">{
+                                        platformTypes = append(platformTypes, *platformInfo)
+                                }</span>
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">if len(platformTypes) == 0 </span><span class="cov8" title="1">{
+                logf("No platform types loaded from files, using fallback")
+                return s.getFallbackPlatformTypes(), nil
+        }</span>
+
+        <span class="cov8" title="1">logf("Loaded %d platform types from distributed files", len(platformTypes))
+        return platformTypes, nil</span>
+}
+
+// loadPlatformFromFile loads a single platform type from a YAML file
+func (s *Server) loadPlatformFromFile(filePath, domain, category string) (*PlatformTypeInfo, error) <span class="cov8" title="1">{
+        data, err := os.ReadFile(filePath)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+        }</span>
+
+        // Parse the YAML structure
+        <span class="cov8" title="1">var platformFile struct {
+                PlatformTypes map[string]struct {
+                        Class       string `yaml:"class"`
+                        Category    string `yaml:"category"`
+                        Performance struct {
+                                MaxSpeed    float64 `yaml:"max_speed"`
+                                CruiseSpeed float64 `yaml:"cruise_speed"`
+                                MaxAltitude float64 `yaml:"max_altitude"`
+                        } `yaml:"performance"`
+                } `yaml:"platform_types"`
+        }
+
+        if err := yaml.Unmarshal(data, &amp;platformFile); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to parse YAML file %s: %w", filePath, err)
+        }</span>
+
+        // Extract the first (and typically only) platform type from the file
+        <span class="cov8" title="1">for typeID, typeDef := range platformFile.PlatformTypes </span><span class="cov8" title="1">{
+                platformInfo := &amp;PlatformTypeInfo{
+                        ID:          typeID,
+                        Name:        typeDef.Class,
+                        Class:       typeDef.Class,
+                        Category:    typeDef.Category,
+                        Domain:      domain,
+                        Description: s.generateDescription(typeID),
+                        Performance: map[string]interface{}{
+                                "max_speed":    typeDef.Performance.MaxSpeed,
+                                "cruise_speed": typeDef.Performance.CruiseSpeed,
+                        },
+                }
+
+                // Add altitude for airborne and space platforms
+                if domain == "airborne" || domain == "space" </span><span class="cov8" title="1">{
+                        platformInfo.Performance["max_altitude"] = typeDef.Performance.MaxAltitude
+                }</span>
+
+                <span class="cov8" title="1">return platformInfo, nil</span>
+        }
+
+        <span class="cov0" title="0">return nil, fmt.Errorf("no platform types found in file %s", filePath)</span>
 }
 
 // determineDomain determines the domain based on platform type
@@ -6054,7 +6171,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo <span class="cov8
 }</span>
 
 // getDefaultPlatformTypes returns default platform types when config loading fails
-func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo <span class="cov8" title="1">{
+func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo <span class="cov0" title="0">{
         return []PlatformTypeInfo{
                 {
                         ID:          "boeing_737_800",

@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -605,5 +607,445 @@ func TestResponseWriter(t *testing.T) {
 
 	if rec.Code != 404 {
 		t.Errorf("Expected underlying recorder to have status 404, got %d", rec.Code)
+	}
+}
+
+func TestLoadPlatformTypesFromFiles(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Create temporary test platform files
+	tempDir := t.TempDir()
+
+	// Create test directory structure
+	testDirs := []string{
+		"airborne/commercial",
+		"airborne/military",
+		"maritime/commercial",
+		"land/military",
+		"space/commercial",
+	}
+
+	for _, dir := range testDirs {
+		err := os.MkdirAll(fmt.Sprintf("%s/data/platforms/%s", tempDir, dir), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create test directory: %v", err)
+		}
+	}
+
+	// Create test platform files
+	testPlatforms := map[string]string{
+		"airborne/commercial/boeing_737.yaml": `
+platform_types:
+  boeing_737_800:
+    class: "Boeing 737-800"
+    category: "commercial_aircraft"
+    performance:
+      max_speed: 257.0
+      cruise_speed: 230.0
+      max_altitude: 12000.0
+`,
+		"maritime/commercial/cargo_ship.yaml": `
+platform_types:
+  container_ship:
+    class: "Container Ship"
+    category: "cargo_vessel"
+    performance:
+      max_speed: 12.9
+      cruise_speed: 10.8
+`,
+		"land/military/tank.yaml": `
+platform_types:
+  m1a2_abrams:
+    class: "M1A2 Abrams"
+    category: "main_battle_tank"
+    performance:
+      max_speed: 18.0
+      cruise_speed: 12.0
+`,
+	}
+
+	for filePath, content := range testPlatforms {
+		fullPath := fmt.Sprintf("%s/data/platforms/%s", tempDir, filePath)
+		err := os.WriteFile(fullPath, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create test platform file: %v", err)
+		}
+	}
+
+	// Change working directory to temp dir for the test
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tempDir)
+
+	// Test loading platforms from files
+	platforms, err := server.loadPlatformTypesFromFiles()
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	if len(platforms) == 0 {
+		t.Error("Expected platforms to be loaded, got empty slice")
+	}
+
+	// Verify platform data
+	platformMap := make(map[string]PlatformTypeInfo)
+	for _, platform := range platforms {
+		platformMap[platform.ID] = platform
+	}
+
+	// Check Boeing 737
+	if boeing, exists := platformMap["boeing_737_800"]; exists {
+		if boeing.Domain != "airborne" {
+			t.Errorf("Expected domain 'airborne', got '%s'", boeing.Domain)
+		}
+		if boeing.Class != "Boeing 737-800" {
+			t.Errorf("Expected class 'Boeing 737-800', got '%s'", boeing.Class)
+		}
+		if boeing.Performance["max_speed"] != 257.0 {
+			t.Errorf("Expected max_speed 257.0, got %v", boeing.Performance["max_speed"])
+		}
+	} else {
+		t.Error("Expected boeing_737_800 platform to be loaded")
+	}
+
+	// Check Container Ship
+	if ship, exists := platformMap["container_ship"]; exists {
+		if ship.Domain != "maritime" {
+			t.Errorf("Expected domain 'maritime', got '%s'", ship.Domain)
+		}
+		if ship.Performance["cruise_speed"] != 10.8 {
+			t.Errorf("Expected cruise_speed 10.8, got %v", ship.Performance["cruise_speed"])
+		}
+	} else {
+		t.Error("Expected container_ship platform to be loaded")
+	}
+}
+
+func TestLoadPlatformFromFile(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Create temporary test file
+	tempFile, err := os.CreateTemp("", "test_platform_*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	testContent := `
+platform_types:
+  test_fighter:
+    class: "Test Fighter"
+    category: "fighter_aircraft"
+    performance:
+      max_speed: 600.0
+      cruise_speed: 300.0
+      max_altitude: 15000.0
+`
+
+	_, err = tempFile.WriteString(testContent)
+	if err != nil {
+		t.Fatalf("Failed to write test content: %v", err)
+	}
+	tempFile.Close()
+
+	// Test loading platform from file
+	platform, err := server.loadPlatformFromFile(tempFile.Name(), "airborne", "military")
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	if platform == nil {
+		t.Fatal("Expected platform to be loaded, got nil")
+	}
+
+	if platform.ID != "test_fighter" {
+		t.Errorf("Expected ID 'test_fighter', got '%s'", platform.ID)
+	}
+
+	if platform.Domain != "airborne" {
+		t.Errorf("Expected domain 'airborne', got '%s'", platform.Domain)
+	}
+
+	if platform.Class != "Test Fighter" {
+		t.Errorf("Expected class 'Test Fighter', got '%s'", platform.Class)
+	}
+
+	if platform.Performance["max_altitude"] != 15000.0 {
+		t.Errorf("Expected max_altitude 15000.0, got %v", platform.Performance["max_altitude"])
+	}
+}
+
+func TestLoadPlatformFromFile_InvalidYAML(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Create temporary test file with invalid YAML
+	tempFile, err := os.CreateTemp("", "invalid_platform_*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	invalidContent := `
+platform_types:
+  test_platform:
+    class: "Test Platform"
+    category: [invalid yaml structure
+`
+
+	_, err = tempFile.WriteString(invalidContent)
+	if err != nil {
+		t.Fatalf("Failed to write test content: %v", err)
+	}
+	tempFile.Close()
+
+	// Test loading platform from invalid file
+	platform, err := server.loadPlatformFromFile(tempFile.Name(), "airborne", "commercial")
+
+	if err == nil {
+		t.Error("Expected error for invalid YAML, got nil")
+	}
+
+	if platform != nil {
+		t.Error("Expected nil platform for invalid YAML, got non-nil")
+	}
+}
+
+func TestLoadPlatformFromFile_NonExistentFile(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Test loading from non-existent file
+	platform, err := server.loadPlatformFromFile("/nonexistent/file.yaml", "airborne", "commercial")
+
+	if err == nil {
+		t.Error("Expected error for non-existent file, got nil")
+	}
+
+	if platform != nil {
+		t.Error("Expected nil platform for non-existent file, got non-nil")
+	}
+}
+
+func TestHandleGetPlatformTypes_FilesFirst(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Create a test server that can load from files
+	tempDir := t.TempDir()
+
+	// Create test platform file
+	platformDir := fmt.Sprintf("%s/data/platforms/airborne/commercial", tempDir)
+	err := os.MkdirAll(platformDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+
+	testPlatformFile := fmt.Sprintf("%s/test_aircraft.yaml", platformDir)
+	testContent := `
+platform_types:
+  test_aircraft:
+    class: "Test Aircraft"
+    category: "test_aircraft"
+    performance:
+      max_speed: 500.0
+      cruise_speed: 400.0
+      max_altitude: 10000.0
+`
+
+	err = os.WriteFile(testPlatformFile, []byte(testContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test platform file: %v", err)
+	}
+
+	// Change working directory for the test
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tempDir)
+
+	// Make HTTP request
+	req := httptest.NewRequest("GET", "/api/platform-types", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleGetPlatformTypes(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+	}
+
+	// Parse response
+	var platformTypes []PlatformTypeInfo
+	if err := json.Unmarshal(rec.Body.Bytes(), &platformTypes); err != nil {
+		t.Errorf("Expected valid JSON array of platform types, got error: %v", err)
+	}
+
+	// Should load from files (at least our test platform)
+	found := false
+	for _, platform := range platformTypes {
+		if platform.ID == "test_aircraft" {
+			found = true
+			if platform.Class != "Test Aircraft" {
+				t.Errorf("Expected class 'Test Aircraft', got '%s'", platform.Class)
+			}
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Expected test_aircraft platform to be loaded from files")
+	}
+}
+
+func TestHandleGetPlatformTypes_FallbackToConfig(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Make request when no platform files exist
+	req := httptest.NewRequest("GET", "/api/platform-types", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleGetPlatformTypes(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", rec.Code)
+	}
+
+	// Parse response
+	var platformTypes []PlatformTypeInfo
+	if err := json.Unmarshal(rec.Body.Bytes(), &platformTypes); err != nil {
+		t.Errorf("Expected valid JSON array of platform types, got error: %v", err)
+	}
+
+	// Should have fallback platforms
+	if len(platformTypes) == 0 {
+		t.Error("Expected fallback platform types to be returned")
+	}
+}
+
+func TestLoadPlatformTypesFromFiles_EmptyDirectories(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Create temporary directory structure with empty directories
+	tempDir := t.TempDir()
+
+	testDirs := []string{
+		"airborne/commercial",
+		"maritime/military",
+	}
+
+	for _, dir := range testDirs {
+		err := os.MkdirAll(fmt.Sprintf("%s/data/platforms/%s", tempDir, dir), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create test directory: %v", err)
+		}
+	}
+
+	// Change working directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tempDir)
+
+	// Test loading from empty directories
+	platforms, err := server.loadPlatformTypesFromFiles()
+
+	if err != nil {
+		t.Errorf("Expected no error from empty directories, got: %v", err)
+	}
+
+	// Should fallback to default platforms when no files found
+	if len(platforms) == 0 {
+		t.Error("Expected fallback platforms when no files found")
+	}
+}
+
+func TestLoadPlatformTypesFromFiles_MixedFileTypes(t *testing.T) {
+	cfg := createTestConfig()
+	engine := createTestEngine()
+	server := NewServer(cfg, engine)
+
+	// Create temporary test directory
+	tempDir := t.TempDir()
+	platformDir := fmt.Sprintf("%s/data/platforms/airborne/commercial", tempDir)
+	err := os.MkdirAll(platformDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+
+	// Create YAML file (should be loaded)
+	yamlFile := fmt.Sprintf("%s/valid_platform.yaml", platformDir)
+	yamlContent := `
+platform_types:
+  valid_aircraft:
+    class: "Valid Aircraft"
+    category: "commercial_aircraft"
+    performance:
+      max_speed: 300.0
+      cruise_speed: 250.0
+      max_altitude: 11000.0
+`
+	err = os.WriteFile(yamlFile, []byte(yamlContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create YAML file: %v", err)
+	}
+
+	// Create non-YAML file (should be ignored)
+	txtFile := fmt.Sprintf("%s/ignored_file.txt", platformDir)
+	err = os.WriteFile(txtFile, []byte("This should be ignored"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create text file: %v", err)
+	}
+
+	// Create JSON file (should be ignored)
+	jsonFile := fmt.Sprintf("%s/ignored_file.json", platformDir)
+	err = os.WriteFile(jsonFile, []byte(`{"ignored": true}`), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create JSON file: %v", err)
+	}
+
+	// Change working directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tempDir)
+
+	// Test loading platforms
+	platforms, err := server.loadPlatformTypesFromFiles()
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+
+	// Should only load from YAML files
+	if len(platforms) == 0 {
+		t.Error("Expected at least one platform to be loaded")
+	}
+
+	// Check that the YAML platform was loaded
+	found := false
+	for _, platform := range platforms {
+		if platform.ID == "valid_aircraft" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Expected valid_aircraft platform to be loaded from YAML file")
 	}
 }

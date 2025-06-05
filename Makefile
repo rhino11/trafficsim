@@ -20,8 +20,8 @@ VALIDATOR_PATH=./cmd/validate-yaml
 
 # Runtime parameters
 DEFAULT_PORT=8080
-DEFAULT_MULTICAST_ADDR=239.255.42.99
-DEFAULT_MULTICAST_PORT=9999
+DEFAULT_MULTICAST_ADDR=239.2.3.1
+DEFAULT_MULTICAST_PORT=6969
 
 # Build targets
 .PHONY: all build clean test test-go test-js test-all test-package test-package-coverage test-package-race test-coverage test-coverage-go test-coverage-js test-verbose deps deps-js fmt vet lint run run-headless run-web run-multicast run-web-multicast validate-yaml help

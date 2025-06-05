@@ -45,25 +45,32 @@ class ScenarioBuilder {
 
     async loadPlatforms() {
         try {
-            // Load platform types from the server
+            // Load platform types from the server API
             const response = await fetch('/api/platform-types');
             if (response.ok) {
                 this.platforms = await response.json();
+                this.updateStatus(`Loaded ${this.platforms.length} platform types from server`);
             } else {
                 // Fallback: use hardcoded platform data
+                console.warn('Failed to load platforms from server, using fallback data');
                 this.platforms = this.getDefaultPlatforms();
+                this.updateStatus('Using fallback platform data');
             }
             this.renderPlatformList();
         } catch (error) {
             console.warn('Failed to load platforms from server, using defaults:', error);
             this.platforms = this.getDefaultPlatforms();
+            this.updateStatus('Using fallback platform data due to network error');
             this.renderPlatformList();
         }
     }
 
+    // Fallback method for when server data is unavailable
     getDefaultPlatforms() {
+        // This is now a fallback method only - primary data loading is dynamic via API
+        console.warn('Using hardcoded fallback platform data - this should only happen if the server is unavailable');
         return [
-            // Airborne - Commercial
+            // Minimal fallback set - the server should provide the full platform catalog
             {
                 id: 'airbus_a320',
                 name: 'Airbus A320',
@@ -74,25 +81,6 @@ class ScenarioBuilder {
                 performance: { max_speed: 257.0, cruise_speed: 230.0, max_altitude: 12000 }
             },
             {
-                id: 'boeing_777_300er',
-                name: 'Boeing 777-300ER',
-                class: 'Boeing 777-300ER',
-                category: 'wide_body_airliner',
-                domain: 'airborne',
-                description: 'Long-range wide-body commercial airliner',
-                performance: { max_speed: 290.0, cruise_speed: 257.0, max_altitude: 13100 }
-            },
-            {
-                id: 'boeing_737_800',
-                name: 'Boeing 737-800',
-                class: 'Boeing 737-800',
-                category: 'commercial_aircraft',
-                domain: 'airborne',
-                description: 'Single-aisle commercial airliner',
-                performance: { max_speed: 251.0, cruise_speed: 229.0, max_altitude: 12500 }
-            },
-            // Airborne - Military
-            {
                 id: 'f16_fighting_falcon',
                 name: 'F-16 Fighting Falcon',
                 class: 'F-16 Fighting Falcon',
@@ -101,25 +89,6 @@ class ScenarioBuilder {
                 description: 'Multi-role fighter aircraft',
                 performance: { max_speed: 588.89, cruise_speed: 261.11, max_altitude: 15240 }
             },
-            {
-                id: 'f22_raptor',
-                name: 'F-22 Raptor',
-                class: 'F-22 Raptor',
-                category: 'fighter_aircraft',
-                domain: 'airborne',
-                description: 'Fifth-generation stealth fighter',
-                performance: { max_speed: 685.0, cruise_speed: 515.0, max_altitude: 19812 }
-            },
-            {
-                id: 'mq9_reaper',
-                name: 'MQ-9 Reaper',
-                class: 'MQ-9 Reaper',
-                category: 'unmanned_aircraft',
-                domain: 'airborne',
-                description: 'Medium-altitude, long-endurance unmanned aircraft',
-                performance: { max_speed: 87.0, cruise_speed: 56.0, max_altitude: 15240 }
-            },
-            // Maritime - Commercial
             {
                 id: 'container_ship',
                 name: 'Container Ship',
@@ -130,35 +99,6 @@ class ScenarioBuilder {
                 performance: { max_speed: 12.9, cruise_speed: 10.8 }
             },
             {
-                id: 'container_ship_large',
-                name: 'Large Container Ship',
-                class: 'Large Container Ship',
-                category: 'cargo_vessel',
-                domain: 'maritime',
-                description: 'Ultra large container vessel (ULCV)',
-                performance: { max_speed: 13.9, cruise_speed: 11.8 }
-            },
-            // Maritime - Military
-            {
-                id: 'arleigh_burke_destroyer',
-                name: 'Arleigh Burke Destroyer',
-                class: 'Arleigh Burke-class Destroyer',
-                category: 'guided_missile_destroyer',
-                domain: 'maritime',
-                description: 'US Navy guided missile destroyer',
-                performance: { max_speed: 15.4, cruise_speed: 10.3 }
-            },
-            {
-                id: 'virginia_class_submarine',
-                name: 'Virginia Class Submarine',
-                class: 'Virginia-class Submarine',
-                category: 'attack_submarine',
-                domain: 'maritime',
-                description: 'Nuclear-powered fast attack submarine',
-                performance: { max_speed: 12.9, cruise_speed: 8.2 }
-            },
-            // Land - Commercial
-            {
                 id: 'tesla_model_s',
                 name: 'Tesla Model S',
                 class: 'Tesla Model S',
@@ -168,35 +108,6 @@ class ScenarioBuilder {
                 performance: { max_speed: 69.4, cruise_speed: 33.3 }
             },
             {
-                id: 'semi_truck_trailer',
-                name: 'Semi Truck & Trailer',
-                class: 'Semi Truck & Trailer',
-                category: 'cargo_vehicle',
-                domain: 'land',
-                description: 'Heavy-duty freight transport vehicle',
-                performance: { max_speed: 36.1, cruise_speed: 27.8 }
-            },
-            // Land - Military
-            {
-                id: 'hmmwv_m1151',
-                name: 'HMMWV M1151',
-                class: 'HMMWV M1151',
-                category: 'tactical_vehicle',
-                domain: 'land',
-                description: 'Up-armored tactical vehicle',
-                performance: { max_speed: 31.3, cruise_speed: 22.2 }
-            },
-            {
-                id: 'm1a2_abrams',
-                name: 'M1A2 Abrams',
-                class: 'M1A2 Abrams',
-                category: 'main_battle_tank',
-                domain: 'land',
-                description: 'Main battle tank',
-                performance: { max_speed: 20.1, cruise_speed: 13.9 }
-            },
-            // Space - Commercial
-            {
                 id: 'starlink_satellite',
                 name: 'Starlink Satellite',
                 class: 'Starlink Satellite',
@@ -204,34 +115,6 @@ class ScenarioBuilder {
                 domain: 'space',
                 description: 'Low Earth orbit communications satellite',
                 performance: { max_speed: 7660.0, cruise_speed: 7660.0, max_altitude: 550000 }
-            },
-            {
-                id: 'dragon_capsule',
-                name: 'Dragon Capsule',
-                class: 'Dragon Capsule',
-                category: 'cargo_spacecraft',
-                domain: 'space',
-                description: 'Reusable cargo spacecraft',
-                performance: { max_speed: 7800.0, cruise_speed: 7800.0, max_altitude: 408000 }
-            },
-            {
-                id: 'iss_module',
-                name: 'ISS Module',
-                class: 'ISS Module',
-                category: 'space_station',
-                domain: 'space',
-                description: 'International Space Station module',
-                performance: { max_speed: 7660.0, cruise_speed: 7660.0, max_altitude: 408000 }
-            },
-            // Space - Military
-            {
-                id: 'gps_satellite',
-                name: 'GPS Satellite',
-                class: 'GPS Satellite',
-                category: 'navigation_satellite',
-                domain: 'space',
-                description: 'Global Positioning System satellite',
-                performance: { max_speed: 3874.0, cruise_speed: 3874.0, max_altitude: 20200000 }
             }
         ];
     }

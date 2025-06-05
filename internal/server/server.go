@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"gopkg.in/yaml.v3"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -345,19 +346,19 @@ func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetPlatformTypes returns all available platform types from configuration
+// handleGetPlatformTypes returns all available platform types from distributed files or configuration
 func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) {
-	// Load platform types from the configuration
-	platformTypes, err := s.loadPlatformTypesFromConfig()
-	if err != nil {
-		log.Printf("Error loading platform types: %v", err)
-		// Return fallback data if config loading fails
-		fallbackTypes := s.getFallbackPlatformTypes()
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(fallbackTypes); err != nil {
-			http.Error(w, "Error encoding platform types: "+err.Error(), http.StatusInternalServerError)
+	// First try to load platform types from distributed files
+	platformTypes, err := s.loadPlatformTypesFromFiles()
+	if err != nil || len(platformTypes) == 0 {
+		logf("Failed to load platform types from files, trying config: %v", err)
+		// Fallback to configuration file loading
+		platformTypes, err = s.loadPlatformTypesFromConfig()
+		if err != nil || len(platformTypes) == 0 {
+			logf("Failed to load platform types from config, using fallback: %v", err)
+			// Final fallback to hardcoded data
+			platformTypes = s.getFallbackPlatformTypes()
 		}
-		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -463,6 +464,114 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) {
 	}
 
 	return platformTypes, nil
+}
+
+// loadPlatformTypesFromFiles loads platform types from distributed YAML files in data/platforms/
+func (s *Server) loadPlatformTypesFromFiles() ([]PlatformTypeInfo, error) {
+	var platformTypes []PlatformTypeInfo
+
+	// Define the domains and their subdirectories
+	domains := map[string][]string{
+		"airborne": {"commercial", "military"},
+		"land":     {"commercial", "military"},
+		"maritime": {"commercial", "military"},
+		"space":    {"commercial", "military"},
+	}
+
+	// Walk through each domain directory
+	for domain, categories := range domains {
+		for _, category := range categories {
+			platformDir := fmt.Sprintf("data/platforms/%s/%s", domain, category)
+
+			// Check if directory exists
+			if _, err := os.Stat(platformDir); os.IsNotExist(err) {
+				logf("Platform directory does not exist: %s", platformDir)
+				continue
+			}
+
+			// Read all YAML files in the directory
+			files, err := os.ReadDir(platformDir)
+			if err != nil {
+				logf("Error reading platform directory %s: %v", platformDir, err)
+				continue
+			}
+
+			for _, file := range files {
+				if !strings.HasSuffix(file.Name(), ".yaml") && !strings.HasSuffix(file.Name(), ".yml") {
+					continue
+				}
+
+				filePath := fmt.Sprintf("%s/%s", platformDir, file.Name())
+				platformInfo, err := s.loadPlatformFromFile(filePath, domain, category)
+				if err != nil {
+					logf("Error loading platform from %s: %v", filePath, err)
+					continue
+				}
+
+				if platformInfo != nil {
+					platformTypes = append(platformTypes, *platformInfo)
+				}
+			}
+		}
+	}
+
+	if len(platformTypes) == 0 {
+		logf("No platform types loaded from files, using fallback")
+		return s.getFallbackPlatformTypes(), nil
+	}
+
+	logf("Loaded %d platform types from distributed files", len(platformTypes))
+	return platformTypes, nil
+}
+
+// loadPlatformFromFile loads a single platform type from a YAML file
+func (s *Server) loadPlatformFromFile(filePath, domain, category string) (*PlatformTypeInfo, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	// Parse the YAML structure
+	var platformFile struct {
+		PlatformTypes map[string]struct {
+			Class       string `yaml:"class"`
+			Category    string `yaml:"category"`
+			Performance struct {
+				MaxSpeed    float64 `yaml:"max_speed"`
+				CruiseSpeed float64 `yaml:"cruise_speed"`
+				MaxAltitude float64 `yaml:"max_altitude"`
+			} `yaml:"performance"`
+		} `yaml:"platform_types"`
+	}
+
+	if err := yaml.Unmarshal(data, &platformFile); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML file %s: %w", filePath, err)
+	}
+
+	// Extract the first (and typically only) platform type from the file
+	for typeID, typeDef := range platformFile.PlatformTypes {
+		platformInfo := &PlatformTypeInfo{
+			ID:          typeID,
+			Name:        typeDef.Class,
+			Class:       typeDef.Class,
+			Category:    typeDef.Category,
+			Domain:      domain,
+			Description: s.generateDescription(typeID),
+			Performance: map[string]interface{}{
+				"max_speed":    typeDef.Performance.MaxSpeed,
+				"cruise_speed": typeDef.Performance.CruiseSpeed,
+			},
+		}
+
+		// Add altitude for airborne and space platforms
+		if domain == "airborne" || domain == "space" {
+			platformInfo.Performance["max_altitude"] = typeDef.Performance.MaxAltitude
+		}
+
+		return platformInfo, nil
+	}
+
+	return nil, fmt.Errorf("no platform types found in file %s", filePath)
 }
 
 // determineDomain determines the domain based on platform type
