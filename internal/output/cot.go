@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+// Dimension constants for CoT message generation
+const (
+	DimensionAir    = "air"
+	DimensionGround = "ground"
+	DimensionSea    = "sea"
+	DimensionSpace  = "space"
+)
+
 // CoTEvent represents a Cursor on Target event message
 type CoTEvent struct {
 	XMLName xml.Name  `xml:"event"`
@@ -144,13 +152,13 @@ func GenerateMILSTD2525Type(category, affiliation, dimension string) string {
 
 	var dimensionCode string
 	switch dimension {
-	case "air":
+	case DimensionAir:
 		dimensionCode = "A"
-	case "ground":
+	case DimensionGround:
 		dimensionCode = "G"
-	case "sea":
+	case DimensionSea:
 		dimensionCode = "S"
-	case "space":
+	case DimensionSpace:
 		dimensionCode = "P"
 	default:
 		dimensionCode = "G"
@@ -158,23 +166,23 @@ func GenerateMILSTD2525Type(category, affiliation, dimension string) string {
 
 	// Generate type based on category and dimension
 	switch {
-	case dimension == "air" && category == "fighter_aircraft":
+	case dimension == DimensionAir && category == "fighter_aircraft":
 		return fmt.Sprintf("a-%s-%s-M-F", affiliationCode, dimensionCode)
-	case dimension == "air" && category == "unmanned_aircraft":
+	case dimension == DimensionAir && category == "unmanned_aircraft":
 		return fmt.Sprintf("a-%s-%s-M-U", affiliationCode, dimensionCode)
-	case dimension == "air" && category == "commercial_aircraft":
+	case dimension == DimensionAir && category == "commercial_aircraft":
 		return fmt.Sprintf("a-%s-%s-C-F", affiliationCode, dimensionCode)
-	case dimension == "ground" && category == "main_battle_tank":
+	case dimension == DimensionGround && category == "main_battle_tank":
 		return fmt.Sprintf("a-%s-%s-U-C-I", affiliationCode, dimensionCode)
-	case dimension == "ground" && category == "tactical_vehicle":
+	case dimension == DimensionGround && category == "tactical_vehicle":
 		return fmt.Sprintf("a-%s-%s-U-C-V", affiliationCode, dimensionCode)
-	case dimension == "ground" && category == "commercial_vehicle":
+	case dimension == DimensionGround && category == "commercial_vehicle":
 		return fmt.Sprintf("a-%s-%s-U-C-V", affiliationCode, dimensionCode)
-	case dimension == "sea" && category == "destroyer":
+	case dimension == DimensionSea && category == "destroyer":
 		return fmt.Sprintf("a-%s-%s-U-W-D", affiliationCode, dimensionCode)
-	case dimension == "sea" && category == "cargo_vessel":
+	case dimension == DimensionSea && category == "cargo_vessel":
 		return fmt.Sprintf("a-%s-%s-U-C-V", affiliationCode, dimensionCode)
-	case dimension == "space":
+	case dimension == DimensionSpace:
 		return fmt.Sprintf("a-%s-%s-U-S", affiliationCode, dimensionCode)
 	default:
 		return fmt.Sprintf("a-%s-%s-U", affiliationCode, dimensionCode)

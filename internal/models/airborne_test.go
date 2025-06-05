@@ -15,8 +15,8 @@ func TestAirbornePlatformCreation(t *testing.T) {
 	if boeing737.GetID() != "B737-001" {
 		t.Errorf("Expected ID B737-001, got %s", boeing737.GetID())
 	}
-	if boeing737.GetClass() != "Boeing 737-800" {
-		t.Errorf("Expected class Boeing 737-800, got %s", boeing737.GetClass())
+	if boeing737.GetClass() != Boeing737Class {
+		t.Errorf("Expected class %s, got %s", Boeing737Class, boeing737.GetClass())
 	}
 	if boeing737.GetName() != "AA1234" {
 		t.Errorf("Expected name AA1234, got %s", boeing737.GetName())
@@ -353,8 +353,8 @@ func TestPlatformInterfaceCompliance(t *testing.T) {
 		t.Errorf("Expected type airborne, got %s", platform.GetType())
 	}
 
-	if platform.GetClass() != "Boeing 737-800" {
-		t.Errorf("Expected class Boeing 737-800, got %s", platform.GetClass())
+	if platform.GetClass() != Boeing737Class {
+		t.Errorf("Expected class %s, got %s", Boeing737Class, platform.GetClass())
 	}
 
 	// Test state update

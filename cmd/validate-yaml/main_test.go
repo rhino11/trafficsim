@@ -32,7 +32,9 @@ func TestMain(t *testing.T) {
 		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		if _, err := io.Copy(&buf, r); err != nil {
+			t.Errorf("Failed to copy stderr output: %v", err)
+		}
 		// Since we can't easily test os.Exit, we'll just verify the condition
 		// that would trigger the usage message
 	} else {
