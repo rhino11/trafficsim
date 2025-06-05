@@ -729,13 +729,16 @@ func TestLoadPlatformFromFile(t *testing.T) {
 	engine := createTestEngine()
 	server := NewServer(cfg, engine)
 
-	// Create temporary test file
-	tempFile, err := os.CreateTemp("", "test_platform_*.yaml")
+	// Create temporary test directory with proper structure
+	tempDir := t.TempDir()
+	platformDir := fmt.Sprintf("%s/data/platforms/airborne/military", tempDir)
+	err := os.MkdirAll(platformDir, 0755)
 	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+		t.Fatalf("Failed to create test directory: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
 
+	// Create test file in the proper location
+	testFile := fmt.Sprintf("%s/test_platform.yaml", platformDir)
 	testContent := `
 platform_types:
   test_fighter:
@@ -747,14 +750,18 @@ platform_types:
       max_altitude: 15000.0
 `
 
-	_, err = tempFile.WriteString(testContent)
+	err = os.WriteFile(testFile, []byte(testContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tempFile.Close()
 
-	// Test loading platform from file
-	platform, err := server.loadPlatformFromFile(tempFile.Name(), "airborne", "military")
+	// Change working directory to temp dir for the test
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tempDir)
+
+	// Test loading platform from file with relative path
+	platform, err := server.loadPlatformFromFile("data/platforms/airborne/military/test_platform.yaml", "airborne", "military")
 
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -786,13 +793,16 @@ func TestLoadPlatformFromFile_InvalidYAML(t *testing.T) {
 	engine := createTestEngine()
 	server := NewServer(cfg, engine)
 
-	// Create temporary test file with invalid YAML
-	tempFile, err := os.CreateTemp("", "invalid_platform_*.yaml")
+	// Create temporary test directory with proper structure
+	tempDir := t.TempDir()
+	platformDir := fmt.Sprintf("%s/data/platforms/airborne/commercial", tempDir)
+	err := os.MkdirAll(platformDir, 0755)
 	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+		t.Fatalf("Failed to create test directory: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
 
+	// Create test file with invalid YAML in the proper location
+	testFile := fmt.Sprintf("%s/invalid_platform.yaml", platformDir)
 	invalidContent := `
 platform_types:
   test_platform:
@@ -800,14 +810,18 @@ platform_types:
     category: [invalid yaml structure
 `
 
-	_, err = tempFile.WriteString(invalidContent)
+	err = os.WriteFile(testFile, []byte(invalidContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write test content: %v", err)
 	}
-	tempFile.Close()
 
-	// Test loading platform from invalid file
-	platform, err := server.loadPlatformFromFile(tempFile.Name(), "airborne", "commercial")
+	// Change working directory to temp dir for the test
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tempDir)
+
+	// Test loading platform from invalid file with relative path
+	platform, err := server.loadPlatformFromFile("data/platforms/airborne/commercial/invalid_platform.yaml", "airborne", "commercial")
 
 	if err == nil {
 		t.Error("Expected error for invalid YAML, got nil")
@@ -823,8 +837,8 @@ func TestLoadPlatformFromFile_NonExistentFile(t *testing.T) {
 	engine := createTestEngine()
 	server := NewServer(cfg, engine)
 
-	// Test loading from non-existent file
-	platform, err := server.loadPlatformFromFile("/nonexistent/file.yaml", "airborne", "commercial")
+	// Test loading from non-existent file in the expected directory structure
+	platform, err := server.loadPlatformFromFile("data/platforms/airborne/commercial/nonexistent.yaml", "airborne", "commercial")
 
 	if err == nil {
 		t.Error("Expected error for non-existent file, got nil")
