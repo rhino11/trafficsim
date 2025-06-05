@@ -320,6 +320,22 @@ docker-run: docker-build
 	@echo "Running Docker container..."
 	docker run -p 8080:8080 $(BINARY_NAME)
 
+# Prepare artifacts for CI pipeline
+prepare-artifacts: test-coverage
+	@echo "Preparing artifacts for CI pipeline..."
+	@mkdir -p coverage test-results
+	@cp coverage.out coverage/ 2>/dev/null || true
+	@cp coverage.html coverage/ 2>/dev/null || true
+	@cp coverage-*.out coverage/ 2>/dev/null || true
+	@cp coverage-*.html coverage/ 2>/dev/null || true
+	@cp -r coverage-js/* coverage/ 2>/dev/null || true
+	@echo "Artifacts prepared in coverage/ directory"
+
+# Clean artifacts directories
+clean-artifacts:
+	@echo "Cleaning artifact directories..."
+	@rm -rf coverage test-results
+
 # Quick quality check - now includes YAML validation
 check: validate-yaml fmt vet test-all
 
