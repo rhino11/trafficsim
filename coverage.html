@@ -446,6 +446,50 @@ func validateFiles(files []string) ValidationSummary <span class="cov0" title="0
         <span class="cov0" title="0">return summary</span>
 }
 
+// validateFilePath ensures the file path is safe and within allowed directories
+func validateFilePath(filePath string) error <span class="cov0" title="0">{
+        // Clean the path to prevent directory traversal
+        cleanPath := filepath.Clean(filePath)
+
+        // Get absolute path
+        absPath, err := filepath.Abs(cleanPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid file path: %v", err)
+        }</span>
+
+        // Define allowed base directories
+        <span class="cov0" title="0">wd, err := os.Getwd()
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("cannot determine working directory: %v", err)
+        }</span>
+
+        <span class="cov0" title="0">allowedDirs := []string{
+                filepath.Join(wd, "data"),
+                filepath.Join(wd, "configs"),
+                wd, // Allow current directory
+        }
+
+        // Check if the file is within allowed directories
+        allowed := false
+        for _, allowedDir := range allowedDirs </span><span class="cov0" title="0">{
+                absAllowedDir, err := filepath.Abs(allowedDir)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">if strings.HasPrefix(absPath, absAllowedDir) </span><span class="cov0" title="0">{
+                        allowed = true
+                        break</span>
+                }
+        }
+
+        <span class="cov0" title="0">if !allowed </span><span class="cov0" title="0">{
+                return fmt.Errorf("file path not allowed: %s", absPath)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
 // validateFile validates a single YAML file based on its location and content
 func validateFile(filePath string) ValidationResult <span class="cov0" title="0">{
         result := ValidationResult{
@@ -454,8 +498,15 @@ func validateFile(filePath string) ValidationResult <span class="cov0" title="0"
                 Errors: []string{},
         }
 
-        // Read file content
-        content, err := os.ReadFile(filePath)
+        // Validate file path for security FIRST - before reading the file
+        if err := validateFilePath(filePath); err != nil </span><span class="cov0" title="0">{
+                result.Valid = false
+                result.Errors = append(result.Errors, fmt.Sprintf("Security error: %v", err))
+                return result
+        }</span>
+
+        // Read file content (now safe after validation)
+        <span class="cov0" title="0">content, err := os.ReadFile(filePath) // #nosec G304 -- filePath is validated by validateFilePath() function
         if err != nil </span><span class="cov0" title="0">{
                 result.Valid = false
                 result.Errors = append(result.Errors, fmt.Sprintf("Failed to read file: %v", err))

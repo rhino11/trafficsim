@@ -1,0 +1,28 @@
+{
+	"Golang errors": {},
+	"Issues": [
+		{
+			"severity": "MEDIUM",
+			"confidence": "HIGH",
+			"cwe": {
+				"id": "22",
+				"url": "https://cwe.mitre.org/data/definitions/22.html"
+			},
+			"rule_id": "G304",
+			"details": "Potential file inclusion via variable",
+			"file": "/Users/ryan/code/github.com/rhino11/trafficsim/cmd/validate-yaml/main.go",
+			"code": "178: \t// Read file content (now safe after validation)\n179: \tcontent, err := os.ReadFile(filePath)\n180: \tif err != nil {\n",
+			"line": "179",
+			"column": "18",
+			"nosec": false,
+			"suppressions": null
+		}
+	],
+	"Stats": {
+		"files": 18,
+		"lines": 7559,
+		"nosec": 0,
+		"found": 1
+	},
+	"GosecVersion": "dev"
+}

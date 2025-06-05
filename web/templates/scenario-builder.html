@@ -690,6 +690,52 @@
         </div>
     </div>
 
+    <!-- Modal for route configuration -->
+    <div id="routeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="routeModalTitle">Configure Route</h2>
+
+            <div class="form-group">
+                <label for="routePlatformId">Platform ID</label>
+                <input type="text" id="routePlatformId" placeholder="e.g., AIRCRAFT_001">
+            </div>
+
+            <div class="form-group">
+                <label for="routePlatformName">Display Name</label>
+                <input type="text" id="routePlatformName" placeholder="e.g., United 1234">
+            </div>
+
+            <div class="form-group">
+                <label for="routeSpeed">Speed (knots)</label>
+                <input type="number" id="routeSpeed" value="100" min="1" max="1000" step="0.1">
+            </div>
+
+            <div class="form-group">
+                <label for="routeAltitude">Altitude (meters)</label>
+                <input type="number" id="routeAltitude" value="1000" min="0" max="50000">
+            </div>
+
+            <div class="form-group">
+                <label for="routeMissionType">Mission Type</label>
+                <select id="routeMissionType">
+                    <option value="patrol">Patrol</option>
+                    <option value="transport">Transport</option>
+                    <option value="reconnaissance">Reconnaissance</option>
+                    <option value="training">Training</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="emergency">Emergency</option>
+                </select>
+            </div>
+
+            <div id="routeSummary" class="form-group">
+                <!-- Route summary will be populated here -->
+            </div>
+
+            <button class="btn" onclick="saveRouteConfig()">Save Route Platform</button>
+        </div>
+    </div>
+
     <!-- Modal for scenario preview -->
     <div id="previewModal" class="modal">
         <div class="modal-content">

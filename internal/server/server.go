@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -22,50 +23,71 @@ import (
 	"github.com/rhino11/trafficsim/internal/sim"
 )
 
+// isTestMode checks if we're running in test mode
+func isTestMode() bool {
+	return strings.Contains(os.Args[0], ".test") ||
+		strings.HasSuffix(os.Args[0], "/test") ||
+		os.Getenv("GO_TESTING") == "1"
+}
+
+// logf is a conditional logger that respects test verbosity
+func logf(format string, args ...interface{}) {
+	if isTestMode() {
+		// In test mode, suppress output unless explicitly enabled
+		if os.Getenv("VERBOSE_TESTS") == "1" {
+			log.Printf(format, args...)
+		}
+		// Otherwise suppress output in test mode
+	} else {
+		// In production mode, always log
+		log.Printf(format, args...)
+	}
+}
+
 // Enhanced logging for web interface debugging
 func logWebRequest(r *http.Request, status string) {
-	log.Printf("[WEB] %s %s - %s - User-Agent: %s - RemoteAddr: %s",
+	logf("[WEB] %s %s - %s - User-Agent: %s - RemoteAddr: %s",
 		r.Method, r.URL.Path, status, r.UserAgent(), r.RemoteAddr)
 }
 
 func logWebError(context string, err error) {
-	log.Printf("[WEB-ERROR] %s: %v", context, err)
+	logf("[WEB-ERROR] %s: %v", context, err)
 }
 
 func logWebSocket(action string, clientCount int) {
-	log.Printf("[WEBSOCKET] %s - Active clients: %d", action, clientCount)
+	logf("[WEBSOCKET] %s - Active clients: %d", action, clientCount)
 }
 
 func logJSLoad(filename string, status string) {
-	log.Printf("[JS-LOAD] %s - %s", filename, status)
+	logf("[JS-LOAD] %s - %s", filename, status)
 }
 
 func logInitialization(component string, status string, duration time.Duration) {
-	log.Printf("[INIT] %s - %s (took %v)", component, status, duration)
+	logf("[INIT] %s - %s (took %v)", component, status, duration)
 }
 
 func logSimulationEvent(event string, details interface{}) {
-	log.Printf("[SIM] %s - %+v", event, details)
+	logf("[SIM] %s - %+v", event, details)
 }
 
 func logPerformance(metric string, value interface{}) {
-	log.Printf("[PERF] %s: %v", metric, value)
+	logf("[PERF] %s: %v", metric, value)
 }
 
 func logDebug(component string, message string, data interface{}) {
-	log.Printf("[DEBUG] [%s] %s - %+v", component, message, data)
+	logf("[DEBUG] [%s] %s - %+v", component, message, data)
 }
 
 func logClientMessage(msgType string, clientAddr string, data interface{}) {
-	log.Printf("[CLIENT-MSG] Type: %s, From: %s, Data: %+v", msgType, clientAddr, data)
+	logf("[CLIENT-MSG] Type: %s, From: %s, Data: %+v", msgType, clientAddr, data)
 }
 
 func logDataStream(component string, action string, details interface{}) {
-	log.Printf("[STREAM] [%s] %s - %+v", component, action, details)
+	logf("[STREAM] [%s] %s - %+v", component, action, details)
 }
 
 func logPlatformUpdate(platformCount int, action string) {
-	log.Printf("[PLATFORM] %s - Count: %d", action, platformCount)
+	logf("[PLATFORM] %s - Count: %d", action, platformCount)
 }
 
 // Server represents the web server for the traffic simulation

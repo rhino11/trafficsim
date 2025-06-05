@@ -3,6 +3,8 @@ package sim
 import (
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,25 +12,43 @@ import (
 	"github.com/rhino11/trafficsim/internal/models"
 )
 
+// isTestMode checks if we're running in test mode
+func isTestMode() bool {
+	return strings.Contains(os.Args[0], ".test") ||
+		strings.HasSuffix(os.Args[0], "/test") ||
+		os.Getenv("GO_TESTING") == "1"
+}
+
+// logf is a conditional logger that respects test verbosity
+func logf(format string, args ...interface{}) {
+	if isTestMode() {
+		// In test mode, suppress output to reduce noise
+		return
+	} else {
+		// In production mode, always log
+		fmt.Printf(format+"\n", args...)
+	}
+}
+
 // Enhanced logging for simulation debugging
 func logSimulationStart(platformCount int, updateInterval time.Duration) {
-	log.Printf("[SIM-START] Starting simulation with %d platforms at %v update interval", platformCount, updateInterval)
+	logf("[SIM-START] Starting simulation with %d platforms at %v update interval", platformCount, updateInterval)
 }
 
 func logSimulationStop(reason string) {
-	log.Printf("[SIM-STOP] Simulation stopped: %s", reason)
+	logf("[SIM-STOP] Simulation stopped: %s", reason)
 }
 
 func logPlatformOperation(operation string, platformID string, details interface{}) {
-	log.Printf("[PLATFORM-OP] %s - ID: %s - Details: %+v", operation, platformID, details)
+	logf("[PLATFORM-OP] %s - ID: %s - Details: %+v", operation, platformID, details)
 }
 
 func logSimulationPerformance(updateCount int, avgUpdateTime time.Duration, platformCount int) {
-	log.Printf("[SIM-PERF] Updates: %d, Avg Update Time: %v, Platforms: %d", updateCount, avgUpdateTime, platformCount)
+	logf("[SIM-PERF] Updates: %d, Avg Update Time: %v, Platforms: %d", updateCount, avgUpdateTime, platformCount)
 }
 
 func logSimulationError(context string, err error, platformID string) {
-	log.Printf("[SIM-ERROR] Context: %s, Platform: %s, Error: %v", context, platformID, err)
+	logf("[SIM-ERROR] Context: %s, Platform: %s, Error: %v", context, platformID, err)
 }
 
 // Engine represents the main simulation engine that orchestrates all platform movement
@@ -136,7 +156,7 @@ func (e *Engine) Reset() error {
 		return e.Start()
 	}
 
-	log.Printf("Simulation reset")
+	logf("Simulation reset")
 	return nil
 }
 
@@ -233,7 +253,7 @@ func (e *Engine) createExamplePlatforms() error {
 		models.Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}, // NYC
 	)
 	if err := boeing737.SetDestination(models.Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}); err != nil {
-		log.Printf("Error setting Boeing 737 destination: %v", err)
+		logf("Error setting Boeing 737 destination: %v", err)
 	}
 
 	if err := e.AddPlatform(boeing737); err != nil {
@@ -247,7 +267,7 @@ func (e *Engine) createExamplePlatforms() error {
 		models.Position{Latitude: 36.8485, Longitude: -76.2951, Altitude: 0}, // Norfolk, VA
 	)
 	if err := destroyer.SetDestination(models.Position{Latitude: 25.7617, Longitude: -80.1918, Altitude: 0}); err != nil {
-		log.Printf("Error setting destroyer destination: %v", err)
+		logf("Error setting destroyer destination: %v", err)
 	}
 
 	if err := e.AddPlatform(destroyer); err != nil {
@@ -261,7 +281,7 @@ func (e *Engine) createExamplePlatforms() error {
 		models.Position{Latitude: 31.8720, Longitude: -106.3744, Altitude: 1200}, // El Paso, TX
 	)
 	if err := tank.SetDestination(models.Position{Latitude: 31.8800, Longitude: -106.3600, Altitude: 1250}); err != nil {
-		log.Printf("Error setting tank destination: %v", err)
+		logf("Error setting tank destination: %v", err)
 	}
 
 	if err := e.AddPlatform(tank); err != nil {
@@ -279,7 +299,7 @@ func (e *Engine) createExamplePlatforms() error {
 		return err
 	}
 
-	log.Printf("Created %d example platforms", len(e.platforms))
+	logf("Created %d example platforms", len(e.platforms))
 	return nil
 }
 
@@ -299,7 +319,7 @@ func (e *Engine) Update(deltaTime time.Duration) error {
 	// Update all platforms using physics engine
 	for _, platform := range platforms {
 		if err := e.physics.CalculateMovement(platform, deltaTime); err != nil {
-			log.Printf("Error updating platform %s: %v", platform.GetID(), err)
+			logf("Error updating platform %s: %v", platform.GetID(), err)
 		}
 	}
 

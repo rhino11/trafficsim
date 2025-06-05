@@ -116,6 +116,50 @@ func validateFiles(files []string) ValidationSummary {
 	return summary
 }
 
+// validateFilePath ensures the file path is safe and within allowed directories
+func validateFilePath(filePath string) error {
+	// Clean the path to prevent directory traversal
+	cleanPath := filepath.Clean(filePath)
+
+	// Get absolute path
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		return fmt.Errorf("invalid file path: %v", err)
+	}
+
+	// Define allowed base directories
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot determine working directory: %v", err)
+	}
+
+	allowedDirs := []string{
+		filepath.Join(wd, "data"),
+		filepath.Join(wd, "configs"),
+		wd, // Allow current directory
+	}
+
+	// Check if the file is within allowed directories
+	allowed := false
+	for _, allowedDir := range allowedDirs {
+		absAllowedDir, err := filepath.Abs(allowedDir)
+		if err != nil {
+			continue
+		}
+
+		if strings.HasPrefix(absPath, absAllowedDir) {
+			allowed = true
+			break
+		}
+	}
+
+	if !allowed {
+		return fmt.Errorf("file path not allowed: %s", absPath)
+	}
+
+	return nil
+}
+
 // validateFile validates a single YAML file based on its location and content
 func validateFile(filePath string) ValidationResult {
 	result := ValidationResult{
@@ -124,8 +168,15 @@ func validateFile(filePath string) ValidationResult {
 		Errors: []string{},
 	}
 
-	// Read file content
-	content, err := os.ReadFile(filePath)
+	// Validate file path for security FIRST - before reading the file
+	if err := validateFilePath(filePath); err != nil {
+		result.Valid = false
+		result.Errors = append(result.Errors, fmt.Sprintf("Security error: %v", err))
+		return result
+	}
+
+	// Read file content (now safe after validation)
+	content, err := os.ReadFile(filePath) // #nosec G304 -- filePath is validated by validateFilePath() function
 	if err != nil {
 		result.Valid = false
 		result.Errors = append(result.Errors, fmt.Sprintf("Failed to read file: %v", err))

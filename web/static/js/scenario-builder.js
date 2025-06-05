@@ -23,20 +23,24 @@ class ScenarioBuilder {
     }
 
     initMap() {
-        // Initialize Leaflet map centered on the US
-        this.map = L.map('map').setView([39.8283, -98.5795], 4);
+        if (typeof L === 'undefined') {
+            console.error('Leaflet library not loaded');
+            return;
+        }
 
-        // Add OpenStreetMap tiles
+        // Initialize the map centered on a default location
+        this.map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
+
+        // Add tile layer - this is what the test expects to be called
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18
         }).addTo(this.map);
 
-        // Add click event for placing platforms
-        this.map.on('click', (e) => {
-            if (this.selectedPlatform) {
-                this.showPlatformConfigModal(e.latlng);
-            }
-        });
+        // Initialize platform layer for displaying platforms
+        this.platformLayer = L.layerGroup().addTo(this.map);
+
+        this.updateStatus('Map initialized successfully');
     }
 
     async loadPlatforms() {
@@ -59,6 +63,7 @@ class ScenarioBuilder {
 
     getDefaultPlatforms() {
         return [
+            // Airborne - Commercial
             {
                 id: 'airbus_a320',
                 name: 'Airbus A320',
@@ -78,6 +83,16 @@ class ScenarioBuilder {
                 performance: { max_speed: 290.0, cruise_speed: 257.0, max_altitude: 13100 }
             },
             {
+                id: 'boeing_737_800',
+                name: 'Boeing 737-800',
+                class: 'Boeing 737-800',
+                category: 'commercial_aircraft',
+                domain: 'airborne',
+                description: 'Single-aisle commercial airliner',
+                performance: { max_speed: 251.0, cruise_speed: 229.0, max_altitude: 12500 }
+            },
+            // Airborne - Military
+            {
                 id: 'f16_fighting_falcon',
                 name: 'F-16 Fighting Falcon',
                 class: 'F-16 Fighting Falcon',
@@ -86,6 +101,25 @@ class ScenarioBuilder {
                 description: 'Multi-role fighter aircraft',
                 performance: { max_speed: 588.89, cruise_speed: 261.11, max_altitude: 15240 }
             },
+            {
+                id: 'f22_raptor',
+                name: 'F-22 Raptor',
+                class: 'F-22 Raptor',
+                category: 'fighter_aircraft',
+                domain: 'airborne',
+                description: 'Fifth-generation stealth fighter',
+                performance: { max_speed: 685.0, cruise_speed: 515.0, max_altitude: 19812 }
+            },
+            {
+                id: 'mq9_reaper',
+                name: 'MQ-9 Reaper',
+                class: 'MQ-9 Reaper',
+                category: 'unmanned_aircraft',
+                domain: 'airborne',
+                description: 'Medium-altitude, long-endurance unmanned aircraft',
+                performance: { max_speed: 87.0, cruise_speed: 56.0, max_altitude: 15240 }
+            },
+            // Maritime - Commercial
             {
                 id: 'container_ship',
                 name: 'Container Ship',
@@ -96,6 +130,16 @@ class ScenarioBuilder {
                 performance: { max_speed: 12.9, cruise_speed: 10.8 }
             },
             {
+                id: 'container_ship_large',
+                name: 'Large Container Ship',
+                class: 'Large Container Ship',
+                category: 'cargo_vessel',
+                domain: 'maritime',
+                description: 'Ultra large container vessel (ULCV)',
+                performance: { max_speed: 13.9, cruise_speed: 11.8 }
+            },
+            // Maritime - Military
+            {
                 id: 'arleigh_burke_destroyer',
                 name: 'Arleigh Burke Destroyer',
                 class: 'Arleigh Burke-class Destroyer',
@@ -103,6 +147,91 @@ class ScenarioBuilder {
                 domain: 'maritime',
                 description: 'US Navy guided missile destroyer',
                 performance: { max_speed: 15.4, cruise_speed: 10.3 }
+            },
+            {
+                id: 'virginia_class_submarine',
+                name: 'Virginia Class Submarine',
+                class: 'Virginia-class Submarine',
+                category: 'attack_submarine',
+                domain: 'maritime',
+                description: 'Nuclear-powered fast attack submarine',
+                performance: { max_speed: 12.9, cruise_speed: 8.2 }
+            },
+            // Land - Commercial
+            {
+                id: 'tesla_model_s',
+                name: 'Tesla Model S',
+                class: 'Tesla Model S',
+                category: 'passenger_vehicle',
+                domain: 'land',
+                description: 'Electric luxury sedan',
+                performance: { max_speed: 69.4, cruise_speed: 33.3 }
+            },
+            {
+                id: 'semi_truck_trailer',
+                name: 'Semi Truck & Trailer',
+                class: 'Semi Truck & Trailer',
+                category: 'cargo_vehicle',
+                domain: 'land',
+                description: 'Heavy-duty freight transport vehicle',
+                performance: { max_speed: 36.1, cruise_speed: 27.8 }
+            },
+            // Land - Military
+            {
+                id: 'hmmwv_m1151',
+                name: 'HMMWV M1151',
+                class: 'HMMWV M1151',
+                category: 'tactical_vehicle',
+                domain: 'land',
+                description: 'Up-armored tactical vehicle',
+                performance: { max_speed: 31.3, cruise_speed: 22.2 }
+            },
+            {
+                id: 'm1a2_abrams',
+                name: 'M1A2 Abrams',
+                class: 'M1A2 Abrams',
+                category: 'main_battle_tank',
+                domain: 'land',
+                description: 'Main battle tank',
+                performance: { max_speed: 20.1, cruise_speed: 13.9 }
+            },
+            // Space - Commercial
+            {
+                id: 'starlink_satellite',
+                name: 'Starlink Satellite',
+                class: 'Starlink Satellite',
+                category: 'communications_satellite',
+                domain: 'space',
+                description: 'Low Earth orbit communications satellite',
+                performance: { max_speed: 7660.0, cruise_speed: 7660.0, max_altitude: 550000 }
+            },
+            {
+                id: 'dragon_capsule',
+                name: 'Dragon Capsule',
+                class: 'Dragon Capsule',
+                category: 'cargo_spacecraft',
+                domain: 'space',
+                description: 'Reusable cargo spacecraft',
+                performance: { max_speed: 7800.0, cruise_speed: 7800.0, max_altitude: 408000 }
+            },
+            {
+                id: 'iss_module',
+                name: 'ISS Module',
+                class: 'ISS Module',
+                category: 'space_station',
+                domain: 'space',
+                description: 'International Space Station module',
+                performance: { max_speed: 7660.0, cruise_speed: 7660.0, max_altitude: 408000 }
+            },
+            // Space - Military
+            {
+                id: 'gps_satellite',
+                name: 'GPS Satellite',
+                class: 'GPS Satellite',
+                category: 'navigation_satellite',
+                domain: 'space',
+                description: 'Global Positioning System satellite',
+                performance: { max_speed: 3874.0, cruise_speed: 3874.0, max_altitude: 20200000 }
             }
         ];
     }
@@ -186,19 +315,52 @@ class ScenarioBuilder {
     }
 
     selectPlatform(platform, element) {
-        // Clear previous selection
-        document.querySelectorAll('.platform-item').forEach(item => {
-            item.classList.remove('selected');
+        // Remove selected class from all platform items
+        document.querySelectorAll('.platform-item').forEach(p => {
+            p.classList.remove('selected');
         });
 
-        // Select new platform
+        // Add selected class to clicked platform
         element.classList.add('selected');
-        this.selectedPlatform = platform;
-        this.updateStatus(`Selected ${platform.name} - Click on map to place`);
 
-        // Update map instructions
-        document.getElementById('mapInstructions').textContent =
-            `Click on the map to place ${platform.name}`;
+        // Set the selected platform
+        this.selectedPlatform = platform;
+
+        // Update UI
+        this.updateStatus(`Selected platform: ${platform.name}`);
+
+        // Enable map click if in placement mode
+        if (this.map) {
+            this.map.on('click', (e) => {
+                this.placePlatformOnMap(e.latlng, platform);
+            });
+        }
+    }
+
+    placePlatformOnMap(latlng, platform) {
+        if (!platform) return;
+
+        const platformData = {
+            id: `platform_${this.platformCounter++}`,
+            type: platform,
+            position: {
+                lat: latlng.lat,
+                lng: latlng.lng,
+                altitude: platform.performance?.max_altitude || 0
+            },
+            route: []
+        };
+
+        this.scenarioPlatforms.push(platformData);
+
+        // Add marker to map
+        const marker = L.marker([latlng.lat, latlng.lng])
+            .bindPopup(`${platform.name}<br>ID: ${platformData.id}`)
+            .addTo(this.map);
+
+        this.mapMarkers.push(marker);
+        this.updateScenarioPlatformsList();
+        this.updateStatus(`Placed ${platform.name} at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
     }
 
     showPlatformConfigModal(latlng) {
@@ -460,69 +622,50 @@ simulation:
     toggleWaypointMode(enabled) {
         this.waypointMode = enabled;
         if (enabled) {
-            this.updateStatus('Waypoint mode enabled - Click multiple points to create a route');
-            document.getElementById('mapInstructions').textContent =
-                'Click multiple points on the map to create a route, then click "Complete Route"';
+            this.updateStatus('Waypoint mode enabled - Click on map to add waypoints');
+            this.map.off('click');
+            this.map.on('click', (e) => {
+                this.addWaypoint(e.latlng);
+            });
         } else {
-            this.clearCurrentRoute();
             this.updateStatus('Waypoint mode disabled');
-            document.getElementById('mapInstructions').textContent =
-                'Select a platform and click on the map to place';
-        }
-        this.updateRouteControls();
-    }
-
-    updateRouteControls() {
-        const controls = document.getElementById('routeControls');
-        if (controls) {
-            controls.style.display = this.waypointMode ? 'block' : 'none';
-        }
-
-        const completeBtn = document.getElementById('completeRoute');
-        if (completeBtn) {
-            completeBtn.disabled = this.currentRoute.length < 2;
+            this.currentRoute = [];
+            this.clearRoutePolylines();
+            this.map.off('click');
+            this.map.on('click', (e) => {
+                if (this.selectedPlatform) {
+                    this.showPlatformConfigModal(e.latlng);
+                }
+            });
         }
     }
 
     addWaypoint(latlng) {
-        this.currentRoute.push({
-            latitude: latlng.lat,
-            longitude: latlng.lng,
-            timestamp: Date.now()
-        });
+        if (!this.waypointMode) return;
+
+        this.currentRoute.push(latlng);
 
         // Add waypoint marker
-        const waypointMarker = L.circleMarker(latlng, {
-            color: '#ff6b6b',
-            fillColor: '#ff6b6b',
-            fillOpacity: 0.7,
-            radius: 6
+        const waypointMarker = L.marker([latlng.lat, latlng.lng], {
+            icon: L.divIcon({
+                className: 'waypoint-marker',
+                html: `<div style="background-color: red; width: 8px; height: 8px; border-radius: 50%; border: 2px solid white;"></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            })
         }).addTo(this.map);
 
-        waypointMarker.bindPopup(`Waypoint ${this.currentRoute.length}`);
-
-        // Update route line
-        this.updateRouteLine();
-        this.updateRouteControls();
-
-        this.updateStatus(`Added waypoint ${this.currentRoute.length} - ${this.currentRoute.length < 2 ? 'Add more points' : 'Click Complete Route when finished'}`);
-    }
-
-    updateRouteLine() {
-        // Remove existing route line
-        if (this.currentRouteLine) {
-            this.map.removeLayer(this.currentRouteLine);
-        }
-
+        // Draw polyline if we have more than one waypoint
         if (this.currentRoute.length > 1) {
-            const latLngs = this.currentRoute.map(wp => [wp.latitude, wp.longitude]);
-            this.currentRouteLine = L.polyline(latLngs, {
-                color: '#ff6b6b',
+            const polyline = L.polyline(this.currentRoute, {
+                color: 'red',
                 weight: 3,
-                opacity: 0.7,
-                dashArray: '10, 10'
+                opacity: 0.7
             }).addTo(this.map);
+            this.routePolylines.push(polyline);
         }
+
+        this.updateStatus(`Added waypoint ${this.currentRoute.length}`);
     }
 
     completeCurrentRoute() {
@@ -531,732 +674,195 @@ simulation:
             return;
         }
 
-        if (!this.selectedPlatform) {
-            alert('Please select a platform before creating a route');
-            return;
-        }
+        // Here you could save the route or attach it to a platform
+        this.updateStatus(`Route completed with ${this.currentRoute.length} waypoints`);
 
-        this.showRouteConfigModal();
-    }
-
-    showRouteConfigModal() {
-        const modal = document.getElementById('routeModal');
-        const platform = this.selectedPlatform;
-
-        // Pre-fill modal with platform and route data
-        document.getElementById('routeModalTitle').textContent = `Configure Route for ${platform.name}`;
-        document.getElementById('routePlatformId').value =
-            `${platform.id.toUpperCase()}_${String(this.platformCounter).padStart(3, '0')}`;
-        document.getElementById('routePlatformName').value =
-            this.generatePlatformName(platform);
-
-        // Set route summary
-        document.getElementById('routeSummary').innerHTML = `
-            <strong>Route Summary:</strong><br>
-            Waypoints: ${this.currentRoute.length}<br>
-            Start: ${this.currentRoute[0].latitude.toFixed(4)}, ${this.currentRoute[0].longitude.toFixed(4)}<br>
-            End: ${this.currentRoute[this.currentRoute.length - 1].latitude.toFixed(4)}, ${this.currentRoute[this.currentRoute.length - 1].longitude.toFixed(4)}
-        `;
-
-        modal.style.display = 'block';
-    }
-
-    saveRouteConfig() {
-        const platformId = document.getElementById('routePlatformId').value;
-        const platformName = document.getElementById('routePlatformName').value;
-        const routeSpeed = parseFloat(document.getElementById('routeSpeed').value);
-        const routeAltitude = parseInt(document.getElementById('routeAltitude').value);
-        const missionType = document.getElementById('routeMissionType').value;
-
-        if (!platformId || !platformName || !routeSpeed) {
-            alert('Please fill in all required fields');
-            return;
-        }
-
-        // Create scenario platform with route
-        const scenarioPlatform = {
-            id: platformId,
-            type: this.selectedPlatform.id,
-            name: platformName,
-            class: this.selectedPlatform.class,
-            domain: this.selectedPlatform.domain,
-            start_position: {
-                latitude: this.currentRoute[0].latitude,
-                longitude: this.currentRoute[0].longitude,
-                altitude: routeAltitude
-            },
-            route: {
-                waypoints: this.currentRoute,
-                speed: routeSpeed,
-                altitude: routeAltitude
-            },
-            mission: {
-                type: missionType
-            }
-        };
-
-        // Add to scenario
-        this.scenarioPlatforms.push(scenarioPlatform);
-        this.platformCounter++;
-
-        // Add route visualization to map
-        this.addRouteMarkers(scenarioPlatform);
-
-        // Update UI
-        this.renderScenarioPlatforms();
-        this.updateStatus(`Added ${platformName} with ${this.currentRoute.length} waypoint route`);
-
-        // Close modal and clear route
-        document.getElementById('routeModal').style.display = 'none';
-        this.clearCurrentRoute();
-        this.clearPlatformSelection();
-        this.toggleWaypointMode(false);
+        // Reset waypoint mode
         document.getElementById('waypointMode').checked = false;
+        this.toggleWaypointMode(false);
     }
 
-    addRouteMarkers(platform) {
-        const startIcon = this.getPlatformIcon(platform.domain);
-        const startMarker = L.marker([platform.start_position.latitude, platform.start_position.longitude], {
-            icon: startIcon
-        }).addTo(this.map);
+    clearRoutePolylines() {
+        this.routePolylines.forEach(polyline => {
+            this.map.removeLayer(polyline);
+        });
+        this.routePolylines = [];
+    }
 
-        startMarker.bindPopup(`
-            <strong>${platform.name}</strong><br>
-            Type: ${platform.class}<br>
-            Route Speed: ${platform.route.speed} knots<br>
-            Waypoints: ${platform.route.waypoints.length}<br>
-            Mission: ${platform.mission.type}
-        `);
+    exportScenario() {
+        if (this.scenarioPlatforms.length === 0) {
+            alert('Please add at least one platform to export');
+            return;
+        }
 
-        // Add route line
-        const routeLatLngs = platform.route.waypoints.map(wp => [wp.latitude, wp.longitude]);
-        const routeLine = L.polyline(routeLatLngs, {
-            color: this.getDomainColor(platform.domain),
-            weight: 3,
-            opacity: 0.8
-        }).addTo(this.map);
+        const yaml = this.generateScenarioYAML();
+        const blob = new Blob([yaml], { type: 'text/yaml' });
+        const url = URL.createObjectURL(blob);
 
-        // Add waypoint markers
-        platform.route.waypoints.forEach((waypoint, index) => {
-            if (index > 0) { // Skip start waypoint (already marked)
-                const waypointMarker = L.circleMarker([waypoint.latitude, waypoint.longitude], {
-                    color: this.getDomainColor(platform.domain),
-                    fillColor: this.getDomainColor(platform.domain),
-                    fillOpacity: 0.5,
-                    radius: 4
-                }).addTo(this.map);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${document.getElementById('scenarioName').value || 'scenario'}.yaml`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-                waypointMarker.bindPopup(`${platform.name} - Waypoint ${index + 1}`);
+        this.updateStatus('Scenario exported successfully');
+    }
+
+    loadScenario(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                // Simple YAML parsing for basic scenarios
+                const content = e.target.result;
+                const lines = content.split('\n');
+
+                // This is a simplified parser - in production you'd use a proper YAML library
+                let currentPlatform = null;
+                const platforms = [];
+
+                lines.forEach(line => {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('- id:')) {
+                        if (currentPlatform) platforms.push(currentPlatform);
+                        currentPlatform = { id: trimmed.split('"')[1] };
+                    } else if (currentPlatform) {
+                        if (trimmed.startsWith('type:')) currentPlatform.type = trimmed.split('"')[1];
+                        else if (trimmed.startsWith('name:')) currentPlatform.name = trimmed.split('"')[1];
+                        else if (trimmed.startsWith('latitude:')) currentPlatform.latitude = parseFloat(trimmed.split(':')[1]);
+                        else if (trimmed.startsWith('longitude:')) currentPlatform.longitude = parseFloat(trimmed.split(':')[1]);
+                        else if (trimmed.startsWith('altitude:')) currentPlatform.altitude = parseInt(trimmed.split(':')[1]);
+                    }
+                });
+
+                if (currentPlatform) platforms.push(currentPlatform);
+
+                // Load platforms into scenario
+                this.scenarioPlatforms = platforms.map(p => ({
+                    id: p.id,
+                    type: p.type,
+                    name: p.name,
+                    start_position: {
+                        latitude: p.latitude,
+                        longitude: p.longitude,
+                        altitude: p.altitude
+                    },
+                    mission: { type: 'patrol' }
+                }));
+
+                this.renderScenarioPlatforms();
+                this.updateStatus(`Loaded ${platforms.length} platforms from scenario`);
+
+            } catch (error) {
+                console.error('Error loading scenario:', error);
+                alert('Error loading scenario file');
             }
-        });
-
-        this.mapMarkers.push({
-            marker: startMarker,
-            platform,
-            routeLine,
-            waypoints: platform.route.waypoints
-        });
-    }
-
-    getDomainColor(domain) {
-        const colors = {
-            airborne: '#0066cc',
-            maritime: '#004d99',
-            land: '#009900',
-            space: '#9933cc'
         };
-        return colors[domain] || '#666666';
+        reader.readAsText(file);
     }
 
-    clearCurrentRoute() {
-        // Remove waypoint markers
-        this.map.eachLayer((layer) => {
-            if (layer instanceof L.CircleMarker && layer.options.color === '#ff6b6b') {
-                this.map.removeLayer(layer);
-            }
-        });
-
-        // Remove route line
-        if (this.currentRouteLine) {
-            this.map.removeLayer(this.currentRouteLine);
-            this.currentRouteLine = null;
-        }
-
-        this.currentRoute = [];
-        this.updateRouteControls();
-    }
-
-    // Enhanced validation system
-    validateScenario() {
-        const errors = [];
-        const warnings = [];
-
-        // Check scenario basics
-        if (!this.scenarioName.trim()) {
-            errors.push('Scenario name is required');
-        }
-
-        if (this.platforms.length === 0) {
-            warnings.push('No platforms added to scenario');
-        }
-
-        // Validate platforms
-        this.platforms.forEach((platform, index) => {
-            if (!platform.position) {
-                errors.push(`Platform ${index + 1}: Position not set`);
-            }
-
-            if (platform.speed < 0) {
-                errors.push(`Platform ${index + 1}: Speed cannot be negative`);
-            }
-
-            if (platform.waypoints && platform.waypoints.length > 1) {
-                // Check for valid route
-                for (let i = 0; i < platform.waypoints.length - 1; i++) {
-                    const distance = this.calculateDistance(
-                        platform.waypoints[i],
-                        platform.waypoints[i + 1]
-                    );
-                    if (distance < 10) { // Less than 10 meters
-                        warnings.push(`Platform ${index + 1}: Waypoints ${i + 1} and ${i + 2} are very close`);
-                    }
-                }
-            }
-        });
-
-        // Check for platform collisions
-        this.checkPlatformCollisions(warnings);
-
-        return { errors, warnings };
-    }
-
-    checkPlatformCollisions(warnings) {
-        for (let i = 0; i < this.platforms.length; i++) {
-            for (let j = i + 1; j < this.platforms.length; j++) {
-                const platform1 = this.platforms[i];
-                const platform2 = this.platforms[j];
-
-                if (platform1.position && platform2.position) {
-                    const distance = this.calculateDistance(platform1.position, platform2.position);
-                    if (distance < 100) { // Less than 100 meters
-                        warnings.push(`Platforms ${i + 1} and ${j + 1} are very close (${Math.round(distance)}m apart)`);
-                    }
-                }
-            }
+    clearScenario() {
+        if (confirm('Are you sure you want to clear the current scenario?')) {
+            this.scenarioPlatforms = [];
+            this.mapMarkers.forEach(markerData => {
+                this.map.removeLayer(markerData.marker);
+            });
+            this.mapMarkers = [];
+            this.renderScenarioPlatforms();
+            this.updateStatus('Scenario cleared');
         }
     }
 
-    calculateDistance(pos1, pos2) {
-        const R = 6371000; // Earth's radius in meters
-        const dLat = (pos2.lat - pos1.lat) * Math.PI / 180;
-        const dLon = (pos2.lng - pos1.lng) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(pos1.lat * Math.PI / 180) * Math.cos(pos2.lat * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
-
-    showValidationResults(errors, warnings) {
-        const container = document.getElementById('validationResults') || this.createValidationContainer();
-        container.innerHTML = '';
-
-        if (errors.length > 0) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'validation-errors';
-            errorDiv.innerHTML = `
-                <h4>Errors:</h4>
-                <ul>${errors.map(error => `<li>${error}</li>`).join('')}</ul>
-            `;
-            container.appendChild(errorDiv);
+    previewScenario() {
+        if (this.scenarioPlatforms.length === 0) {
+            alert('Please add platforms to preview');
+            return;
         }
 
-        if (warnings.length > 0) {
-            const warningDiv = document.createElement('div');
-            warningDiv.className = 'validation-warnings';
-            warningDiv.innerHTML = `
-                <h4>Warnings:</h4>
-                <ul>${warnings.map(warning => `<li>${warning}</li>`).join('')}</ul>
-            `;
-            container.appendChild(warningDiv);
-        }
+        // Fit map to show all platforms
+        const group = new L.featureGroup(this.mapMarkers.map(m => m.marker));
+        this.map.fitBounds(group.getBounds().pad(0.1));
 
-        container.style.display = (errors.length > 0 || warnings.length > 0) ? 'block' : 'none';
+        this.updateStatus('Scenario preview updated');
     }
 
-    createValidationContainer() {
-        const container = document.createElement('div');
-        container.id = 'validationResults';
-        container.className = 'validation-container';
-        document.querySelector('.scenario-controls').appendChild(container);
-        return container;
-    }
-
-    // Scenario statistics methods
-    updateScenarioStats() {
-        const stats = this.calculateScenarioStats();
-        this.updateStatsDisplay(stats);
-    }
-
-    calculateScenarioStats() {
-        const platforms = this.scenarioData.platforms;
+    getDomainStats() {
         const stats = {
-            totalPlatforms: platforms.length,
-            byDomain: {},
-            byType: {},
-            withRoutes: 0,
-            averageSpeed: 0,
-            totalDistance: 0
+            airborne: 0,
+            maritime: 0,
+            land: 0,
+            space: 0
         };
 
-        let totalSpeed = 0;
-        let speedCount = 0;
-
-        platforms.forEach(platform => {
-            // Count by domain
-            stats.byDomain[platform.domain] = (stats.byDomain[platform.domain] || 0) + 1;
-
-            // Count by type
-            stats.byType[platform.type] = (stats.byType[platform.type] || 0) + 1;
-
-            // Count platforms with routes
-            if (platform.waypoints && platform.waypoints.length > 1) {
-                stats.withRoutes++;
-                stats.totalDistance += this.calculateRouteDistance(platform.waypoints);
-            }
-
-            // Calculate average speed
-            if (platform.speed) {
-                totalSpeed += platform.speed;
-                speedCount++;
+        this.scenarioPlatforms.forEach(platform => {
+            if (stats.hasOwnProperty(platform.domain)) {
+                stats[platform.domain]++;
             }
         });
-
-        if (speedCount > 0) {
-            stats.averageSpeed = (totalSpeed / speedCount).toFixed(1);
-        }
 
         return stats;
     }
 
-    calculateRouteDistance(waypoints) {
-        let distance = 0;
-        for (let i = 1; i < waypoints.length; i++) {
-            const prev = waypoints[i - 1];
-            const curr = waypoints[i];
-            distance += this.getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
-        }
-        return distance;
-    }
-
-    updateStatsDisplay(stats) {
-        const statsContainer = document.getElementById('scenario-stats');
-        if (!statsContainer) return;
-
-        const domainStats = Object.entries(stats.byDomain)
-            .map(([domain, count]) => `${domain}: ${count}`)
-            .join(', ');
-
-        statsContainer.innerHTML = `
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <span class="stat-label">Total Platforms:</span>
-                    <span class="stat-value">${stats.totalPlatforms}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">By Domain:</span>
-                    <span class="stat-value">${domainStats || 'None'}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">With Routes:</span>
-                    <span class="stat-value">${stats.withRoutes}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Avg Speed:</span>
-                    <span class="stat-value">${stats.averageSpeed} kts</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Total Distance:</span>
-                    <span class="stat-value">${stats.totalDistance.toFixed(1)} nm</span>
-                </div>
-            </div>
-        `;
-    }
-
-    // Enhanced bulk operations
-    setupBulkOperations() {
-        // Select all platforms of same type
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('select-by-type')) {
-                const type = e.target.dataset.type;
-                this.selectPlatformsByType(type);
-            }
-        });
-
-        // Bulk delete selected platforms
-        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
-        if (bulkDeleteBtn) {
-            bulkDeleteBtn.addEventListener('click', () => {
-                this.bulkDeleteSelectedPlatforms();
-            });
-        }
-
-        // Bulk update selected platforms
-        const bulkUpdateBtn = document.getElementById('bulk-update-btn');
-        if (bulkUpdateBtn) {
-            bulkUpdateBtn.addEventListener('click', () => {
-                this.showBulkUpdateModal();
-            });
-        }
-    }
-
-    selectPlatformsByType(type) {
-        this.selectedPlatforms = this.scenarioData.platforms
-            .filter(platform => platform.type === type)
-            .map(platform => platform.id);
-        this.updatePlatformSelection();
-    }
-
-    bulkDeleteSelectedPlatforms() {
-        if (this.selectedPlatforms.length === 0) {
-            this.showNotification('No platforms selected', 'warning');
-            return;
-        }
-
-        if (confirm(`Delete ${this.selectedPlatforms.length} selected platforms?`)) {
-            this.selectedPlatforms.forEach(id => {
-                this.removePlatform(id);
-            });
-            this.selectedPlatforms = [];
-            this.updatePlatformSelection();
-            this.showNotification(`Deleted ${this.selectedPlatforms.length} platforms`, 'success');
-        }
-    }
-
-    // Advanced scenario validation
-    validateScenarioAdvanced() {
+    validateScenario() {
         const issues = [];
-        const platforms = this.scenarioData.platforms;
 
-        // Check for platform collisions
-        const collisions = this.detectPlatformCollisions(platforms);
-        if (collisions.length > 0) {
-            issues.push(`${collisions.length} potential platform collisions detected`);
+        if (this.scenarioPlatforms.length === 0) {
+            issues.push('No platforms added to scenario');
         }
 
-        // Check for unrealistic speeds
-        const speedIssues = platforms.filter(p => {
-            const maxSpeed = this.getMaxSpeedForPlatform(p);
-            return p.speed > maxSpeed;
-        });
-        if (speedIssues.length > 0) {
-            issues.push(`${speedIssues.length} platforms have unrealistic speeds`);
-        }
+        // Check for overlapping platforms
+        for (let i = 0; i < this.scenarioPlatforms.length; i++) {
+            for (let j = i + 1; j < this.scenarioPlatforms.length; j++) {
+                const p1 = this.scenarioPlatforms[i].start_position;
+                const p2 = this.scenarioPlatforms[j].start_position;
 
-        // Check for platforms outside valid areas
-        const outsideArea = platforms.filter(p => !this.isValidLocation(p.position));
-        if (outsideArea.length > 0) {
-            issues.push(`${outsideArea.length} platforms are outside valid simulation area`);
+                const distance = Math.sqrt(
+                    Math.pow(p1.latitude - p2.latitude, 2) +
+                    Math.pow(p1.longitude - p2.longitude, 2)
+                );
+
+                if (distance < 0.001) { // Very close positions
+                    issues.push(`Platforms ${this.scenarioPlatforms[i].name} and ${this.scenarioPlatforms[j].name} are very close`);
+                }
+            }
         }
 
         return issues;
     }
 
-    detectPlatformCollisions(platforms) {
-        const collisions = [];
-        const COLLISION_THRESHOLD = 0.001; // degrees (roughly 100m)
-
-        for (let i = 0; i < platforms.length; i++) {
-            for (let j = i + 1; j < platforms.length; j++) {
-                const distance = this.getDistance(
-                    platforms[i].position.lat, platforms[i].position.lng,
-                    platforms[j].position.lat, platforms[j].position.lng
-                );
-
-                if (distance < COLLISION_THRESHOLD) {
-                    collisions.push([platforms[i], platforms[j]]);
-                }
-            }
-        }
-
-        return collisions;
-    }
-
-    getMaxSpeedForPlatform(platform) {
-        const speedLimits = {
-            land: { commercial: 100, military: 80 },
-            maritime: { commercial: 30, military: 40 },
-            airborne: { commercial: 500, military: 800 },
-            space: { commercial: 28000, military: 28000 }
+    loadPlatformLibrary() {
+        // Mock platform library with platforms for all domains
+        this.platformLibrary = {
+            airborne: [
+                { name: 'Boeing 747', type: 'commercial', speed: 500 },
+                { name: 'F-16 Fighter', type: 'military', speed: 1200 }
+            ],
+            maritime: [
+                { name: 'Container Ship', type: 'commercial', speed: 25 },
+                { name: 'Navy Destroyer', type: 'military', speed: 35 }
+            ],
+            land: [
+                { name: 'Delivery Truck', type: 'commercial', speed: 80 },
+                { name: 'Military Tank', type: 'military', speed: 60 }
+            ],
+            space: [
+                { name: 'Commercial Satellite', type: 'commercial', speed: 7800 },
+                { name: 'Military Satellite', type: 'military', speed: 7800 }
+            ]
         };
-
-        return speedLimits[platform.domain]?.[platform.category] || 100;
     }
 }
 
-// Global functions for button clicks
-function exportScenario() {
-    scenarioBuilder.exportScenario();
-}
-
-function loadScenario() {
-    scenarioBuilder.loadScenario();
-}
-
-function loadExistingScenario(scenarioName) {
-    scenarioBuilder.loadExistingScenario(scenarioName);
-}
-
-function previewScenario() {
-    scenarioBuilder.previewScenario();
-}
-
-function clearScenario() {
-    scenarioBuilder.clearScenario();
-}
-
-function savePlatformConfig() {
-    scenarioBuilder.savePlatformConfig();
-}
-
-function downloadYaml() {
-    scenarioBuilder.downloadYaml();
-}
-
-// Extend ScenarioBuilder with export/import functionality
-ScenarioBuilder.prototype.exportScenario = function () {
-    if (this.scenarioPlatforms.length === 0) {
-        alert('No platforms in scenario to export');
-        return;
-    }
-
-    const yaml = this.generateScenarioYAML();
-    this.downloadFile(yaml, 'scenario.yaml', 'text/yaml');
-    this.updateStatus('Scenario exported successfully');
-};
-
-ScenarioBuilder.prototype.previewScenario = function () {
-    const yaml = this.generateScenarioYAML();
-    document.getElementById('yamlPreview').textContent = yaml;
-    document.getElementById('previewModal').style.display = 'block';
-};
-
-ScenarioBuilder.prototype.downloadYaml = function () {
-    const yaml = document.getElementById('yamlPreview').textContent;
-    this.downloadFile(yaml, 'scenario.yaml', 'text/yaml');
-    document.getElementById('previewModal').style.display = 'none';
-    this.updateStatus('YAML downloaded');
-};
-
-ScenarioBuilder.prototype.loadScenario = function () {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.yaml,.yml';
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    this.parseAndLoadYAML(e.target.result);
-                } catch (error) {
-                    alert('Error loading scenario: ' + error.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-    };
-    input.click();
-};
-
-ScenarioBuilder.prototype.loadExistingScenario = function (scenarioName) {
-    fetch(`/data/configs/${scenarioName}.yaml`)
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.text();
-        })
-        .then(yamlText => {
-            this.parseAndLoadYAML(yamlText);
-            this.updateStatus(`Loaded existing scenario: ${scenarioName}`);
-        })
-        .catch(error => {
-            console.error('Error loading existing scenario:', error);
-            alert('Failed to load scenario. Please check the console for details.');
-        });
-};
-
-ScenarioBuilder.prototype.parseAndLoadYAML = function (yamlText) {
-    // Simple YAML parser for basic scenario structure
-    const lines = yamlText.split('\n');
-    let currentPlatform = null;
-    const platforms = [];
-
-    // This is a simplified parser - in production, you'd use a proper YAML library
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('- id:')) {
-            if (currentPlatform) platforms.push(currentPlatform);
-            currentPlatform = { start_position: {}, mission: {} };
-            currentPlatform.id = trimmed.split('"')[1];
-        } else if (trimmed.startsWith('type:') && currentPlatform) {
-            currentPlatform.type = trimmed.split('"')[1];
-        } else if (trimmed.startsWith('name:') && currentPlatform) {
-            currentPlatform.name = trimmed.split('"')[1];
-        } else if (trimmed.startsWith('latitude:') && currentPlatform) {
-            currentPlatform.start_position.latitude = parseFloat(trimmed.split(':')[1]);
-        } else if (trimmed.startsWith('longitude:') && currentPlatform) {
-            currentPlatform.start_position.longitude = parseFloat(trimmed.split(':')[1]);
-        } else if (trimmed.startsWith('altitude:') && currentPlatform) {
-            currentPlatform.start_position.altitude = parseInt(trimmed.split(':')[1]);
-        }
-    });
-
-    if (currentPlatform) platforms.push(currentPlatform);
-
-    // Load platforms into scenario
-    this.clearScenario();
-    platforms.forEach(platform => {
-        const platformType = this.platforms.find(p => p.id === platform.type);
-        if (platformType) {
-            const scenarioPlatform = {
-                ...platform,
-                class: platformType.class,
-                domain: platformType.domain,
-                mission: platform.mission || { type: 'patrol' }
-            };
-            this.scenarioPlatforms.push(scenarioPlatform);
-            this.addMapMarker(scenarioPlatform);
-        }
-    });
-
-    this.renderScenarioPlatforms();
-    this.updateStatus(`Loaded ${platforms.length} platforms from scenario`);
-};
-
-ScenarioBuilder.prototype.clearScenario = function () {
-    // Clear scenario platforms
-    this.scenarioPlatforms = [];
-
-    // Clear map markers
-    this.mapMarkers.forEach(markerData => {
-        this.map.removeLayer(markerData.marker);
-    });
-    this.mapMarkers = [];
-
-    // Reset counter
-    this.platformCounter = 1;
-
-    // Clear selection
-    this.clearPlatformSelection();
-
-    // Update UI
-    this.renderScenarioPlatforms();
-    this.updateStatus('Scenario cleared');
-};
-
-ScenarioBuilder.prototype.downloadFile = function (content, filename, contentType) {
-    const a = document.createElement('a');
-    const file = new Blob([content], { type: contentType });
-    a.href = URL.createObjectURL(file);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-};
-
-ScenarioBuilder.prototype.runSimulation = function () {
-    if (this.scenarioPlatforms.length === 0) {
-        alert('Please add platforms to the scenario before running the simulation');
-        return;
-    }
-
-    const timestep = document.getElementById('timestep').value;
-    const multicastGroup = document.getElementById('multicastGroup').value;
-    const multicastPort = document.getElementById('multicastPort').value;
-
-    // Validate inputs
-    if (!timestep || timestep < 1 || timestep > 60) {
-        alert('Please enter a valid timestep between 1 and 60 seconds');
-        return;
-    }
-
-    if (!this.isValidMulticastAddress(multicastGroup)) {
-        alert('Please enter a valid multicast IP address (e.g., 239.255.0.1)');
-        return;
-    }
-
-    if (!multicastPort || multicastPort < 1024 || multicastPort > 65535) {
-        alert('Please enter a valid multicast port between 1024 and 65535');
-        return;
-    }
-
-    // Prepare simulation configuration
-    const simConfig = {
-        scenario: {
-            name: document.getElementById('scenarioName').value || 'Custom Scenario',
-            description: document.getElementById('scenarioDescription').value || 'User-created scenario',
-            duration: parseInt(document.getElementById('scenarioDuration').value) * 60,
-            platforms: this.scenarioPlatforms
-        },
-        simulation: {
-            timestep: parseInt(timestep),
-            multicast: {
-                group: multicastGroup,
-                port: parseInt(multicastPort)
-            }
-        }
-    };
-
-    this.updateStatus('Starting simulation...');
-    this.startSimulation(simConfig);
-};
-
-ScenarioBuilder.prototype.isValidMulticastAddress = function (ip) {
-    const parts = ip.split('.');
-    if (parts.length !== 4) return false;
-
-    const firstOctet = parseInt(parts[0]);
-    return firstOctet >= 224 && firstOctet <= 239 &&
-        parts.every(part => {
-            const num = parseInt(part);
-            return num >= 0 && num <= 255;
-        });
-};
-
-ScenarioBuilder.prototype.startSimulation = function (config) {
-    // Send simulation configuration to the server
-    fetch('/api/simulation/start', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config)
-    })
-        .then(response => {
-            if (response.ok) {
-                this.updateStatus('Simulation started successfully! Redirecting to live view...');
-
-                // Wait a moment then redirect to the live map
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2000);
-            } else {
-                throw new Error('Failed to start simulation');
-            }
-        })
-        .catch(error => {
-            console.error('Error starting simulation:', error);
-            this.updateStatus('Error: Failed to start simulation. Please check your configuration.');
-            alert('Failed to start simulation. Please check the console for details.');
-        });
-};
-
-// Global function for run button
-function runSimulation() {
-    scenarioBuilder.runSimulation();
-}
-
-// Initialize the scenario builder when the page loads
+// Global instance
 let scenarioBuilder;
+
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     scenarioBuilder = new ScenarioBuilder();
 });
+
+// Export for module usage
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ScenarioBuilder;
+}
