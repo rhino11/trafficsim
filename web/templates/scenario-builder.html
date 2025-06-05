@@ -305,14 +305,32 @@
             border-color: #667eea;
         }
 
-        .domain-filter {
+        /* Platform Library Filter Styles */
+        .platform-filters {
             display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
+            flex-direction: column;
+            gap: 10px;
             margin-bottom: 20px;
         }
 
-        .domain-filter button {
+        .filter-row-all {
+            display: flex;
+            width: 100%;
+        }
+
+        .filter-row-domains {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+        }
+
+        .filter-row-affiliations {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+        }
+
+        .filter-btn {
             background: #f8f9fa;
             border: 2px solid #e9ecef;
             color: #495057;
@@ -322,20 +340,54 @@
             font-size: 12px;
             font-weight: 600;
             transition: all 0.2s;
-            flex: 1;
-            min-width: 60px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .domain-filter button:hover {
+        .filter-btn:hover {
             background: #e9ecef;
             border-color: #667eea;
             color: #667eea;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.2);
         }
 
-        .domain-filter button.active {
+        .filter-btn.active {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-color: #667eea;
             color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .filter-btn.active:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Special styling for the All button */
+        .filter-row-all .filter-btn {
+            font-size: 14px;
+            font-weight: 700;
+            padding: 10px 16px;
+        }
+
+        /* No results message */
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-style: italic;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+
+        /* Legacy domain-filter support for existing functionality */
+        .domain-filter {
+            display: none;
+            /* Hide old filter while transitioning */
         }
 
         .platform-item {
@@ -499,12 +551,32 @@
 
                 <input type="text" class="search-box" id="platformSearch" placeholder="Search platforms...">
 
-                <div class="domain-filter">
-                    <button class="active" data-domain="all">All</button>
-                    <button data-domain="airborne">✈️ Air</button>
-                    <button data-domain="maritime">🚢 Sea</button>
-                    <button data-domain="land">🚛 Land</button>
-                    <button data-domain="space">🛰️ Space</button>
+                <!-- Platform Library Filters -->
+                <div class="platform-filters">
+                    <!-- All filter row - single wide button -->
+                    <div class="filter-row-all">
+                        <button class="filter-btn active" data-filter-type="all" data-filter-value="all">All
+                            Platforms</button>
+                    </div>
+
+                    <!-- Domain filter row - four equal buttons -->
+                    <div class="filter-row-domains">
+                        <button class="filter-btn" data-filter-type="domain" data-filter-value="airborne">✈️
+                            Airborne</button>
+                        <button class="filter-btn" data-filter-type="domain" data-filter-value="land">🚛 Land</button>
+                        <button class="filter-btn" data-filter-type="domain" data-filter-value="maritime">🚢
+                            Maritime</button>
+                        <button class="filter-btn" data-filter-type="domain" data-filter-value="space">🛰️
+                            Space</button>
+                    </div>
+
+                    <!-- Affiliation filter row - two equal buttons -->
+                    <div class="filter-row-affiliations">
+                        <button class="filter-btn" data-filter-type="affiliation" data-filter-value="commercial">🏢
+                            Commercial</button>
+                        <button class="filter-btn" data-filter-type="affiliation" data-filter-value="military">⚔️
+                            Military</button>
+                    </div>
                 </div>
 
                 <div id="platformList">

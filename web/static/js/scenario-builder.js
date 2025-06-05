@@ -12,6 +12,13 @@ class ScenarioBuilder {
         this.currentRoute = [];
         this.routePolylines = [];
 
+        // Filter state - now supports multiple selections
+        this.activeFilters = {
+            domains: new Set(), // Multiple domain selections
+            affiliations: new Set(), // Multiple affiliation selections
+            search: ''
+        };
+
         this.init();
     }
 
@@ -19,7 +26,26 @@ class ScenarioBuilder {
         this.initMap();
         await this.loadPlatforms();
         this.setupEventListeners();
+        this.initializeFilters(); // Initialize filters after loading platforms
         this.updateStatus('Scenario builder ready');
+    }
+
+    initializeFilters() {
+        console.log('🏁 INITIALIZING FILTERS');
+        console.log('  Platforms loaded:', this.platforms.length);
+        console.log('  Sample platform:', this.platforms[0]);
+
+        // Initialize all filters as active (show all platforms by default)
+        this.selectAllFilters();
+
+        // Set UI buttons to match
+        setTimeout(() => {
+            console.log('  Setting all buttons active...');
+            this.setAllButtonsActive();
+            console.log('  Initial filter state - domains:', Array.from(this.activeFilters.domains));
+            console.log('  Initial filter state - affiliations:', Array.from(this.activeFilters.affiliations));
+            this.applyFilters();
+        }, 100);
     }
 
     initMap() {
@@ -77,6 +103,7 @@ class ScenarioBuilder {
                 class: 'Airbus A320',
                 category: 'commercial_aircraft',
                 domain: 'airborne',
+                affiliation: 'commercial',
                 description: 'Short to medium-range commercial airliner',
                 performance: { max_speed: 257.0, cruise_speed: 230.0, max_altitude: 12000 }
             },
@@ -86,6 +113,7 @@ class ScenarioBuilder {
                 class: 'F-16 Fighting Falcon',
                 category: 'fighter_aircraft',
                 domain: 'airborne',
+                affiliation: 'military',
                 description: 'Multi-role fighter aircraft',
                 performance: { max_speed: 588.89, cruise_speed: 261.11, max_altitude: 15240 }
             },
@@ -95,8 +123,19 @@ class ScenarioBuilder {
                 class: 'Container Ship',
                 category: 'cargo_vessel',
                 domain: 'maritime',
+                affiliation: 'commercial',
                 description: 'Large cargo container vessel',
                 performance: { max_speed: 12.9, cruise_speed: 10.8 }
+            },
+            {
+                id: 'destroyer_ship',
+                name: 'Naval Destroyer',
+                class: 'Naval Destroyer',
+                category: 'warship',
+                domain: 'maritime',
+                affiliation: 'military',
+                description: 'Multi-purpose naval combat vessel',
+                performance: { max_speed: 16.2, cruise_speed: 10.8 }
             },
             {
                 id: 'tesla_model_s',
@@ -104,8 +143,19 @@ class ScenarioBuilder {
                 class: 'Tesla Model S',
                 category: 'passenger_vehicle',
                 domain: 'land',
+                affiliation: 'commercial',
                 description: 'Electric luxury sedan',
                 performance: { max_speed: 69.4, cruise_speed: 33.3 }
+            },
+            {
+                id: 'military_truck',
+                name: 'Military Transport Truck',
+                class: 'Military Transport Truck',
+                category: 'military_vehicle',
+                domain: 'land',
+                affiliation: 'military',
+                description: 'Heavy-duty military transport vehicle',
+                performance: { max_speed: 27.8, cruise_speed: 22.2 }
             },
             {
                 id: 'starlink_satellite',
@@ -113,8 +163,19 @@ class ScenarioBuilder {
                 class: 'Starlink Satellite',
                 category: 'communications_satellite',
                 domain: 'space',
+                affiliation: 'commercial',
                 description: 'Low Earth orbit communications satellite',
                 performance: { max_speed: 7660.0, cruise_speed: 7660.0, max_altitude: 550000 }
+            },
+            {
+                id: 'military_satellite',
+                name: 'Military Reconnaissance Satellite',
+                class: 'Military Reconnaissance Satellite',
+                category: 'reconnaissance_satellite',
+                domain: 'space',
+                affiliation: 'military',
+                description: 'Military surveillance and reconnaissance satellite',
+                performance: { max_speed: 7660.0, cruise_speed: 7660.0, max_altitude: 600000 }
             }
         ];
     }
@@ -122,10 +183,18 @@ class ScenarioBuilder {
     setupEventListeners() {
         // Search functionality
         document.getElementById('platformSearch').addEventListener('input', (e) => {
-            this.filterPlatforms(e.target.value);
+            this.activeFilters.search = e.target.value;
+            this.applyFilters();
         });
 
-        // Domain filter buttons
+        // Platform Library filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.handleFilterClick(e.target);
+            });
+        });
+
+        // Legacy domain filter support (if any old buttons exist)
         document.querySelectorAll('.domain-filter button').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.domain-filter button').forEach(b => b.classList.remove('active'));
@@ -166,25 +235,8 @@ class ScenarioBuilder {
     }
 
     renderPlatformList() {
-        const container = document.getElementById('platformList');
-        container.innerHTML = '';
-
-        this.platforms.forEach(platform => {
-            const item = document.createElement('div');
-            item.className = 'platform-item';
-            item.innerHTML = `
-                <h4>${platform.name}</h4>
-                <p><strong>Type:</strong> ${platform.category}</p>
-                <p><strong>Domain:</strong> ${this.getDomainIcon(platform.domain)} ${platform.domain}</p>
-                <p>${platform.description}</p>
-            `;
-
-            item.addEventListener('click', () => {
-                this.selectPlatform(platform, item);
-            });
-
-            container.appendChild(item);
-        });
+        // Use the new filtering system instead of rendering all platforms
+        this.applyFilters();
     }
 
     getDomainIcon(domain) {
@@ -715,7 +767,7 @@ simulation:
     }
 
     loadPlatformLibrary() {
-        // Mock platform library with platforms for all domains
+        // Mock platform library with platforms for all domains using MIL-STD-2525D names
         this.platformLibrary = {
             airborne: [
                 { name: 'Boeing 747', type: 'commercial', speed: 500 },
@@ -735,6 +787,171 @@ simulation:
             ]
         };
     }
+
+    handleFilterClick(button) {
+        const filterType = button.dataset.filterType;
+        const filterValue = button.dataset.filterValue;
+
+        if (filterType === 'all') {
+            // All button toggles all filters
+            if (this.isAllFiltersActive()) {
+                // If all are active, clear all
+                this.clearAllFilters();
+                this.clearAllButtons();
+            } else {
+                // If not all are active, select all
+                this.selectAllFilters();
+                this.setAllButtonsActive();
+            }
+        } else if (filterType === 'domain') {
+            // Toggle domain filter
+            if (this.activeFilters.domains.has(filterValue)) {
+                this.activeFilters.domains.delete(filterValue);
+                button.classList.remove('active');
+            } else {
+                this.activeFilters.domains.add(filterValue);
+                button.classList.add('active');
+            }
+            this.updateAllButtonState();
+        } else if (filterType === 'affiliation') {
+            // Toggle affiliation filter
+            if (this.activeFilters.affiliations.has(filterValue)) {
+                this.activeFilters.affiliations.delete(filterValue);
+                button.classList.remove('active');
+            } else {
+                this.activeFilters.affiliations.add(filterValue);
+                button.classList.add('active');
+            }
+            this.updateAllButtonState();
+        }
+
+        this.applyFilters();
+    }
+
+    isAllFiltersActive() {
+        const allDomains = ['airborne', 'land', 'maritime', 'space'];
+        const allAffiliations = ['commercial', 'military'];
+
+        return allDomains.every(domain => this.activeFilters.domains.has(domain)) &&
+            allAffiliations.every(affiliation => this.activeFilters.affiliations.has(affiliation));
+    }
+
+    selectAllFilters() {
+        this.activeFilters.domains = new Set(['airborne', 'land', 'maritime', 'space']);
+        this.activeFilters.affiliations = new Set(['commercial', 'military']);
+    }
+
+    setAllButtonsActive() {
+        // Set All button active
+        document.querySelectorAll('[data-filter-type="all"]').forEach(btn => {
+            btn.classList.add('active');
+        });
+
+        // Set all domain buttons active
+        document.querySelectorAll('[data-filter-type="domain"]').forEach(btn => {
+            btn.classList.add('active');
+        });
+
+        // Set all affiliation buttons active
+        document.querySelectorAll('[data-filter-type="affiliation"]').forEach(btn => {
+            btn.classList.add('active');
+        });
+    }
+
+    updateAllButtonState() {
+        const allButton = document.querySelector('[data-filter-type="all"]');
+        if (allButton) {
+            if (this.isAllFiltersActive()) {
+                allButton.classList.add('active');
+            } else {
+                allButton.classList.remove('active');
+            }
+        }
+    }
+
+    clearAllFilters() {
+        this.activeFilters.domains.clear();
+        this.activeFilters.affiliations.clear();
+    }
+
+    clearAllButtons() {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    }
+
+    applyFilters() {
+        let filteredPlatforms = [...this.platforms];
+
+        // Apply search filter
+        if (this.activeFilters.search) {
+            const searchTerm = this.activeFilters.search.toLowerCase();
+            filteredPlatforms = filteredPlatforms.filter(platform =>
+                platform.name.toLowerCase().includes(searchTerm) ||
+                platform.category.toLowerCase().includes(searchTerm) ||
+                platform.description.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        // Apply domain filters (only if some but not all domains are selected)
+        if (this.activeFilters.domains.size > 0 && this.activeFilters.domains.size < 4) {
+            filteredPlatforms = filteredPlatforms.filter(platform =>
+                this.activeFilters.domains.has(platform.domain)
+            );
+        } else if (this.activeFilters.domains.size === 0) {
+            // No domains selected - show no platforms
+            filteredPlatforms = [];
+        }
+
+        // Apply affiliation filters (only if some but not all affiliations are selected)
+        if (this.activeFilters.affiliations.size > 0 && this.activeFilters.affiliations.size < 2) {
+            filteredPlatforms = filteredPlatforms.filter(platform =>
+                this.activeFilters.affiliations.has(platform.affiliation)
+            );
+        } else if (this.activeFilters.affiliations.size === 0) {
+            // No affiliations selected - show no platforms
+            filteredPlatforms = [];
+        }
+
+        this.renderFilteredPlatformList(filteredPlatforms);
+    }
+
+    renderFilteredPlatformList(platforms) {
+        const container = document.getElementById('platformList');
+        container.innerHTML = '';
+
+        if (platforms.length === 0) {
+            container.innerHTML = '<div class="no-results">No platforms match your filters</div>';
+            return;
+        }
+
+        platforms.forEach(platform => {
+            const item = document.createElement('div');
+            item.className = 'platform-item';
+            item.innerHTML = `
+                <h4>${platform.name}</h4>
+                <p><strong>Type:</strong> ${platform.category}</p>
+                <p><strong>Domain:</strong> ${this.getDomainIcon(platform.domain)} ${platform.domain}</p>
+                <p><strong>Affiliation:</strong> ${this.getAffiliationIcon(platform.affiliation)} ${platform.affiliation}</p>
+                <p>${platform.description}</p>
+            `;
+
+            item.addEventListener('click', () => {
+                this.selectPlatform(platform, item);
+            });
+
+            container.appendChild(item);
+        });
+    }
+
+    getAffiliationIcon(affiliation) {
+        const icons = {
+            commercial: '🏢',
+            military: '⚔️'
+        };
+        return icons[affiliation] || '🔹';
+    }
+
 }
 
 // Global instance

@@ -101,7 +101,7 @@ document.querySelectorAll = jest.fn((selector) => {
     if (selector === '.domain-filter button') {
         return [
             { addEventListener: jest.fn(), classList: { remove: jest.fn(), add: jest.fn() }, dataset: { domain: 'all' } },
-            { addEventListener: jest.fn(), classList: { remove: jest.fn(), add: jest.fn() }, dataset: { domain: 'airborne' } }
+            { addEventListener: jest.fn(), classList: { remove: jest.fn(), add: jest.fn() }, dataset: { domain: 'air' } }
         ];
     }
     if (selector === '.close') {
@@ -275,7 +275,7 @@ describe('ScenarioBuilder', () => {
         });
 
         test('should filter platforms by domain', () => {
-            scenarioBuilder.filterPlatformsByDomain('airborne');
+            scenarioBuilder.filterPlatformsByDomain('air');
             expect(document.createElement).toHaveBeenCalled();
         });
 
@@ -296,8 +296,8 @@ describe('ScenarioBuilder', () => {
 
         test('should generate platform names based on domain', () => {
             const platforms = [
-                { domain: 'airborne' },
-                { domain: 'maritime' },
+                { domain: 'air' },
+                { domain: 'sea' },
                 { domain: 'land' },
                 { domain: 'space' },
                 { domain: 'unknown' }
@@ -318,7 +318,7 @@ describe('ScenarioBuilder', () => {
         });
 
         test('should get platform icon for different domains', () => {
-            const domains = ['airborne', 'maritime', 'land', 'space', 'unknown'];
+            const domains = ['air', 'sea', 'land', 'space', 'unknown'];
 
             domains.forEach(domain => {
                 const icon = scenarioBuilder.getPlatformIcon(domain);
@@ -356,7 +356,7 @@ describe('ScenarioBuilder', () => {
             const platform = {
                 name: 'Test Platform',
                 class: 'Test Class',
-                domain: 'airborne',
+                domain: 'air',
                 start_position: { latitude: 40.0, longitude: -100.0, altitude: 1000 },
                 mission: { type: 'transport' }
             };
