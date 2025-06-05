@@ -42,12 +42,22 @@ jobs:
     - name: Run Go tests with coverage
       run: make test-coverage-go
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+    - name: Parse Go coverage
+      id: go-coverage
+      run: |
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        echo "Go coverage: $COVERAGE%"
+
+    - name: Generate Go coverage badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
       with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: ${{ secrets.GIST_ID }}
+        filename: go-coverage.json
+        label: Go Coverage
+        message: ${{ steps.go-coverage.outputs.coverage }}%
+        color: ${{ steps.go-coverage.outputs.coverage > 80 && 'brightgreen' || steps.go-coverage.outputs.coverage > 60 && 'yellow' || 'red' }}
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
@@ -80,6 +90,27 @@ jobs:
 
     - name: Run JavaScript tests with coverage
       run: make test-coverage-js
+
+    - name: Parse JavaScript coverage
+      id: js-coverage
+      run: |
+        if [ -f coverage-js/lcov-report/index.html ]; then
+          COVERAGE=$(grep -o "([0-9]*\.[0-9]*%)" coverage-js/lcov-report/index.html | head -1 | sed 's/[()%]//g')
+        else
+          COVERAGE="0"
+        fi
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        echo "JavaScript coverage: $COVERAGE%"
+
+    - name: Generate JavaScript coverage badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: ${{ secrets.GIST_ID }}
+        filename: js-coverage.json
+        label: JS Coverage
+        message: ${{ steps.js-coverage.outputs.coverage }}%
+        color: ${{ steps.js-coverage.outputs.coverage > 80 && 'brightgreen' || steps.js-coverage.outputs.coverage > 60 && 'yellow' || 'red' }}
 
     - name: Prepare artifacts for upload
       run: make prepare-artifacts

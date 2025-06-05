@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -526,9 +527,23 @@ func (s *Server) loadPlatformTypesFromFiles() ([]PlatformTypeInfo, error) {
 
 // loadPlatformFromFile loads a single platform type from a YAML file
 func (s *Server) loadPlatformFromFile(filePath, domain, category string) (*PlatformTypeInfo, error) {
-	data, err := os.ReadFile(filePath)
+	// Validate and clean the file path to prevent directory traversal attacks
+	cleanPath := filepath.Clean(filePath)
+
+	// Ensure the path is within the expected data/platforms directory
+	expectedPrefix := filepath.Clean("data/platforms/")
+	if !strings.HasPrefix(cleanPath, expectedPrefix) {
+		return nil, fmt.Errorf("invalid file path: %s is outside allowed directory", filePath)
+	}
+
+	// Additional validation: ensure no directory traversal sequences
+	if strings.Contains(filePath, "..") {
+		return nil, fmt.Errorf("invalid file path: directory traversal detected in %s", filePath)
+	}
+
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return nil, fmt.Errorf("failed to read file %s: %w", cleanPath, err)
 	}
 
 	// Parse the YAML structure

@@ -2,7 +2,8 @@
 
 [![CI/CD Pipeline](https://github.com/rhino11/trafficsim/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/rhino11/trafficsim/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rhino11/trafficsim)](https://goreportcard.com/report/github.com/rhino11/trafficsim)
-[![codecov](https://codecov.io/gh/rhino11/trafficsim/branch/main/graph/badge.svg)](https://codecov.io/gh/rhino11/trafficsim)
+[![Go Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/rhino11/06f7be5f98dcad6c0499557c2ce28467/raw/go-coverage.json)](https://github.com/rhino11/trafficsim/actions)
+[![JS Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/rhino11/06f7be5f98dcad6c0499557c2ce28467/raw/js-coverage.json)](https://github.com/rhino11/trafficsim/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/rhino11/trafficsim)](https://golang.org/)
 [![Docker Image](https://img.shields.io/docker/image-size/rhino11/trafficsim/latest)](https://hub.docker.com/r/rhino11/trafficsim)

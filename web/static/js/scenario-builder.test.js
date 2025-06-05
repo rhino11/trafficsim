@@ -433,7 +433,7 @@ describe('ScenarioBuilder', () => {
             scenarioBuilder.currentRoute = [{ lat: 1, lng: 1 }];
             scenarioBuilder.routePolylines = [{ remove: jest.fn() }];
             scenarioBuilder.mapMarkers = [];
-            
+
             // Ensure map is properly mocked
             scenarioBuilder.map = {
                 on: jest.fn(),
