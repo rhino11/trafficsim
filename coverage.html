@@ -57,13 +57,13 @@
 				
 				<option value="file0">github.com/rhino11/trafficsim/cmd/simrunner/main.go (0.0%)</option>
 				
-				<option value="file1">github.com/rhino11/trafficsim/cmd/validate-yaml/main.go (0.0%)</option>
+				<option value="file1">github.com/rhino11/trafficsim/cmd/validate-yaml/main.go (84.7%)</option>
 				
 				<option value="file2">github.com/rhino11/trafficsim/debug_attitude.go (0.0%)</option>
 				
-				<option value="file3">github.com/rhino11/trafficsim/internal/config/config.go (0.0%)</option>
+				<option value="file3">github.com/rhino11/trafficsim/internal/config/config.go (89.1%)</option>
 				
-				<option value="file4">github.com/rhino11/trafficsim/internal/config/factory.go (0.0%)</option>
+				<option value="file4">github.com/rhino11/trafficsim/internal/config/factory.go (79.6%)</option>
 				
 				<option value="file5">github.com/rhino11/trafficsim/internal/models/airborne.go (76.1%)</option>
 				
@@ -81,11 +81,13 @@
 				
 				<option value="file12">github.com/rhino11/trafficsim/internal/output/multicast.go (0.0%)</option>
 				
-				<option value="file13">github.com/rhino11/trafficsim/internal/server/server.go (0.0%)</option>
+				<option value="file13">github.com/rhino11/trafficsim/internal/server/server.go (41.1%)</option>
 				
 				<option value="file14">github.com/rhino11/trafficsim/internal/sim/engine.go (0.0%)</option>
 				
-				<option value="file15">github.com/rhino11/trafficsim/internal/sim/physics.go (0.0%)</option>
+				<option value="file15">github.com/rhino11/trafficsim/internal/sim/physics.go (66.9%)</option>
+				
+				<option value="file16">github.com/rhino11/trafficsim/internal/testutil/logger.go (0.0%)</option>
 				
 				</select>
 			</div>
@@ -389,65 +391,65 @@ func main() <span class="cov0" title="0">{
 }
 
 // collectYAMLFiles recursively finds all YAML files in the given path
-func collectYAMLFiles(path string) ([]string, error) <span class="cov0" title="0">{
+func collectYAMLFiles(path string) ([]string, error) <span class="cov8" title="1">{
         var files []string
 
         info, err := os.Stat(path)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, err
         }</span>
 
-        <span class="cov0" title="0">if !info.IsDir() </span><span class="cov0" title="0">{
-                if isYAMLFile(path) </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if !info.IsDir() </span><span class="cov8" title="1">{
+                if isYAMLFile(path) </span><span class="cov8" title="1">{
                         files = append(files, path)
                 }</span>
-                <span class="cov0" title="0">return files, nil</span>
+                <span class="cov8" title="1">return files, nil</span>
         }
 
-        <span class="cov0" title="0">err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error </span><span class="cov8" title="1">{
                 if err != nil </span><span class="cov0" title="0">{
                         return err
                 }</span>
 
-                <span class="cov0" title="0">if !info.IsDir() &amp;&amp; isYAMLFile(filePath) </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if !info.IsDir() &amp;&amp; isYAMLFile(filePath) </span><span class="cov8" title="1">{
                         files = append(files, filePath)
                 }</span>
 
-                <span class="cov0" title="0">return nil</span>
+                <span class="cov8" title="1">return nil</span>
         })
 
-        <span class="cov0" title="0">return files, err</span>
+        <span class="cov8" title="1">return files, err</span>
 }
 
 // isYAMLFile checks if a file has a YAML extension
-func isYAMLFile(filename string) bool <span class="cov0" title="0">{
+func isYAMLFile(filename string) bool <span class="cov8" title="1">{
         ext := strings.ToLower(filepath.Ext(filename))
         return ext == ".yaml" || ext == ".yml"
 }</span>
 
 // validateFiles validates all provided YAML files
-func validateFiles(files []string) ValidationSummary <span class="cov0" title="0">{
+func validateFiles(files []string) ValidationSummary <span class="cov8" title="1">{
         summary := ValidationSummary{
                 TotalFiles: len(files),
                 Results:    make([]ValidationResult, 0, len(files)),
         }
 
-        for _, file := range files </span><span class="cov0" title="0">{
+        for _, file := range files </span><span class="cov8" title="1">{
                 result := validateFile(file)
                 summary.Results = append(summary.Results, result)
 
-                if result.Valid </span><span class="cov0" title="0">{
+                if result.Valid </span><span class="cov8" title="1">{
                         summary.ValidFiles++
-                }</span> else<span class="cov0" title="0"> {
+                }</span> else<span class="cov8" title="1"> {
                         summary.InvalidFiles++
                 }</span>
         }
 
-        <span class="cov0" title="0">return summary</span>
+        <span class="cov8" title="1">return summary</span>
 }
 
 // validateFilePath ensures the file path is safe and within allowed directories
-func validateFilePath(filePath string) error <span class="cov0" title="0">{
+func validateFilePath(filePath string) error <span class="cov8" title="1">{
         // Clean the path to prevent directory traversal
         cleanPath := filepath.Clean(filePath)
 
@@ -458,12 +460,12 @@ func validateFilePath(filePath string) error <span class="cov0" title="0">{
         }</span>
 
         // Define allowed base directories
-        <span class="cov0" title="0">wd, err := os.Getwd()
+        <span class="cov8" title="1">wd, err := os.Getwd()
         if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("cannot determine working directory: %v", err)
         }</span>
 
-        <span class="cov0" title="0">allowedDirs := []string{
+        <span class="cov8" title="1">allowedDirs := []string{
                 filepath.Join(wd, "data"),
                 filepath.Join(wd, "configs"),
                 wd, // Allow current directory
@@ -471,27 +473,27 @@ func validateFilePath(filePath string) error <span class="cov0" title="0">{
 
         // Check if the file is within allowed directories
         allowed := false
-        for _, allowedDir := range allowedDirs </span><span class="cov0" title="0">{
+        for _, allowedDir := range allowedDirs </span><span class="cov8" title="1">{
                 absAllowedDir, err := filepath.Abs(allowedDir)
                 if err != nil </span><span class="cov0" title="0">{
                         continue</span>
                 }
 
-                <span class="cov0" title="0">if strings.HasPrefix(absPath, absAllowedDir) </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if strings.HasPrefix(absPath, absAllowedDir) </span><span class="cov8" title="1">{
                         allowed = true
                         break</span>
                 }
         }
 
-        <span class="cov0" title="0">if !allowed </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if !allowed </span><span class="cov8" title="1">{
                 return fmt.Errorf("file path not allowed: %s", absPath)
         }</span>
 
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
 // validateFile validates a single YAML file based on its location and content
-func validateFile(filePath string) ValidationResult <span class="cov0" title="0">{
+func validateFile(filePath string) ValidationResult <span class="cov8" title="1">{
         result := ValidationResult{
                 File:   filePath,
                 Valid:  true,
@@ -499,14 +501,14 @@ func validateFile(filePath string) ValidationResult <span class="cov0" title="0"
         }
 
         // Validate file path for security FIRST - before reading the file
-        if err := validateFilePath(filePath); err != nil </span><span class="cov0" title="0">{
+        if err := validateFilePath(filePath); err != nil </span><span class="cov8" title="1">{
                 result.Valid = false
                 result.Errors = append(result.Errors, fmt.Sprintf("Security error: %v", err))
                 return result
         }</span>
 
         // Read file content (now safe after validation)
-        <span class="cov0" title="0">content, err := os.ReadFile(filePath) // #nosec G304 -- filePath is validated by validateFilePath() function
+        <span class="cov8" title="1">content, err := os.ReadFile(filePath) // #nosec G304 -- filePath is validated by validateFilePath() function
         if err != nil </span><span class="cov0" title="0">{
                 result.Valid = false
                 result.Errors = append(result.Errors, fmt.Sprintf("Failed to read file: %v", err))
@@ -514,15 +516,15 @@ func validateFile(filePath string) ValidationResult <span class="cov0" title="0"
         }</span>
 
         // Basic YAML syntax validation
-        <span class="cov0" title="0">var yamlData interface{}
-        if err := yaml.Unmarshal(content, &amp;yamlData); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">var yamlData interface{}
+        if err := yaml.Unmarshal(content, &amp;yamlData); err != nil </span><span class="cov8" title="1">{
                 result.Valid = false
                 result.Errors = append(result.Errors, fmt.Sprintf("Invalid YAML syntax: %v", err))
                 return result
         }</span>
 
         // Determine file type and validate accordingly
-        <span class="cov0" title="0">fileType := determineFileType(filePath)
+        <span class="cov8" title="1">fileType := determineFileType(filePath)
 
         switch fileType </span>{
         case "main_config":<span class="cov0" title="0">
@@ -534,87 +536,87 @@ func validateFile(filePath string) ValidationResult <span class="cov0" title="0"
         case "scenario_config":<span class="cov0" title="0">
                 errors := validateScenarioConfig(content)
                 result.Errors = append(result.Errors, errors...)</span>
-        case "unknown":<span class="cov0" title="0">
+        case "unknown":<span class="cov8" title="1">
                 // For unknown files, just validate YAML syntax (already done above)
                 break</span>
         }
 
-        <span class="cov0" title="0">if len(result.Errors) &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(result.Errors) &gt; 0 </span><span class="cov0" title="0">{
                 result.Valid = false
         }</span>
 
-        <span class="cov0" title="0">return result</span>
+        <span class="cov8" title="1">return result</span>
 }
 
 // determineFileType analyzes the file path to determine what type of config it is
-func determineFileType(filePath string) string <span class="cov0" title="0">{
+func determineFileType(filePath string) string <span class="cov8" title="1">{
         // Normalize path separators
         normalizedPath := filepath.ToSlash(filePath)
 
-        if strings.Contains(normalizedPath, "data/config.yaml") || strings.HasSuffix(normalizedPath, "config.yaml") </span><span class="cov0" title="0">{
+        if strings.Contains(normalizedPath, "data/config.yaml") || strings.HasSuffix(normalizedPath, "config.yaml") </span><span class="cov8" title="1">{
                 return "main_config"
         }</span>
 
-        <span class="cov0" title="0">if strings.Contains(normalizedPath, "data/platforms/") </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if strings.Contains(normalizedPath, "data/platforms/") </span><span class="cov8" title="1">{
                 return "platform_definition"
         }</span>
 
-        <span class="cov0" title="0">if strings.Contains(normalizedPath, "data/configs/") </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if strings.Contains(normalizedPath, "data/configs/") </span><span class="cov8" title="1">{
                 return "scenario_config"
         }</span>
 
-        <span class="cov0" title="0">return "unknown"</span>
+        <span class="cov8" title="1">return "unknown"</span>
 }
 
 // validateMainConfig validates the main configuration file structure
-func validateMainConfig(content []byte) []string <span class="cov0" title="0">{
+func validateMainConfig(content []byte) []string <span class="cov8" title="1">{
         var errors []string
 
         var cfg config.Config
-        if err := yaml.Unmarshal(content, &amp;cfg); err != nil </span><span class="cov0" title="0">{
+        if err := yaml.Unmarshal(content, &amp;cfg); err != nil </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("Failed to parse main config: %v", err))
                 return errors
         }</span>
 
         // Validate simulation config
-        <span class="cov0" title="0">if cfg.Simulation.UpdateInterval == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if cfg.Simulation.UpdateInterval == "" </span><span class="cov8" title="1">{
                 errors = append(errors, "simulation.update_interval is required")
         }</span>
 
-        <span class="cov0" title="0">if cfg.Simulation.TimeScale &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if cfg.Simulation.TimeScale &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, "simulation.time_scale must be positive")
         }</span>
 
         // Validate server config
-        <span class="cov0" title="0">if cfg.Server.Port &lt; 1 || cfg.Server.Port &gt; 65535 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if cfg.Server.Port &lt; 1 || cfg.Server.Port &gt; 65535 </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("server.port must be between 1 and 65535, got %d", cfg.Server.Port))
         }</span>
 
         // Validate platform types exist
-        <span class="cov0" title="0">totalPlatformTypes := len(cfg.Platforms.AirborneTypes) +
+        <span class="cov8" title="1">totalPlatformTypes := len(cfg.Platforms.AirborneTypes) +
                 len(cfg.Platforms.MaritimeTypes) +
                 len(cfg.Platforms.LandTypes) +
                 len(cfg.Platforms.SpaceTypes)
 
-        if totalPlatformTypes == 0 </span><span class="cov0" title="0">{
+        if totalPlatformTypes == 0 </span><span class="cov8" title="1">{
                 errors = append(errors, "At least one platform type must be defined")
         }</span>
 
         // Validate scenario references
-        <span class="cov0" title="0">for scenarioName, scenario := range cfg.Platforms.Scenarios </span><span class="cov0" title="0">{
-                for i, instance := range scenario.Instances </span><span class="cov0" title="0">{
-                        if !cfg.Platforms.HasType(instance.TypeID) </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for scenarioName, scenario := range cfg.Platforms.Scenarios </span><span class="cov8" title="1">{
+                for i, instance := range scenario.Instances </span><span class="cov8" title="1">{
+                        if !cfg.Platforms.HasType(instance.TypeID) </span><span class="cov8" title="1">{
                                 errors = append(errors, fmt.Sprintf("scenario %s, instance %d: references unknown platform type '%s'",
                                         scenarioName, i, instance.TypeID))
                         }</span>
                 }
         }
 
-        <span class="cov0" title="0">return errors</span>
+        <span class="cov8" title="1">return errors</span>
 }
 
 // validatePlatformDefinition validates platform definition files
-func validatePlatformDefinition(content []byte, filePath string) []string <span class="cov0" title="0">{
+func validatePlatformDefinition(content []byte, filePath string) []string <span class="cov8" title="1">{
         var errors []string
 
         // Try to parse as a platform type definition
@@ -622,110 +624,110 @@ func validatePlatformDefinition(content []byte, filePath string) []string <span 
                 PlatformTypes map[string]models.PlatformTypeDefinition `yaml:"platform_types"`
         }
 
-        if err := yaml.Unmarshal(content, &amp;platformData); err != nil </span><span class="cov0" title="0">{
+        if err := yaml.Unmarshal(content, &amp;platformData); err != nil </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("Failed to parse platform definition: %v", err))
                 return errors
         }</span>
 
-        <span class="cov0" title="0">if len(platformData.PlatformTypes) == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(platformData.PlatformTypes) == 0 </span><span class="cov8" title="1">{
                 errors = append(errors, "No platform types defined in file")
                 return errors
         }</span>
 
         // Validate each platform type
-        <span class="cov0" title="0">for typeName, platformType := range platformData.PlatformTypes </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for typeName, platformType := range platformData.PlatformTypes </span><span class="cov8" title="1">{
                 platformErrors := validatePlatformType(typeName, platformType, filePath)
                 errors = append(errors, platformErrors...)
         }</span>
 
-        <span class="cov0" title="0">return errors</span>
+        <span class="cov8" title="1">return errors</span>
 }
 
 // validatePlatformType validates individual platform type definitions
-func validatePlatformType(typeName string, platform models.PlatformTypeDefinition, filePath string) []string <span class="cov0" title="0">{
+func validatePlatformType(typeName string, platform models.PlatformTypeDefinition, filePath string) []string <span class="cov8" title="1">{
         var errors []string
 
         // Required fields validation
-        if platform.Class == "" </span><span class="cov0" title="0">{
+        if platform.Class == "" </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': class is required", typeName))
         }</span>
 
-        <span class="cov0" title="0">if platform.Category == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Category == "" </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': category is required", typeName))
         }</span>
 
         // Performance validation
-        <span class="cov0" title="0">if platform.Performance.MaxSpeed &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Performance.MaxSpeed &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': max_speed must be positive", typeName))
         }</span>
 
-        <span class="cov0" title="0">if platform.Performance.CruiseSpeed &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Performance.CruiseSpeed &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': cruise_speed must be positive", typeName))
         }</span>
 
-        <span class="cov0" title="0">if platform.Performance.CruiseSpeed &gt; platform.Performance.MaxSpeed </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Performance.CruiseSpeed &gt; platform.Performance.MaxSpeed </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': cruise_speed cannot exceed max_speed", typeName))
         }</span>
 
         // Physical characteristics validation
-        <span class="cov0" title="0">if platform.Physical.Length &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Physical.Length &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': length must be positive", typeName))
         }</span>
 
-        <span class="cov0" title="0">if platform.Physical.Width &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Physical.Width &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': width must be positive", typeName))
         }</span>
 
-        <span class="cov0" title="0">if platform.Physical.Mass &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if platform.Physical.Mass &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("platform '%s': mass must be positive", typeName))
         }</span>
 
         // Domain-specific validation
-        <span class="cov0" title="0">errors = append(errors, validateDomainSpecific(typeName, platform, filePath)...)
+        <span class="cov8" title="1">errors = append(errors, validateDomainSpecific(typeName, platform, filePath)...)
 
         return errors</span>
 }
 
 // validateDomainSpecific performs domain-specific validation based on file location
-func validateDomainSpecific(typeName string, platform models.PlatformTypeDefinition, filePath string) []string <span class="cov0" title="0">{
+func validateDomainSpecific(typeName string, platform models.PlatformTypeDefinition, filePath string) []string <span class="cov8" title="1">{
         var errors []string
 
         normalizedPath := filepath.ToSlash(filePath)
 
-        if strings.Contains(normalizedPath, "airborne/") </span><span class="cov0" title="0">{
+        if strings.Contains(normalizedPath, "airborne/") </span><span class="cov8" title="1">{
                 // Airborne-specific validation
-                if platform.Performance.MaxAltitude &lt;= 0 </span><span class="cov0" title="0">{
+                if platform.Performance.MaxAltitude &lt;= 0 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("airborne platform '%s': max_altitude must be positive", typeName))
                 }</span>
 
-                <span class="cov0" title="0">if platform.Performance.ClimbRate &lt;= 0 </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if platform.Performance.ClimbRate &lt;= 0 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("airborne platform '%s': climb_rate must be positive", typeName))
                 }</span>
         }
 
-        <span class="cov0" title="0">if strings.Contains(normalizedPath, "maritime/") </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if strings.Contains(normalizedPath, "maritime/") </span><span class="cov8" title="1">{
                 // Maritime-specific validation
-                if platform.Physical.Draft &lt;= 0 </span><span class="cov0" title="0">{
+                if platform.Physical.Draft &lt;= 0 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("maritime platform '%s': draft must be positive", typeName))
                 }</span>
         }
 
-        <span class="cov0" title="0">if strings.Contains(normalizedPath, "space/") </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if strings.Contains(normalizedPath, "space/") </span><span class="cov8" title="1">{
                 // Space-specific validation
-                if platform.Performance.OrbitalVelocity &lt;= 0 </span><span class="cov0" title="0">{
+                if platform.Performance.OrbitalVelocity &lt;= 0 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("space platform '%s': orbital_velocity must be positive", typeName))
                 }</span>
 
-                <span class="cov0" title="0">if platform.Performance.OrbitalAltitude &lt;= 0 </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if platform.Performance.OrbitalAltitude &lt;= 0 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("space platform '%s': orbital_altitude must be positive", typeName))
                 }</span>
         }
 
-        <span class="cov0" title="0">return errors</span>
+        <span class="cov8" title="1">return errors</span>
 }
 
 // validateScenarioConfig validates scenario configuration files
-func validateScenarioConfig(content []byte) []string <span class="cov0" title="0">{
+func validateScenarioConfig(content []byte) []string <span class="cov8" title="1">{
         var errors []string
 
         var scenarioData struct {
@@ -745,76 +747,76 @@ func validateScenarioConfig(content []byte) []string <span class="cov0" title="0
                 } `yaml:"platforms"`
         }
 
-        if err := yaml.Unmarshal(content, &amp;scenarioData); err != nil </span><span class="cov0" title="0">{
+        if err := yaml.Unmarshal(content, &amp;scenarioData); err != nil </span><span class="cov8" title="1">{
                 errors = append(errors, fmt.Sprintf("Failed to parse scenario config: %v", err))
                 return errors
         }</span>
 
         // Validate metadata
-        <span class="cov0" title="0">if scenarioData.Metadata.Name == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if scenarioData.Metadata.Name == "" </span><span class="cov8" title="1">{
                 errors = append(errors, "metadata.name is required")
         }</span>
 
-        <span class="cov0" title="0">if scenarioData.Metadata.Duration &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if scenarioData.Metadata.Duration &lt;= 0 </span><span class="cov8" title="1">{
                 errors = append(errors, "metadata.duration must be positive")
         }</span>
 
         // Validate platforms
-        <span class="cov0" title="0">platformIDs := make(map[string]bool)
-        for i, platform := range scenarioData.Platforms </span><span class="cov0" title="0">{
-                if platform.ID == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">platformIDs := make(map[string]bool)
+        for i, platform := range scenarioData.Platforms </span><span class="cov8" title="1">{
+                if platform.ID == "" </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("platform %d: id is required", i))
-                }</span> else<span class="cov0" title="0"> {
-                        if platformIDs[platform.ID] </span><span class="cov0" title="0">{
+                }</span> else<span class="cov8" title="1"> {
+                        if platformIDs[platform.ID] </span><span class="cov8" title="1">{
                                 errors = append(errors, fmt.Sprintf("platform %d: duplicate id '%s'", i, platform.ID))
                         }</span>
-                        <span class="cov0" title="0">platformIDs[platform.ID] = true</span>
+                        <span class="cov8" title="1">platformIDs[platform.ID] = true</span>
                 }
 
-                <span class="cov0" title="0">if platform.Type == "" </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if platform.Type == "" </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("platform %d (%s): type is required", i, platform.ID))
                 }</span>
 
                 // Validate coordinates
-                <span class="cov0" title="0">if platform.StartPosition.Latitude &lt; -90 || platform.StartPosition.Latitude &gt; 90 </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if platform.StartPosition.Latitude &lt; -90 || platform.StartPosition.Latitude &gt; 90 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("platform %d (%s): latitude must be between -90 and 90", i, platform.ID))
                 }</span>
 
-                <span class="cov0" title="0">if platform.StartPosition.Longitude &lt; -180 || platform.StartPosition.Longitude &gt; 180 </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if platform.StartPosition.Longitude &lt; -180 || platform.StartPosition.Longitude &gt; 180 </span><span class="cov8" title="1">{
                         errors = append(errors, fmt.Sprintf("platform %d (%s): longitude must be between -180 and 180", i, platform.ID))
                 }</span>
         }
 
-        <span class="cov0" title="0">return errors</span>
+        <span class="cov8" title="1">return errors</span>
 }
 
 // printSummary prints the validation results
-func printSummary(summary ValidationSummary) <span class="cov0" title="0">{
+func printSummary(summary ValidationSummary) <span class="cov8" title="1">{
         fmt.Printf("\n=== YAML Validation Summary ===\n")
         fmt.Printf("Total files: %d\n", summary.TotalFiles)
         fmt.Printf("Valid files: %d\n", summary.ValidFiles)
         fmt.Printf("Invalid files: %d\n", summary.InvalidFiles)
 
-        if len(summary.FatalErrors) &gt; 0 </span><span class="cov0" title="0">{
+        if len(summary.FatalErrors) &gt; 0 </span><span class="cov8" title="1">{
                 fmt.Printf("\nFatal Errors:\n")
-                for _, err := range summary.FatalErrors </span><span class="cov0" title="0">{
+                for _, err := range summary.FatalErrors </span><span class="cov8" title="1">{
                         fmt.Printf("  ❌ %s\n", err)
                 }</span>
         }
 
-        <span class="cov0" title="0">if summary.InvalidFiles &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if summary.InvalidFiles &gt; 0 </span><span class="cov8" title="1">{
                 fmt.Printf("\nValidation Errors:\n")
-                for _, result := range summary.Results </span><span class="cov0" title="0">{
-                        if !result.Valid </span><span class="cov0" title="0">{
+                for _, result := range summary.Results </span><span class="cov8" title="1">{
+                        if !result.Valid </span><span class="cov8" title="1">{
                                 fmt.Printf("\n📁 %s:\n", result.File)
-                                for _, err := range result.Errors </span><span class="cov0" title="0">{
+                                for _, err := range result.Errors </span><span class="cov8" title="1">{
                                         fmt.Printf("  ❌ %s\n", err)
                                 }</span>
                         }
                 }
         }
 
-        <span class="cov0" title="0">if summary.InvalidFiles == 0 &amp;&amp; len(summary.FatalErrors) == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if summary.InvalidFiles == 0 &amp;&amp; len(summary.FatalErrors) == 0 </span><span class="cov8" title="1">{
                 fmt.Printf("\n✅ All YAML files are valid!\n")
         }</span>
 }
@@ -1046,97 +1048,97 @@ type RandomWalkBehavior struct {
 }
 
 // LoadConfig loads configuration from a YAML file
-func LoadConfig(filename string) (*Config, error) <span class="cov0" title="0">{
+func LoadConfig(filename string) (*Config, error) <span class="cov8" title="1">{
         // Validate filename to prevent path traversal attacks
         if filepath.IsAbs(filename) </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("absolute paths not allowed for config files")
         }</span>
 
         // Clean the path to prevent directory traversal
-        <span class="cov0" title="0">cleanPath := filepath.Clean(filename)
+        <span class="cov8" title="1">cleanPath := filepath.Clean(filename)
         if strings.Contains(cleanPath, "..") </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("path traversal not allowed in config filename")
         }</span>
 
-        <span class="cov0" title="0">data, err := os.ReadFile(cleanPath)
-        if err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">data, err := os.ReadFile(cleanPath)
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("failed to read config file: %w", err)
         }</span>
 
-        <span class="cov0" title="0">var config Config
-        if err := yaml.Unmarshal(data, &amp;config); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">var config Config
+        if err := yaml.Unmarshal(data, &amp;config); err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("failed to parse config file: %w", err)
         }</span>
 
         // Apply defaults
-        <span class="cov0" title="0">if err := applyDefaults(&amp;config); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err := applyDefaults(&amp;config); err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to apply defaults: %w", err)
         }</span>
 
         // Validate configuration
-        <span class="cov0" title="0">if err := validateConfig(&amp;config); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if err := validateConfig(&amp;config); err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("invalid configuration: %w", err)
         }</span>
 
-        <span class="cov0" title="0">return &amp;config, nil</span>
+        <span class="cov8" title="1">return &amp;config, nil</span>
 }
 
 // applyDefaults applies default values to configuration
-func applyDefaults(config *Config) error <span class="cov0" title="0">{
+func applyDefaults(config *Config) error <span class="cov8" title="1">{
         // Apply simulation defaults
-        if config.Simulation.UpdateInterval == "" </span><span class="cov0" title="0">{
+        if config.Simulation.UpdateInterval == "" </span><span class="cov8" title="1">{
                 config.Simulation.UpdateInterval = "1s"
         }</span>
-        <span class="cov0" title="0">if config.Simulation.TimeScale == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Simulation.TimeScale == 0 </span><span class="cov8" title="1">{
                 config.Simulation.TimeScale = 1.0
         }</span>
-        <span class="cov0" title="0">if config.Simulation.MaxDuration == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Simulation.MaxDuration == "" </span><span class="cov8" title="1">{
                 config.Simulation.MaxDuration = "1h"
         }</span>
 
         // Apply server defaults
-        <span class="cov0" title="0">if config.Server.Port == 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Server.Port == 0 </span><span class="cov8" title="1">{
                 config.Server.Port = 8080
         }</span>
-        <span class="cov0" title="0">if config.Server.Host == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Server.Host == "" </span><span class="cov8" title="1">{
                 config.Server.Host = "localhost"
         }</span>
-        <span class="cov0" title="0">if config.Server.WebRoot == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Server.WebRoot == "" </span><span class="cov8" title="1">{
                 config.Server.WebRoot = "web"
         }</span>
 
         // Apply output defaults
-        <span class="cov0" title="0">if config.Output.CoT.UpdateRate == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Output.CoT.UpdateRate == "" </span><span class="cov8" title="1">{
                 config.Output.CoT.UpdateRate = "5s"
         }</span>
-        <span class="cov0" title="0">if config.Output.CoT.Endpoint == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Output.CoT.Endpoint == "" </span><span class="cov8" title="1">{
                 config.Output.CoT.Endpoint = "udp://239.2.3.1:6969"
         }</span>
-        <span class="cov0" title="0">if config.Output.Logging.Level == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Output.Logging.Level == "" </span><span class="cov8" title="1">{
                 config.Output.Logging.Level = "info"
         }</span>
-        <span class="cov0" title="0">if config.Output.Logging.Format == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Output.Logging.Format == "" </span><span class="cov8" title="1">{
                 config.Output.Logging.Format = "text"
         }</span>
 
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
 // validateConfig validates the configuration
-func validateConfig(config *Config) error <span class="cov0" title="0">{
+func validateConfig(config *Config) error <span class="cov8" title="1">{
         // Validate server port
-        if config.Server.Port &lt; 1 || config.Server.Port &gt; 65535 </span><span class="cov0" title="0">{
+        if config.Server.Port &lt; 1 || config.Server.Port &gt; 65535 </span><span class="cov8" title="1">{
                 return fmt.Errorf("invalid server port: %d", config.Server.Port)
         }</span>
 
         // Validate time scale
-        <span class="cov0" title="0">if config.Simulation.TimeScale &lt;= 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if config.Simulation.TimeScale &lt;= 0 </span><span class="cov0" title="0">{
                 return fmt.Errorf("invalid time scale: %f", config.Simulation.TimeScale)
         }</span>
 
         // Validate platform type references in scenarios
-        <span class="cov0" title="0">for scenarioName, scenario := range config.Platforms.Scenarios </span><span class="cov0" title="0">{
-                for i, instance := range scenario.Instances </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for scenarioName, scenario := range config.Platforms.Scenarios </span><span class="cov8" title="1">{
+                for i, instance := range scenario.Instances </span><span class="cov8" title="1">{
                         if !config.Platforms.HasType(instance.TypeID) </span><span class="cov0" title="0">{
                                 return fmt.Errorf("scenario %s, instance %d: unknown platform type %s",
                                         scenarioName, i, instance.TypeID)
@@ -1144,41 +1146,41 @@ func validateConfig(config *Config) error <span class="cov0" title="0">{
                 }
         }
 
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
 // HasType checks if a platform type exists in the registry
-func (pr *PlatformRegistry) HasType(typeID string) bool <span class="cov0" title="0">{
-        if _, exists := pr.AirborneTypes[typeID]; exists </span><span class="cov0" title="0">{
+func (pr *PlatformRegistry) HasType(typeID string) bool <span class="cov8" title="1">{
+        if _, exists := pr.AirborneTypes[typeID]; exists </span><span class="cov8" title="1">{
                 return true
         }</span>
-        <span class="cov0" title="0">if _, exists := pr.MaritimeTypes[typeID]; exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if _, exists := pr.MaritimeTypes[typeID]; exists </span><span class="cov8" title="1">{
                 return true
         }</span>
-        <span class="cov0" title="0">if _, exists := pr.LandTypes[typeID]; exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if _, exists := pr.LandTypes[typeID]; exists </span><span class="cov8" title="1">{
                 return true
         }</span>
-        <span class="cov0" title="0">if _, exists := pr.SpaceTypes[typeID]; exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if _, exists := pr.SpaceTypes[typeID]; exists </span><span class="cov8" title="1">{
                 return true
         }</span>
-        <span class="cov0" title="0">return false</span>
+        <span class="cov8" title="1">return false</span>
 }
 
 // GetType retrieves a platform type definition by ID
-func (pr *PlatformRegistry) GetType(typeID string) (*PlatformTypeDefinition, error) <span class="cov0" title="0">{
-        if def, exists := pr.AirborneTypes[typeID]; exists </span><span class="cov0" title="0">{
+func (pr *PlatformRegistry) GetType(typeID string) (*PlatformTypeDefinition, error) <span class="cov8" title="1">{
+        if def, exists := pr.AirborneTypes[typeID]; exists </span><span class="cov8" title="1">{
                 return &amp;def, nil
         }</span>
-        <span class="cov0" title="0">if def, exists := pr.MaritimeTypes[typeID]; exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if def, exists := pr.MaritimeTypes[typeID]; exists </span><span class="cov8" title="1">{
                 return &amp;def, nil
         }</span>
-        <span class="cov0" title="0">if def, exists := pr.LandTypes[typeID]; exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if def, exists := pr.LandTypes[typeID]; exists </span><span class="cov0" title="0">{
                 return &amp;def, nil
         }</span>
-        <span class="cov0" title="0">if def, exists := pr.SpaceTypes[typeID]; exists </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if def, exists := pr.SpaceTypes[typeID]; exists </span><span class="cov0" title="0">{
                 return &amp;def, nil
         }</span>
-        <span class="cov0" title="0">return nil, fmt.Errorf("platform type not found: %s", typeID)</span>
+        <span class="cov8" title="1">return nil, fmt.Errorf("platform type not found: %s", typeID)</span>
 }
 </pre>
 		
@@ -1208,22 +1210,22 @@ type PlatformFactory struct {
 }
 
 // NewPlatformFactory creates a new platform factory
-func NewPlatformFactory(registry *PlatformRegistry) *PlatformFactory <span class="cov0" title="0">{
+func NewPlatformFactory(registry *PlatformRegistry) *PlatformFactory <span class="cov8" title="1">{
         return &amp;PlatformFactory{
                 registry: registry,
         }
 }</span>
 
 // CreatePlatform creates a universal platform instance from configuration
-func (f *PlatformFactory) CreatePlatform(instance PlatformInstance) (models.Platform, error) <span class="cov0" title="0">{
+func (f *PlatformFactory) CreatePlatform(instance PlatformInstance) (models.Platform, error) <span class="cov8" title="1">{
         // Get the platform type definition
         typeDef, err := f.registry.GetType(instance.TypeID)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("failed to get platform type %s: %w", instance.TypeID, err)
         }</span>
 
         // Convert config position to models position
-        <span class="cov0" title="0">startPos := models.Position{
+        <span class="cov8" title="1">startPos := models.Position{
                 Latitude:  instance.StartPos.Latitude,
                 Longitude: instance.StartPos.Longitude,
                 Altitude:  instance.StartPos.Altitude,
@@ -1231,12 +1233,12 @@ func (f *PlatformFactory) CreatePlatform(instance PlatformInstance) (models.Plat
 
         // Generate call sign if not provided
         callSign := instance.CallSign
-        if callSign == "" </span><span class="cov0" title="0">{
+        if callSign == "" </span><span class="cov8" title="1">{
                 callSign = f.generateCallSign(typeDef, instance.ID)
         }</span>
 
         // Determine platform type from configuration
-        <span class="cov0" title="0">platformType := f.determinePlatformType(typeDef.Type)
+        <span class="cov8" title="1">platformType := f.determinePlatformType(typeDef.Type)
 
         // Convert PlatformTypeDefinition to models.PlatformTypeDefinition
         modelTypeDef := f.convertToModelTypeDefinition(typeDef)
@@ -1276,29 +1278,29 @@ func (f *PlatformFactory) CreatePlatform(instance PlatformInstance) (models.Plat
 }
 
 // CreateScenario creates all platforms for a given scenario - only loads specified platforms
-func (f *PlatformFactory) CreateScenario(scenarioName string) ([]models.Platform, error) <span class="cov0" title="0">{
+func (f *PlatformFactory) CreateScenario(scenarioName string) ([]models.Platform, error) <span class="cov8" title="1">{
         scenario, exists := f.registry.Scenarios[scenarioName]
-        if !exists </span><span class="cov0" title="0">{
+        if !exists </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("scenario not found: %s", scenarioName)
         }</span>
 
-        <span class="cov0" title="0">var platforms []models.Platform
+        <span class="cov8" title="1">var platforms []models.Platform
 
         // Only create platforms that are explicitly defined in the scenario
-        for _, instance := range scenario.Instances </span><span class="cov0" title="0">{
+        for _, instance := range scenario.Instances </span><span class="cov8" title="1">{
                 // Verify the platform type exists in configuration
                 if !f.registry.HasType(instance.TypeID) </span><span class="cov0" title="0">{
                         return nil, fmt.Errorf("platform type %s not found in configuration for instance %s",
                                 instance.TypeID, instance.ID)
                 }</span>
 
-                <span class="cov0" title="0">platform, err := f.CreatePlatform(instance)
+                <span class="cov8" title="1">platform, err := f.CreatePlatform(instance)
                 if err != nil </span><span class="cov0" title="0">{
                         return nil, fmt.Errorf("failed to create platform %s: %w", instance.ID, err)
                 }</span>
 
                 // Set destination if specified
-                <span class="cov0" title="0">if instance.Destination != nil </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if instance.Destination != nil </span><span class="cov0" title="0">{
                         dest := models.Position{
                                 Latitude:  instance.Destination.Latitude,
                                 Longitude: instance.Destination.Longitude,
@@ -1309,42 +1311,42 @@ func (f *PlatformFactory) CreateScenario(scenarioName string) ([]models.Platform
                         }</span>
                 }
 
-                <span class="cov0" title="0">platforms = append(platforms, platform)</span>
+                <span class="cov8" title="1">platforms = append(platforms, platform)</span>
         }
 
-        <span class="cov0" title="0">return platforms, nil</span>
+        <span class="cov8" title="1">return platforms, nil</span>
 }
 
 // GetAvailablePlatformTypes returns only the platform types that are actually configured
-func (f *PlatformFactory) GetAvailablePlatformTypes() map[string][]string <span class="cov0" title="0">{
+func (f *PlatformFactory) GetAvailablePlatformTypes() map[string][]string <span class="cov8" title="1">{
         available := make(map[string][]string)
 
         // Only include platform types that are defined in the configuration
-        if len(f.registry.AirborneTypes) &gt; 0 </span><span class="cov0" title="0">{
+        if len(f.registry.AirborneTypes) &gt; 0 </span><span class="cov8" title="1">{
                 var airborneTypes []string
-                for typeID := range f.registry.AirborneTypes </span><span class="cov0" title="0">{
+                for typeID := range f.registry.AirborneTypes </span><span class="cov8" title="1">{
                         airborneTypes = append(airborneTypes, typeID)
                 }</span>
-                <span class="cov0" title="0">available["airborne"] = airborneTypes</span>
+                <span class="cov8" title="1">available["airborne"] = airborneTypes</span>
         }
 
-        <span class="cov0" title="0">if len(f.registry.MaritimeTypes) &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(f.registry.MaritimeTypes) &gt; 0 </span><span class="cov8" title="1">{
                 var maritimeTypes []string
-                for typeID := range f.registry.MaritimeTypes </span><span class="cov0" title="0">{
+                for typeID := range f.registry.MaritimeTypes </span><span class="cov8" title="1">{
                         maritimeTypes = append(maritimeTypes, typeID)
                 }</span>
-                <span class="cov0" title="0">available["maritime"] = maritimeTypes</span>
+                <span class="cov8" title="1">available["maritime"] = maritimeTypes</span>
         }
 
-        <span class="cov0" title="0">if len(f.registry.LandTypes) &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(f.registry.LandTypes) &gt; 0 </span><span class="cov8" title="1">{
                 var landTypes []string
-                for typeID := range f.registry.LandTypes </span><span class="cov0" title="0">{
+                for typeID := range f.registry.LandTypes </span><span class="cov8" title="1">{
                         landTypes = append(landTypes, typeID)
                 }</span>
-                <span class="cov0" title="0">available["land"] = landTypes</span>
+                <span class="cov8" title="1">available["land"] = landTypes</span>
         }
 
-        <span class="cov0" title="0">if len(f.registry.SpaceTypes) &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if len(f.registry.SpaceTypes) &gt; 0 </span><span class="cov0" title="0">{
                 var spaceTypes []string
                 for typeID := range f.registry.SpaceTypes </span><span class="cov0" title="0">{
                         spaceTypes = append(spaceTypes, typeID)
@@ -1352,65 +1354,65 @@ func (f *PlatformFactory) GetAvailablePlatformTypes() map[string][]string <span 
                 <span class="cov0" title="0">available["space"] = spaceTypes</span>
         }
 
-        <span class="cov0" title="0">return available</span>
+        <span class="cov8" title="1">return available</span>
 }
 
 // ValidateScenario validates that all platforms in a scenario reference valid types
-func (f *PlatformFactory) ValidateScenario(scenarioName string) error <span class="cov0" title="0">{
+func (f *PlatformFactory) ValidateScenario(scenarioName string) error <span class="cov8" title="1">{
         scenario, exists := f.registry.Scenarios[scenarioName]
-        if !exists </span><span class="cov0" title="0">{
+        if !exists </span><span class="cov8" title="1">{
                 return fmt.Errorf("scenario not found: %s", scenarioName)
         }</span>
 
-        <span class="cov0" title="0">for i, instance := range scenario.Instances </span><span class="cov0" title="0">{
-                if !f.registry.HasType(instance.TypeID) </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for i, instance := range scenario.Instances </span><span class="cov8" title="1">{
+                if !f.registry.HasType(instance.TypeID) </span><span class="cov8" title="1">{
                         return fmt.Errorf("scenario %s, instance %d (%s): unknown platform type %s",
                                 scenarioName, i, instance.ID, instance.TypeID)
                 }</span>
         }
 
-        <span class="cov0" title="0">return nil</span>
+        <span class="cov8" title="1">return nil</span>
 }
 
 // generateCallSign generates a call sign based on the platform type definition
-func (f *PlatformFactory) generateCallSign(typeDef *PlatformTypeDefinition, instanceID string) string <span class="cov0" title="0">{
-        if typeDef.CallSignPrefix != "" </span><span class="cov0" title="0">{
-                if typeDef.CallSignFormat != "" </span><span class="cov0" title="0">{
+func (f *PlatformFactory) generateCallSign(typeDef *PlatformTypeDefinition, instanceID string) string <span class="cov8" title="1">{
+        if typeDef.CallSignPrefix != "" </span><span class="cov8" title="1">{
+                if typeDef.CallSignFormat != "" </span><span class="cov8" title="1">{
                         // Use custom format
                         callSign := strings.ReplaceAll(typeDef.CallSignFormat, "{prefix}", typeDef.CallSignPrefix)
                         callSign = strings.ReplaceAll(callSign, "{id}", instanceID)
                         return callSign
                 }</span>
                 // Default format: prefix + last 3 chars of ID
-                <span class="cov0" title="0">suffix := instanceID
-                if len(instanceID) &gt; 3 </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">suffix := instanceID
+                if len(instanceID) &gt; 3 </span><span class="cov8" title="1">{
                         suffix = instanceID[len(instanceID)-3:]
                 }</span>
-                <span class="cov0" title="0">return typeDef.CallSignPrefix + suffix</span>
+                <span class="cov8" title="1">return typeDef.CallSignPrefix + suffix</span>
         }
 
         // Fallback to instance ID
-        <span class="cov0" title="0">return instanceID</span>
+        <span class="cov8" title="1">return instanceID</span>
 }
 
 // determinePlatformType converts string type to PlatformType enum
-func (f *PlatformFactory) determinePlatformType(typeStr string) models.PlatformType <span class="cov0" title="0">{
+func (f *PlatformFactory) determinePlatformType(typeStr string) models.PlatformType <span class="cov8" title="1">{
         switch typeStr </span>{
-        case "airborne":<span class="cov0" title="0">
+        case "airborne":<span class="cov8" title="1">
                 return models.PlatformTypeAirborne</span>
-        case "maritime":<span class="cov0" title="0">
+        case "maritime":<span class="cov8" title="1">
                 return models.PlatformTypeMaritime</span>
-        case "land":<span class="cov0" title="0">
+        case "land":<span class="cov8" title="1">
                 return models.PlatformTypeLand</span>
-        case "space":<span class="cov0" title="0">
+        case "space":<span class="cov8" title="1">
                 return models.PlatformTypeSpace</span>
-        default:<span class="cov0" title="0">
+        default:<span class="cov8" title="1">
                 return models.PlatformTypeAirborne</span> // Default fallback
         }
 }
 
 // convertToModelTypeDefinition converts config type definition to models type definition
-func (f *PlatformFactory) convertToModelTypeDefinition(configDef *PlatformTypeDefinition) *models.PlatformTypeDefinition <span class="cov0" title="0">{
+func (f *PlatformFactory) convertToModelTypeDefinition(configDef *PlatformTypeDefinition) *models.PlatformTypeDefinition <span class="cov8" title="1">{
         return &amp;models.PlatformTypeDefinition{
                 Class:    configDef.Class,
                 Category: configDef.Category,
@@ -1451,7 +1453,7 @@ func (f *PlatformFactory) convertToModelTypeDefinition(configDef *PlatformTypeDe
 
 // Helper functions to calculate missing performance characteristics
 
-func calculateFuelConsumption(def *PlatformTypeDefinition) float64 <span class="cov0" title="0">{
+func calculateFuelConsumption(def *PlatformTypeDefinition) float64 <span class="cov8" title="1">{
         // Estimate fuel consumption based on platform characteristics
         if def.FuelCapacity &gt; 0 &amp;&amp; def.Range &gt; 0 </span><span class="cov0" title="0">{
                 // Fuel consumption rate in liters per meter
@@ -1459,21 +1461,21 @@ func calculateFuelConsumption(def *PlatformTypeDefinition) float64 <span class="
                 // Convert to liters per second at cruise speed
                 return fuelRate * def.CruiseSpeed
         }</span>
-        <span class="cov0" title="0">return 0.1</span> // Default minimal fuel consumption
+        <span class="cov8" title="1">return 0.1</span> // Default minimal fuel consumption
 }
 
-func calculateTurningRadius(def *PlatformTypeDefinition) float64 <span class="cov0" title="0">{
+func calculateTurningRadius(def *PlatformTypeDefinition) float64 <span class="cov8" title="1">{
         // Estimate turning radius based on platform type and size
         switch def.Type </span>{
-        case "airborne":<span class="cov0" title="0">
+        case "airborne":<span class="cov8" title="1">
                 // Aircraft turning radius based on speed and banking
-                if def.CruiseSpeed &gt; 0 </span><span class="cov0" title="0">{
+                if def.CruiseSpeed &gt; 0 </span><span class="cov8" title="1">{
                         // Assume 30 degree bank angle for commercial aircraft
                         bankAngle := 30.0 * math.Pi / 180.0
                         return (def.CruiseSpeed * def.CruiseSpeed) / (9.81 * math.Tan(bankAngle))
                 }</span>
-                <span class="cov0" title="0">return def.Length * 10</span> // Fallback: 10x length
-        case "maritime":<span class="cov0" title="0">
+                <span class="cov8" title="1">return def.Length * 10</span> // Fallback: 10x length
+        case "maritime":<span class="cov8" title="1">
                 // Ship turning radius
                 return def.Length * 5</span> // Ships typically turn in 5-10 ship lengths
         case "land":<span class="cov0" title="0">
@@ -1487,15 +1489,15 @@ func calculateTurningRadius(def *PlatformTypeDefinition) float64 <span class="co
         }
 }
 
-func calculateAcceleration(def *PlatformTypeDefinition) float64 <span class="cov0" title="0">{
+func calculateAcceleration(def *PlatformTypeDefinition) float64 <span class="cov8" title="1">{
         // Estimate acceleration based on platform type
         switch def.Type </span>{
-        case "airborne":<span class="cov0" title="0">
+        case "airborne":<span class="cov8" title="1">
                 if def.Category == "military" </span><span class="cov0" title="0">{
                         return 5.0 // Military aircraft: higher acceleration
                 }</span>
-                <span class="cov0" title="0">return 2.0</span> // Commercial aircraft: moderate acceleration
-        case "maritime":<span class="cov0" title="0">
+                <span class="cov8" title="1">return 2.0</span> // Commercial aircraft: moderate acceleration
+        case "maritime":<span class="cov8" title="1">
                 return 0.5</span> // Ships: slow acceleration
         case "land":<span class="cov0" title="0">
                 if def.Category == "military" </span><span class="cov0" title="0">{
@@ -1509,15 +1511,15 @@ func calculateAcceleration(def *PlatformTypeDefinition) float64 <span class="cov
         }
 }
 
-func calculateClimbRate(def *PlatformTypeDefinition) float64 <span class="cov0" title="0">{
+func calculateClimbRate(def *PlatformTypeDefinition) float64 <span class="cov8" title="1">{
         // Estimate climb rate for aircraft
-        if def.Type == "airborne" </span><span class="cov0" title="0">{
+        if def.Type == "airborne" </span><span class="cov8" title="1">{
                 if def.Category == "military" </span><span class="cov0" title="0">{
                         return 20.0 // Military aircraft: higher climb rate
                 }</span>
-                <span class="cov0" title="0">return 10.0</span> // Commercial aircraft: standard climb rate
+                <span class="cov8" title="1">return 10.0</span> // Commercial aircraft: standard climb rate
         }
-        <span class="cov0" title="0">return 0.0</span> // Non-aircraft don't climb
+        <span class="cov8" title="1">return 0.0</span> // Non-aircraft don't climb
 }
 </pre>
 		
@@ -5474,6 +5476,7 @@ import (
         "html/template"
         "log"
         "net/http"
+        "os"
         "strings"
         "sync"
         "time"
@@ -5489,50 +5492,71 @@ import (
         "github.com/rhino11/trafficsim/internal/sim"
 )
 
+// isTestMode checks if we're running in test mode
+func isTestMode() bool <span class="cov8" title="1">{
+        return strings.Contains(os.Args[0], ".test") ||
+                strings.HasSuffix(os.Args[0], "/test") ||
+                os.Getenv("GO_TESTING") == "1"
+}</span>
+
+// logf is a conditional logger that respects test verbosity
+func logf(format string, args ...interface{}) <span class="cov8" title="1">{
+        if isTestMode() </span><span class="cov8" title="1">{
+                // In test mode, suppress output unless explicitly enabled
+                if os.Getenv("VERBOSE_TESTS") == "1" </span><span class="cov0" title="0">{
+                        log.Printf(format, args...)
+                }</span>
+                // Otherwise suppress output in test mode
+        } else<span class="cov0" title="0"> {
+                // In production mode, always log
+                log.Printf(format, args...)
+        }</span>
+}
+
 // Enhanced logging for web interface debugging
-func logWebRequest(r *http.Request, status string) <span class="cov0" title="0">{
-        log.Printf("[WEB] %s %s - %s - User-Agent: %s - RemoteAddr: %s",
+func logWebRequest(r *http.Request, status string) <span class="cov8" title="1">{
+        logf("[WEB] %s %s - %s - User-Agent: %s - RemoteAddr: %s",
                 r.Method, r.URL.Path, status, r.UserAgent(), r.RemoteAddr)
 }</span>
 
-func logWebError(context string, err error) <span class="cov0" title="0">{
-        log.Printf("[WEB-ERROR] %s: %v", context, err)
+func logWebError(context string, err error) <span class="cov8" title="1">{
+        logf("[WEB-ERROR] %s: %v", context, err)
 }</span>
 
 func logWebSocket(action string, clientCount int) <span class="cov0" title="0">{
-        log.Printf("[WEBSOCKET] %s - Active clients: %d", action, clientCount)
+        logf("[WEBSOCKET] %s - Active clients: %d", action, clientCount)
 }</span>
 
 func logJSLoad(filename string, status string) <span class="cov0" title="0">{
-        log.Printf("[JS-LOAD] %s - %s", filename, status)
+        logf("[JS-LOAD] %s - %s", filename, status)
 }</span>
 
-func logInitialization(component string, status string, duration time.Duration) <span class="cov0" title="0">{
-        log.Printf("[INIT] %s - %s (took %v)", component, status, duration)
+func logInitialization(component string, status string, duration time.Duration) <span class="cov8" title="1">{
+        logf("[INIT] %s - %s (took %v)", component, status, duration)
 }</span>
 
 func logSimulationEvent(event string, details interface{}) <span class="cov0" title="0">{
-        log.Printf("[SIM] %s - %+v", event, details)
+        logf("[SIM] %s - %+v", event, details)
 }</span>
 
-func logPerformance(metric string, value interface{}) <span class="cov0" title="0">{
-        log.Printf("[PERF] %s: %v", metric, value)
+func logPerformance(metric string, value interface{}) <span class="cov8" title="1">{
+        logf("[PERF] %s: %v", metric, value)
 }</span>
 
 func logDebug(component string, message string, data interface{}) <span class="cov0" title="0">{
-        log.Printf("[DEBUG] [%s] %s - %+v", component, message, data)
+        logf("[DEBUG] [%s] %s - %+v", component, message, data)
 }</span>
 
 func logClientMessage(msgType string, clientAddr string, data interface{}) <span class="cov0" title="0">{
-        log.Printf("[CLIENT-MSG] Type: %s, From: %s, Data: %+v", msgType, clientAddr, data)
+        logf("[CLIENT-MSG] Type: %s, From: %s, Data: %+v", msgType, clientAddr, data)
 }</span>
 
 func logDataStream(component string, action string, details interface{}) <span class="cov0" title="0">{
-        log.Printf("[STREAM] [%s] %s - %+v", component, action, details)
+        logf("[STREAM] [%s] %s - %+v", component, action, details)
 }</span>
 
 func logPlatformUpdate(platformCount int, action string) <span class="cov0" title="0">{
-        log.Printf("[PLATFORM] %s - Count: %d", action, platformCount)
+        logf("[PLATFORM] %s - Count: %d", action, platformCount)
 }</span>
 
 // Server represents the web server for the traffic simulation
@@ -5578,7 +5602,7 @@ type SimulationStatus struct {
 }
 
 // NewServer creates a new web server instance
-func NewServer(cfg *config.Config, simulation *sim.Engine) *Server <span class="cov0" title="0">{
+func NewServer(cfg *config.Config, simulation *sim.Engine) *Server <span class="cov8" title="1">{
         ctx, cancel := context.WithCancel(context.Background())
 
         server := &amp;Server{
@@ -5596,14 +5620,14 @@ func NewServer(cfg *config.Config, simulation *sim.Engine) *Server <span class="
                 cancel:    cancel,
         }
 
-        <span class="cov0" title="0">server.setupRoutes()
+        <span class="cov8" title="1">server.setupRoutes()
         return server</span>
 }
 
 // setupRoutes configures all HTTP routes
-func (s *Server) setupRoutes() <span class="cov0" title="0">{
+func (s *Server) setupRoutes() <span class="cov8" title="1">{
         // Static files with logging
-        staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+        staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
                 start := time.Now()
                 logWebRequest(r, "SERVING_STATIC")
 
@@ -5622,7 +5646,7 @@ func (s *Server) setupRoutes() <span class="cov0" title="0">{
                         logJSLoad(r.URL.Path, "LOADED")
                 }</span>
         }))
-        <span class="cov0" title="0">s.router.PathPrefix("/static/").Handler(staticHandler)
+        <span class="cov8" title="1">s.router.PathPrefix("/static/").Handler(staticHandler)
 
         // WebSocket endpoint
         s.router.HandleFunc("/ws", s.handleWebSocket)
@@ -5675,7 +5699,7 @@ func (s *Server) Start(port string) error <span class="cov0" title="0">{
 }</span>
 
 // Stop stops the web server
-func (s *Server) Stop() <span class="cov0" title="0">{
+func (s *Server) Stop() <span class="cov8" title="1">{
         s.cancel()
 
         // Close all WebSocket connections with proper error handling
@@ -5685,13 +5709,13 @@ func (s *Server) Stop() <span class="cov0" title="0">{
                         log.Printf("Error closing WebSocket connection: %v", err)
                 }</span>
         }
-        <span class="cov0" title="0">s.clientsMux.Unlock()</span>
+        <span class="cov8" title="1">s.clientsMux.Unlock()</span>
 }
 
 // handleIndex serves the main HTML page
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         tmpl, err := template.ParseFiles("web/templates/index.html")
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 http.Error(w, "Error loading template: "+err.Error(), http.StatusInternalServerError)
                 return
         }</span>
@@ -5709,9 +5733,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) <span class
 }
 
 // handleScenarioBuilder serves the scenario builder HTML page
-func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         tmpl, err := template.ParseFiles("web/templates/scenario-builder.html")
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 http.Error(w, "Error loading scenario builder template: "+err.Error(), http.StatusInternalServerError)
                 return
         }</span>
@@ -5729,9 +5753,9 @@ func (s *Server) handleScenarioBuilder(w http.ResponseWriter, r *http.Request) <
 }
 
 // handleWebSocket handles WebSocket connections
-func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         conn, err := s.upgrader.Upgrade(w, r, nil)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 log.Printf("WebSocket upgrade error: %v", err)
                 return
         }</span>
@@ -5780,7 +5804,7 @@ func (s *Server) sendInitialData(client *Client) <span class="cov0" title="0">{
 }
 
 // handleGetPlatforms returns all current platforms
-func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         platforms := s.simulation.GetAllPlatforms()
 
         w.Header().Set("Content-Type", "application/json")
@@ -5791,7 +5815,7 @@ func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) <spa
 }
 
 // handleGetPlatformTypes returns all available platform types from configuration
-func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         // Load platform types from the configuration
         platformTypes, err := s.loadPlatformTypesFromConfig()
         if err != nil </span><span class="cov0" title="0">{
@@ -5805,7 +5829,7 @@ func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) 
                 <span class="cov0" title="0">return</span>
         }
 
-        <span class="cov0" title="0">w.Header().Set("Content-Type", "application/json")
+        <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
         if err := json.NewEncoder(w).Encode(platformTypes); err != nil </span><span class="cov0" title="0">{
                 http.Error(w, "Error encoding platform types: "+err.Error(), http.StatusInternalServerError)
                 return
@@ -5824,10 +5848,10 @@ type PlatformTypeInfo struct {
 }
 
 // loadPlatformTypesFromConfig loads platform types from YAML configuration files
-func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) <span class="cov0" title="0">{
+func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) <span class="cov8" title="1">{
         // Load configuration from file
         cfg, err := config.LoadConfig("data/config.yaml")
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 log.Printf("Could not load configuration: %v", err)
                 return s.getDefaultPlatformTypes(), nil
         }</span>
@@ -5911,38 +5935,38 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) <span
 }
 
 // determineDomain determines the domain based on platform type
-func (s *Server) determineDomain(platformType string) string <span class="cov0" title="0">{
+func (s *Server) determineDomain(platformType string) string <span class="cov8" title="1">{
         airborneTypes := []string{"airbus_a320", "boeing_777_300er", "f16_fighting_falcon", "commercial_aircraft", "fighter_aircraft"}
         maritimeTypes := []string{"container_ship", "arleigh_burke_destroyer", "cargo_vessel", "guided_missile_destroyer"}
         landTypes := []string{"truck", "tank", "convoy"}
         spaceTypes := []string{"satellite", "space_station"}
 
-        for _, t := range airborneTypes </span><span class="cov0" title="0">{
-                if strings.Contains(platformType, t) </span><span class="cov0" title="0">{
+        for _, t := range airborneTypes </span><span class="cov8" title="1">{
+                if strings.Contains(platformType, t) </span><span class="cov8" title="1">{
                         return "airborne"
                 }</span>
         }
-        <span class="cov0" title="0">for _, t := range maritimeTypes </span><span class="cov0" title="0">{
-                if strings.Contains(platformType, t) </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, t := range maritimeTypes </span><span class="cov8" title="1">{
+                if strings.Contains(platformType, t) </span><span class="cov8" title="1">{
                         return "maritime"
                 }</span>
         }
-        <span class="cov0" title="0">for _, t := range landTypes </span><span class="cov0" title="0">{
-                if strings.Contains(platformType, t) </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, t := range landTypes </span><span class="cov8" title="1">{
+                if strings.Contains(platformType, t) </span><span class="cov8" title="1">{
                         return "land"
                 }</span>
         }
-        <span class="cov0" title="0">for _, t := range spaceTypes </span><span class="cov0" title="0">{
-                if strings.Contains(platformType, t) </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, t := range spaceTypes </span><span class="cov8" title="1">{
+                if strings.Contains(platformType, t) </span><span class="cov8" title="1">{
                         return "space"
                 }</span>
         }
 
-        <span class="cov0" title="0">return "unknown"</span>
+        <span class="cov8" title="1">return "unknown"</span>
 }
 
 // generateDescription generates a description for a platform type
-func (s *Server) generateDescription(platformType string) string <span class="cov0" title="0">{
+func (s *Server) generateDescription(platformType string) string <span class="cov8" title="1">{
         descriptions := map[string]string{
                 "airbus_a320":             "Short to medium-range commercial airliner",
                 "boeing_777_300er":        "Long-range wide-body commercial airliner",
@@ -5951,17 +5975,17 @@ func (s *Server) generateDescription(platformType string) string <span class="co
                 "arleigh_burke_destroyer": "US Navy guided missile destroyer",
         }
 
-        if desc, exists := descriptions[platformType]; exists </span><span class="cov0" title="0">{
+        if desc, exists := descriptions[platformType]; exists </span><span class="cov8" title="1">{
                 return desc
         }</span>
 
         // Use proper text casing instead of deprecated strings.Title
-        <span class="cov0" title="0">caser := cases.Title(language.English)
+        <span class="cov8" title="1">caser := cases.Title(language.English)
         return fmt.Sprintf("%s platform", caser.String(strings.ReplaceAll(platformType, "_", " ")))</span>
 }
 
 // getFallbackPlatformTypes returns hardcoded platform types as fallback
-func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo <span class="cov0" title="0">{
+func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo <span class="cov8" title="1">{
         return []PlatformTypeInfo{
                 {
                         ID:          "airbus_a320",
@@ -6030,7 +6054,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo <span class="cov0
 }</span>
 
 // getDefaultPlatformTypes returns default platform types when config loading fails
-func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo <span class="cov0" title="0">{
+func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo <span class="cov8" title="1">{
         return []PlatformTypeInfo{
                 {
                         ID:          "boeing_737_800",
@@ -6122,13 +6146,13 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo <span class="cov0"
 }</span>
 
 // handleStartSimulation starts the simulation
-func (s *Server) handleStartSimulation(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleStartSimulation(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         if err := s.simulation.Start(); err != nil </span><span class="cov0" title="0">{
                 http.Error(w, "Error starting simulation: "+err.Error(), http.StatusInternalServerError)
                 return
         }</span>
 
-        <span class="cov0" title="0">s.broadcastSimulationStatus()
+        <span class="cov8" title="1">s.broadcastSimulationStatus()
 
         w.Header().Set("Content-Type", "application/json")
         if err := json.NewEncoder(w).Encode(map[string]string{"status": "started"}); err != nil </span><span class="cov0" title="0">{
@@ -6137,7 +6161,7 @@ func (s *Server) handleStartSimulation(w http.ResponseWriter, r *http.Request) <
 }
 
 // handleStopSimulation stops the simulation
-func (s *Server) handleStopSimulation(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleStopSimulation(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         s.simulation.Stop()
         s.broadcastSimulationStatus()
 
@@ -6148,13 +6172,13 @@ func (s *Server) handleStopSimulation(w http.ResponseWriter, r *http.Request) <s
 }
 
 // handleResetSimulation resets the simulation
-func (s *Server) handleResetSimulation(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleResetSimulation(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         if err := s.simulation.Reset(); err != nil </span><span class="cov0" title="0">{
                 http.Error(w, "Error resetting simulation: "+err.Error(), http.StatusInternalServerError)
                 return
         }</span>
 
-        <span class="cov0" title="0">s.broadcastSimulationStatus()
+        <span class="cov8" title="1">s.broadcastSimulationStatus()
 
         w.Header().Set("Content-Type", "application/json")
         if err := json.NewEncoder(w).Encode(map[string]string{"status": "reset"}); err != nil </span><span class="cov0" title="0">{
@@ -6163,7 +6187,7 @@ func (s *Server) handleResetSimulation(w http.ResponseWriter, r *http.Request) <
 }
 
 // handleSimulationStatus returns simulation status
-func (s *Server) handleSimulationStatus(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleSimulationStatus(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         status := SimulationStatus{
                 Running:       s.simulation.IsRunning(),
                 Time:          s.simulation.GetSimulationTime(),
@@ -6180,14 +6204,14 @@ func (s *Server) handleSimulationStatus(w http.ResponseWriter, r *http.Request) 
 }
 
 // handleSSEPlatforms handles Server-Sent Events for platform updates
-func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleSSEPlatforms(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         w.Header().Set("Content-Type", "text/event-stream")
         w.Header().Set("Cache-Control", "no-cache")
         w.Header().Set("Connection", "keep-alive")
         w.Header().Set("Access-Control-Allow-Origin", "*")
 
         flusher, ok := w.(http.Flusher)
-        if !ok </span><span class="cov0" title="0">{
+        if !ok </span><span class="cov8" title="1">{
                 http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
                 return
         }</span>
@@ -6277,7 +6301,7 @@ func (s *Server) streamSimulationUpdates() <span class="cov0" title="0">{
 }
 
 // broadcastSimulationStatus broadcasts simulation status to all clients
-func (s *Server) broadcastSimulationStatus() <span class="cov0" title="0">{
+func (s *Server) broadcastSimulationStatus() <span class="cov8" title="1">{
         status := SimulationStatus{
                 Running:       s.simulation.IsRunning(),
                 Time:          s.simulation.GetSimulationTime(),
@@ -6297,8 +6321,8 @@ func (s *Server) broadcastSimulationStatus() <span class="cov0" title="0">{
                 return
         }</span>
 
-        <span class="cov0" title="0">select </span>{
-        case s.broadcast &lt;- data:<span class="cov0" title="0"></span>
+        <span class="cov8" title="1">select </span>{
+        case s.broadcast &lt;- data:<span class="cov8" title="1"></span>
         default:<span class="cov0" title="0"></span>
                 // Channel is full, skip this update
         }
@@ -6496,23 +6520,23 @@ func (c *Client) handleMessage(data []byte) <span class="cov0" title="0">{
 }
 
 // handleClientLog handles client-side logging for debugging
-func (s *Server) handleClientLog(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleClientLog(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         var logData map[string]interface{}
-        if err := json.NewDecoder(r.Body).Decode(&amp;logData); err != nil </span><span class="cov0" title="0">{
+        if err := json.NewDecoder(r.Body).Decode(&amp;logData); err != nil </span><span class="cov8" title="1">{
                 logWebError("Client log decode", err)
                 http.Error(w, "Invalid log data", http.StatusBadRequest)
                 return
         }</span>
 
         // Log client-side events with context
-        <span class="cov0" title="0">logType, _ := logData["type"].(string)
+        <span class="cov8" title="1">logType, _ := logData["type"].(string)
         step, _ := logData["step"].(string)
         message, _ := logData["message"].(string)
         timestamp, _ := logData["timestamp"].(string)
         userAgent, _ := logData["userAgent"].(string)
 
         switch logType </span>{
-        case "client_log":<span class="cov0" title="0">
+        case "client_log":<span class="cov8" title="1">
                 log.Printf("[CLIENT-LOG] [%s] %s: %s - UA: %s", step, timestamp, message, userAgent)</span>
         case "client_error":<span class="cov0" title="0">
                 errorMsg, _ := logData["error"].(string)
@@ -6524,12 +6548,12 @@ func (s *Server) handleClientLog(w http.ResponseWriter, r *http.Request) <span c
                 log.Printf("[CLIENT-UNKNOWN] %+v", logData)</span>
         }
 
-        <span class="cov0" title="0">w.WriteHeader(http.StatusNoContent)</span>
+        <span class="cov8" title="1">w.WriteHeader(http.StatusNoContent)</span>
 }
 
 // loggingMiddleware adds request/response logging to API endpoints
-func (s *Server) loggingMiddleware(next http.Handler) http.Handler <span class="cov0" title="0">{
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+func (s *Server) loggingMiddleware(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
                 start := time.Now()
                 logWebRequest(r, "API_REQUEST_START")
 
@@ -6554,13 +6578,13 @@ type responseWriter struct {
         statusCode int
 }
 
-func (rw *responseWriter) WriteHeader(code int) <span class="cov0" title="0">{
+func (rw *responseWriter) WriteHeader(code int) <span class="cov8" title="1">{
         rw.statusCode = code
         rw.ResponseWriter.WriteHeader(code)
 }</span>
 
 // handleMetrics returns comprehensive performance metrics
-func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         stats := s.simulation.GetStatistics()
 
         metrics := map[string]interface{}{
@@ -6590,7 +6614,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) <span cla
 }
 
 // handleCreateScenario handles scenario creation requests
-func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         var req struct {
                 Name        string                   `json:"name"`
                 Description string                   `json:"description"`
@@ -6598,13 +6622,13 @@ func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) <s
                 Platforms   []map[string]interface{} `json:"platforms"`
         }
 
-        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
+        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov8" title="1">{
                 http.Error(w, "Invalid request format", http.StatusBadRequest)
                 return
         }</span>
 
         // Create platforms from the request
-        <span class="cov0" title="0">var platforms []*models.UniversalPlatform
+        <span class="cov8" title="1">var platforms []*models.UniversalPlatform
         for _, platformConfig := range req.Platforms </span><span class="cov0" title="0">{
                 platform, err := models.CreatePlatformFromConfig(platformConfig)
                 if err != nil </span><span class="cov0" title="0">{
@@ -6615,7 +6639,7 @@ func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) <s
         }
 
         // Create scenario configuration
-        <span class="cov0" title="0">scenario := map[string]interface{}{
+        <span class="cov8" title="1">scenario := map[string]interface{}{
                 "name":        req.Name,
                 "description": req.Description,
                 "duration":    req.Duration,
@@ -6638,6 +6662,8 @@ func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) <s
 import (
         "fmt"
         "log"
+        "os"
+        "strings"
         "sync"
         "time"
 
@@ -6645,25 +6671,43 @@ import (
         "github.com/rhino11/trafficsim/internal/models"
 )
 
+// isTestMode checks if we're running in test mode
+func isTestMode() bool <span class="cov0" title="0">{
+        return strings.Contains(os.Args[0], ".test") ||
+                strings.HasSuffix(os.Args[0], "/test") ||
+                os.Getenv("GO_TESTING") == "1"
+}</span>
+
+// logf is a conditional logger that respects test verbosity
+func logf(format string, args ...interface{}) <span class="cov0" title="0">{
+        if isTestMode() </span><span class="cov0" title="0">{
+                // In test mode, suppress output to reduce noise
+                return
+        }</span> else<span class="cov0" title="0"> {
+                // In production mode, always log
+                fmt.Printf(format+"\n", args...)
+        }</span>
+}
+
 // Enhanced logging for simulation debugging
 func logSimulationStart(platformCount int, updateInterval time.Duration) <span class="cov0" title="0">{
-        log.Printf("[SIM-START] Starting simulation with %d platforms at %v update interval", platformCount, updateInterval)
+        logf("[SIM-START] Starting simulation with %d platforms at %v update interval", platformCount, updateInterval)
 }</span>
 
 func logSimulationStop(reason string) <span class="cov0" title="0">{
-        log.Printf("[SIM-STOP] Simulation stopped: %s", reason)
+        logf("[SIM-STOP] Simulation stopped: %s", reason)
 }</span>
 
 func logPlatformOperation(operation string, platformID string, details interface{}) <span class="cov0" title="0">{
-        log.Printf("[PLATFORM-OP] %s - ID: %s - Details: %+v", operation, platformID, details)
+        logf("[PLATFORM-OP] %s - ID: %s - Details: %+v", operation, platformID, details)
 }</span>
 
 func logSimulationPerformance(updateCount int, avgUpdateTime time.Duration, platformCount int) <span class="cov0" title="0">{
-        log.Printf("[SIM-PERF] Updates: %d, Avg Update Time: %v, Platforms: %d", updateCount, avgUpdateTime, platformCount)
+        logf("[SIM-PERF] Updates: %d, Avg Update Time: %v, Platforms: %d", updateCount, avgUpdateTime, platformCount)
 }</span>
 
 func logSimulationError(context string, err error, platformID string) <span class="cov0" title="0">{
-        log.Printf("[SIM-ERROR] Context: %s, Platform: %s, Error: %v", context, platformID, err)
+        logf("[SIM-ERROR] Context: %s, Platform: %s, Error: %v", context, platformID, err)
 }</span>
 
 // Engine represents the main simulation engine that orchestrates all platform movement
@@ -6771,7 +6815,7 @@ func (e *Engine) Reset() error <span class="cov0" title="0">{
                 return e.Start()
         }</span>
 
-        <span class="cov0" title="0">log.Printf("Simulation reset")
+        <span class="cov0" title="0">logf("Simulation reset")
         return nil</span>
 }
 
@@ -6868,7 +6912,7 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 models.Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}, // NYC
         )
         if err := boeing737.SetDestination(models.Position{Latitude: 34.0522, Longitude: -118.2437, Altitude: 10000}); err != nil </span><span class="cov0" title="0">{
-                log.Printf("Error setting Boeing 737 destination: %v", err)
+                logf("Error setting Boeing 737 destination: %v", err)
         }</span>
 
         <span class="cov0" title="0">if err := e.AddPlatform(boeing737); err != nil </span><span class="cov0" title="0">{
@@ -6882,7 +6926,7 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 models.Position{Latitude: 36.8485, Longitude: -76.2951, Altitude: 0}, // Norfolk, VA
         )
         if err := destroyer.SetDestination(models.Position{Latitude: 25.7617, Longitude: -80.1918, Altitude: 0}); err != nil </span><span class="cov0" title="0">{
-                log.Printf("Error setting destroyer destination: %v", err)
+                logf("Error setting destroyer destination: %v", err)
         }</span>
 
         <span class="cov0" title="0">if err := e.AddPlatform(destroyer); err != nil </span><span class="cov0" title="0">{
@@ -6896,7 +6940,7 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 models.Position{Latitude: 31.8720, Longitude: -106.3744, Altitude: 1200}, // El Paso, TX
         )
         if err := tank.SetDestination(models.Position{Latitude: 31.8800, Longitude: -106.3600, Altitude: 1250}); err != nil </span><span class="cov0" title="0">{
-                log.Printf("Error setting tank destination: %v", err)
+                logf("Error setting tank destination: %v", err)
         }</span>
 
         <span class="cov0" title="0">if err := e.AddPlatform(tank); err != nil </span><span class="cov0" title="0">{
@@ -6914,7 +6958,7 @@ func (e *Engine) createExamplePlatforms() error <span class="cov0" title="0">{
                 return err
         }</span>
 
-        <span class="cov0" title="0">log.Printf("Created %d example platforms", len(e.platforms))
+        <span class="cov0" title="0">logf("Created %d example platforms", len(e.platforms))
         return nil</span>
 }
 
@@ -6934,7 +6978,7 @@ func (e *Engine) Update(deltaTime time.Duration) error <span class="cov0" title=
         // Update all platforms using physics engine
         for _, platform := range platforms </span><span class="cov0" title="0">{
                 if err := e.physics.CalculateMovement(platform, deltaTime); err != nil </span><span class="cov0" title="0">{
-                        log.Printf("Error updating platform %s: %v", platform.GetID(), err)
+                        logf("Error updating platform %s: %v", platform.GetID(), err)
                 }</span>
         }
 
@@ -7164,7 +7208,7 @@ type PhysicsEngine struct {
 }
 
 // NewPhysicsEngine creates a new physics engine with realistic constants
-func NewPhysicsEngine() *PhysicsEngine <span class="cov0" title="0">{
+func NewPhysicsEngine() *PhysicsEngine <span class="cov8" title="1">{
         return &amp;PhysicsEngine{
                 EarthRadius:   6371000.0, // meters
                 GravityAccel:  9.81,      // m/s²
@@ -7177,9 +7221,9 @@ func NewPhysicsEngine() *PhysicsEngine <span class="cov0" title="0">{
 }</span>
 
 // CalculateMovement performs physics-based movement calculation for a platform
-func (pe *PhysicsEngine) CalculateMovement(platform models.Platform, deltaTime time.Duration) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) CalculateMovement(platform models.Platform, deltaTime time.Duration) error <span class="cov8" title="1">{
         // Try to cast to UniversalPlatform for enhanced physics
-        if universalPlatform, ok := platform.(*models.UniversalPlatform); ok </span><span class="cov0" title="0">{
+        if universalPlatform, ok := platform.(*models.UniversalPlatform); ok </span><span class="cov8" title="1">{
                 return pe.updateUniversalPlatform(universalPlatform, deltaTime)
         }</span>
 
@@ -7188,16 +7232,16 @@ func (pe *PhysicsEngine) CalculateMovement(platform models.Platform, deltaTime t
 }
 
 // updateUniversalPlatform handles movement for the new universal platform system
-func (pe *PhysicsEngine) updateUniversalPlatform(platform *models.UniversalPlatform, deltaTime time.Duration) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updateUniversalPlatform(platform *models.UniversalPlatform, deltaTime time.Duration) error <span class="cov8" title="1">{
         deltaSeconds := deltaTime.Seconds()
 
         // Skip movement if no destination
-        if platform.Destination == nil </span><span class="cov0" title="0">{
+        if platform.Destination == nil </span><span class="cov8" title="1">{
                 return nil
         }</span>
 
         // Calculate distance and bearing to destination
-        <span class="cov0" title="0">distance := pe.CalculateGreatCircleDistance(
+        <span class="cov8" title="1">distance := pe.CalculateGreatCircleDistance(
                 platform.State.Position,
                 *platform.Destination,
         )
@@ -7212,15 +7256,15 @@ func (pe *PhysicsEngine) updateUniversalPlatform(platform *models.UniversalPlatf
         }</span>
 
         // Calculate desired movement vector
-        <span class="cov0" title="0">bearing := pe.CalculateBearing(platform.State.Position, *platform.Destination)
+        <span class="cov8" title="1">bearing := pe.CalculateBearing(platform.State.Position, *platform.Destination)
 
         // Apply platform-specific physics
         switch platform.PlatformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
+        case models.PlatformTypeAirborne:<span class="cov8" title="1">
                 return pe.updateAircraftPhysics(platform, bearing, distance, deltaSeconds)</span>
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
+        case models.PlatformTypeMaritime:<span class="cov8" title="1">
                 return pe.updateMaritimePhysics(platform, bearing, distance, deltaSeconds)</span>
-        case models.PlatformTypeLand:<span class="cov0" title="0">
+        case models.PlatformTypeLand:<span class="cov8" title="1">
                 return pe.updateLandPhysics(platform, bearing, distance, deltaSeconds)</span>
         case models.PlatformTypeSpace:<span class="cov0" title="0">
                 return pe.updateSpacePhysics(platform, deltaSeconds)</span>
@@ -7230,7 +7274,7 @@ func (pe *PhysicsEngine) updateUniversalPlatform(platform *models.UniversalPlatf
 }
 
 // updateAircraftPhysics implements realistic aircraft movement
-func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov8" title="1">{
         // Get performance characteristics
         maxSpeed := platform.TypeDef.Performance.MaxSpeed
         cruiseSpeed := platform.TypeDef.Performance.CruiseSpeed
@@ -7240,7 +7284,7 @@ func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatfor
         }</span>
 
         // Calculate turning constraints
-        <span class="cov0" title="0">turningRadius := platform.TypeDef.Performance.TurningRadius
+        <span class="cov8" title="1">turningRadius := platform.TypeDef.Performance.TurningRadius
         if turningRadius == 0 </span><span class="cov0" title="0">{
                 // Calculate based on speed and standard bank angle (30°)
                 bankAngle := 30.0 * math.Pi / 180.0
@@ -7248,7 +7292,7 @@ func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatfor
         }</span>
 
         // Apply heading change with turning constraints
-        <span class="cov0" title="0">newHeading := pe.applyTurningConstraints(
+        <span class="cov8" title="1">newHeading := pe.applyTurningConstraints(
                 platform.State.Heading,
                 bearing,
                 platform.State.Speed,
@@ -7259,11 +7303,11 @@ func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatfor
 
         // Handle altitude changes
         altitudeDiff := platform.Destination.Altitude - platform.State.Position.Altitude
-        if math.Abs(altitudeDiff) &gt; 10 </span><span class="cov0" title="0">{
+        if math.Abs(altitudeDiff) &gt; 10 </span><span class="cov8" title="1">{
                 maxAltChange := climbRate * deltaSeconds
                 if math.Abs(altitudeDiff) &lt;= maxAltChange </span><span class="cov0" title="0">{
                         platform.State.Position.Altitude = platform.Destination.Altitude
-                }</span> else<span class="cov0" title="0"> if altitudeDiff &gt; 0 </span><span class="cov0" title="0">{
+                }</span> else<span class="cov8" title="1"> if altitudeDiff &gt; 0 </span><span class="cov8" title="1">{
                         platform.State.Position.Altitude += maxAltChange
                 }</span> else<span class="cov0" title="0"> {
                         platform.State.Position.Altitude -= maxAltChange
@@ -7271,7 +7315,7 @@ func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatfor
         }
 
         // Apply speed control with acceleration limits
-        <span class="cov0" title="0">targetSpeed := math.Min(cruiseSpeed, maxSpeed)
+        <span class="cov8" title="1">targetSpeed := math.Min(cruiseSpeed, maxSpeed)
         platform.State.Speed = pe.applyAcceleration(
                 platform.State.Speed,
                 targetSpeed,
@@ -7287,7 +7331,7 @@ func (pe *PhysicsEngine) updateAircraftPhysics(platform *models.UniversalPlatfor
 }
 
 // updateMaritimePhysics implements realistic ship movement
-func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatform, bearing, _ /* distance */, deltaSeconds float64) error <span class="cov8" title="1">{
         // Ships have different characteristics
         cruiseSpeed := platform.TypeDef.Performance.CruiseSpeed
 
@@ -7298,7 +7342,7 @@ func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatfor
         }</span>
 
         // Apply heading change (ships turn slowly)
-        <span class="cov0" title="0">newHeading := pe.applyTurningConstraints(
+        <span class="cov8" title="1">newHeading := pe.applyTurningConstraints(
                 platform.State.Heading,
                 bearing,
                 platform.State.Speed,
@@ -7316,7 +7360,7 @@ func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatfor
                 acceleration = 0.3 // Default slow acceleration for ships
         }</span>
 
-        <span class="cov0" title="0">platform.State.Speed = pe.applyAcceleration(
+        <span class="cov8" title="1">platform.State.Speed = pe.applyAcceleration(
                 platform.State.Speed,
                 cruiseSpeed,
                 acceleration,
@@ -7331,7 +7375,7 @@ func (pe *PhysicsEngine) updateMaritimePhysics(platform *models.UniversalPlatfor
 }
 
 // updateLandPhysics implements realistic land vehicle movement
-func (pe *PhysicsEngine) updateLandPhysics(platform *models.UniversalPlatform, bearing, distance, deltaSeconds float64) error <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updateLandPhysics(platform *models.UniversalPlatform, bearing, distance, deltaSeconds float64) error <span class="cov8" title="1">{
         // Land vehicles have terrain constraints
         cruiseSpeed := platform.TypeDef.Performance.CruiseSpeed
 
@@ -7351,7 +7395,7 @@ func (pe *PhysicsEngine) updateLandPhysics(platform *models.UniversalPlatform, b
         }</span>
 
         // Apply acceleration
-        <span class="cov0" title="0">platform.State.Speed = pe.applyAcceleration(
+        <span class="cov8" title="1">platform.State.Speed = pe.applyAcceleration(
                 platform.State.Speed,
                 cruiseSpeed,
                 platform.TypeDef.Performance.Acceleration,
@@ -7400,13 +7444,13 @@ func (pe *PhysicsEngine) updateGenericPhysics(platform *models.UniversalPlatform
 
 // Helper methods
 
-func (pe *PhysicsEngine) getArrivalThreshold(platformType models.PlatformType) float64 <span class="cov0" title="0">{
+func (pe *PhysicsEngine) getArrivalThreshold(platformType models.PlatformType) float64 <span class="cov8" title="1">{
         switch platformType </span>{
-        case models.PlatformTypeAirborne:<span class="cov0" title="0">
+        case models.PlatformTypeAirborne:<span class="cov8" title="1">
                 return 100.0</span> // 100 meters
-        case models.PlatformTypeMaritime:<span class="cov0" title="0">
+        case models.PlatformTypeMaritime:<span class="cov8" title="1">
                 return 50.0</span> // 50 meters
-        case models.PlatformTypeLand:<span class="cov0" title="0">
+        case models.PlatformTypeLand:<span class="cov8" title="1">
                 return 10.0</span> // 10 meters
         case models.PlatformTypeSpace:<span class="cov0" title="0">
                 return 1000.0</span> // 1 km for satellites
@@ -7415,45 +7459,45 @@ func (pe *PhysicsEngine) getArrivalThreshold(platformType models.PlatformType) f
         }
 }
 
-func (pe *PhysicsEngine) applyTurningConstraints(currentHeading, targetHeading, speed, turningRadius, deltaTime float64) float64 <span class="cov0" title="0">{
+func (pe *PhysicsEngine) applyTurningConstraints(currentHeading, targetHeading, speed, turningRadius, deltaTime float64) float64 <span class="cov8" title="1">{
         if turningRadius &lt;= 0 || speed &lt;= 0 </span><span class="cov0" title="0">{
                 return targetHeading
         }</span>
 
         // Calculate heading difference
-        <span class="cov0" title="0">headingDiff := targetHeading - currentHeading
+        <span class="cov8" title="1">headingDiff := targetHeading - currentHeading
         for headingDiff &gt; 180 </span><span class="cov0" title="0">{
                 headingDiff -= 360
         }</span>
-        <span class="cov0" title="0">for headingDiff &lt; -180 </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for headingDiff &lt; -180 </span><span class="cov0" title="0">{
                 headingDiff += 360
         }</span>
 
         // Calculate maximum turn rate
-        <span class="cov0" title="0">maxTurnRate := speed / turningRadius * 180.0 / math.Pi // degrees per second
+        <span class="cov8" title="1">maxTurnRate := speed / turningRadius * 180.0 / math.Pi // degrees per second
         maxTurnChange := maxTurnRate * deltaTime
 
         // Apply turn constraint
         if math.Abs(headingDiff) &lt;= maxTurnChange </span><span class="cov0" title="0">{
                 return targetHeading
-        }</span> else<span class="cov0" title="0"> if headingDiff &gt; 0 </span><span class="cov0" title="0">{
+        }</span> else<span class="cov8" title="1"> if headingDiff &gt; 0 </span><span class="cov8" title="1">{
                 return math.Mod(currentHeading+maxTurnChange, 360)
-        }</span> else<span class="cov0" title="0"> {
+        }</span> else<span class="cov8" title="1"> {
                 return math.Mod(currentHeading-maxTurnChange+360, 360)
         }</span>
 }
 
-func (pe *PhysicsEngine) applyAcceleration(currentSpeed, targetSpeed, acceleration, deltaTime float64) float64 <span class="cov0" title="0">{
+func (pe *PhysicsEngine) applyAcceleration(currentSpeed, targetSpeed, acceleration, deltaTime float64) float64 <span class="cov8" title="1">{
         if acceleration &lt;= 0 </span><span class="cov0" title="0">{
                 return targetSpeed
         }</span>
 
-        <span class="cov0" title="0">speedDiff := targetSpeed - currentSpeed
+        <span class="cov8" title="1">speedDiff := targetSpeed - currentSpeed
         maxSpeedChange := acceleration * deltaTime
 
         if math.Abs(speedDiff) &lt;= maxSpeedChange </span><span class="cov0" title="0">{
                 return targetSpeed
-        }</span> else<span class="cov0" title="0"> if speedDiff &gt; 0 </span><span class="cov0" title="0">{
+        }</span> else<span class="cov8" title="1"> if speedDiff &gt; 0 </span><span class="cov8" title="1">{
                 return currentSpeed + maxSpeedChange
         }</span> else<span class="cov0" title="0"> {
                 return currentSpeed - maxSpeedChange
@@ -7469,7 +7513,7 @@ func (pe *PhysicsEngine) applyGradientConstraints(platform *models.UniversalPlat
         }</span>
 }
 
-func (pe *PhysicsEngine) updatePosition(state *models.PlatformState, deltaTime float64) <span class="cov0" title="0">{
+func (pe *PhysicsEngine) updatePosition(state *models.PlatformState, deltaTime float64) <span class="cov8" title="1">{
         // Convert heading to radians
         headingRad := state.Heading * math.Pi / 180.0
 
@@ -7510,7 +7554,7 @@ func (pe *PhysicsEngine) updateOrbitalPosition(state *models.PlatformState, delt
 }
 
 // CalculateGreatCircleDistance calculates the distance between two positions
-func (pe *PhysicsEngine) CalculateGreatCircleDistance(pos1, pos2 models.Position) float64 <span class="cov0" title="0">{
+func (pe *PhysicsEngine) CalculateGreatCircleDistance(pos1, pos2 models.Position) float64 <span class="cov8" title="1">{
         // Haversine formula
         lat1 := pos1.Latitude * math.Pi / 180.0
         lat2 := pos2.Latitude * math.Pi / 180.0
@@ -7529,7 +7573,7 @@ func (pe *PhysicsEngine) CalculateGreatCircleDistance(pos1, pos2 models.Position
 }</span>
 
 // CalculateBearing calculates the bearing from one position to another
-func (pe *PhysicsEngine) CalculateBearing(from, to models.Position) float64 <span class="cov0" title="0">{
+func (pe *PhysicsEngine) CalculateBearing(from, to models.Position) float64 <span class="cov8" title="1">{
         lat1 := from.Latitude * math.Pi / 180.0
         lat2 := to.Latitude * math.Pi / 180.0
         deltaLon := (to.Longitude - from.Longitude) * math.Pi / 180.0
@@ -7539,6 +7583,28 @@ func (pe *PhysicsEngine) CalculateBearing(from, to models.Position) float64 <spa
 
         bearing := math.Atan2(y, x) * 180.0 / math.Pi
         return math.Mod(bearing+360, 360)
+}</span>
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package testutil
+
+import (
+        "log/slog"
+        "os"
+        "testing"
+)
+
+// SetupTestLogging configures a silent logger for tests to reduce verbose output
+func SetupTestLogging(t *testing.T) *slog.Logger <span class="cov0" title="0">{
+        // Create a logger that writes to a null handler (discards all output)
+        logger := slog.New(slog.NewTextHandler(os.Stderr, &amp;slog.HandlerOptions{
+                Level: slog.LevelError, // Only show errors during tests
+        }))
+
+        // Set as default logger
+        slog.SetDefault(logger)
+
+        return logger
 }</span>
 </pre>
 		

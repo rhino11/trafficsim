@@ -76,8 +76,8 @@ func TestSetupRoutes(t *testing.T) {
 
 	// Test that routes are properly registered by making test requests
 	testRoutes := []struct {
-		path         string
-		method       string
+		path           string
+		method         string
 		expectNotFound bool // Some routes may legitimately return 404 (like static files that don't exist)
 	}{
 		{"/", "GET", false},

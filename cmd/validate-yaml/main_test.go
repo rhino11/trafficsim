@@ -202,7 +202,7 @@ func TestValidateFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	tmpDir := filepath.Join(wd, "test-temp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		t.Fatal(err)
@@ -703,7 +703,7 @@ func TestValidateFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	tmpDir := filepath.Join(wd, "validate-files-test")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		t.Fatal(err)

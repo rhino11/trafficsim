@@ -9,7 +9,7 @@ import (
 func TestUniversalPlatform_Update(t *testing.T) {
 	// Create a test aircraft
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "UA123", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "UA123", startPos)
 
 	// Set initial velocity
 	aircraft.State.Velocity = Velocity{North: 100, East: 50, Up: 5}
@@ -41,7 +41,7 @@ func TestUniversalPlatform_Update(t *testing.T) {
 
 func TestUniversalPlatform_SetDestination(t *testing.T) {
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "UA123", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "UA123", startPos)
 
 	target := Position{Latitude: 41.0000, Longitude: -73.0000, Altitude: 11000}
 	err := aircraft.SetDestination(target)
@@ -64,7 +64,7 @@ func TestUniversalPlatform_CalculateDistanceTo(t *testing.T) {
 	pos1 := Position{Latitude: 0, Longitude: 0, Altitude: 0}
 	pos2 := Position{Latitude: 1, Longitude: 1, Altitude: 1000}
 
-	aircraft := NewBoeing737_800Universal("TEST001", "UA123", pos1)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "UA123", pos1)
 
 	distance := aircraft.CalculateDistanceTo(pos2)
 
@@ -80,12 +80,12 @@ func TestUniversalPlatform_CalculateDistanceTo(t *testing.T) {
 
 func TestUniversalPlatform_GetStatus(t *testing.T) {
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "UA123", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "UA123", startPos)
 
 	status := aircraft.GetStatus()
 
-	if status.ID != "TEST001" {
-		t.Errorf("Expected ID TEST001, got %s", status.ID)
+	if status.ID != TestPlatformID {
+		t.Errorf("Expected ID %s, got %s", TestPlatformID, status.ID)
 	}
 	if status.PlatformType != PlatformTypeAirborne {
 		t.Errorf("Expected airborne platform type, got %s", status.PlatformType)
@@ -97,11 +97,11 @@ func TestUniversalPlatform_GetStatus(t *testing.T) {
 
 func TestPlatformFactory_Boeing737(t *testing.T) {
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "UA123", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "UA123", startPos)
 
 	// Check basic properties using getter methods
-	if aircraft.ID != "TEST001" {
-		t.Errorf("Expected ID TEST001, got %s", aircraft.ID)
+	if aircraft.ID != TestPlatformID {
+		t.Errorf("Expected ID %s, got %s", TestPlatformID, aircraft.ID)
 	}
 	if aircraft.GetName() != "UA123" {
 		t.Errorf("Expected Name UA123, got %s", aircraft.GetName())
@@ -311,7 +311,7 @@ func TestCreatePlatformFromConfig(t *testing.T) {
 
 func TestPhysicsIntegration(t *testing.T) {
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "UA123", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "UA123", startPos)
 
 	// Set up physics state
 	aircraft.State.Physics.Velocity = Velocity{North: 100, East: 0, Up: 0}
@@ -395,7 +395,7 @@ func createTestUniversalPlatform() *UniversalPlatform {
 	}
 
 	config := &PlatformConfiguration{
-		ID:   "TEST001",
+		ID:   TestPlatformID,
 		Name: "Test Platform",
 		StartPosition: Position{
 			Latitude:  40.0,
@@ -405,18 +405,18 @@ func createTestUniversalPlatform() *UniversalPlatform {
 	}
 
 	platform := &UniversalPlatform{
-		ID:           "TEST001",
+		ID:           TestPlatformID,
 		PlatformType: PlatformTypeAirborne,
 		TypeDef:      typeDef,
 		Config:       config,
 		State: PlatformState{
-			ID:       "TEST001",
+			ID:       TestPlatformID,
 			Position: config.StartPosition,
 			Velocity: Velocity{},
 			Heading:  0.0,
 			Speed:    0.0,
 		},
-		CallSign: "TEST001",
+		CallSign: TestPlatformID,
 	}
 
 	return platform
@@ -425,7 +425,7 @@ func createTestUniversalPlatform() *UniversalPlatform {
 func createTestCommercialAircraft() *UniversalPlatform {
 	// Create a Boeing 737-800 for testing
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "Test Commercial Aircraft", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "Test Commercial Aircraft", startPos)
 	return aircraft
 }
 
@@ -483,7 +483,7 @@ func TestUniversalPlatformGetStatus(t *testing.T) {
 func TestUniversalPlatformCommercialAircraft(t *testing.T) {
 	// Create a Boeing 737-800 for testing
 	startPos := Position{Latitude: 40.7128, Longitude: -74.0060, Altitude: 10000}
-	aircraft := NewBoeing737_800Universal("TEST001", "Test Commercial Aircraft", startPos)
+	aircraft := NewBoeing737_800Universal(TestPlatformID, "Test Commercial Aircraft", startPos)
 
 	// Test basic properties using getter methods instead of direct field access
 	if aircraft.GetName() != "Test Commercial Aircraft" {
