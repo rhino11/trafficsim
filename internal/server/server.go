@@ -385,8 +385,12 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/metrics", s.handleMetrics).Methods("GET")
 	// Client logging endpoint for debugging
 	api.HandleFunc("/log", s.handleClientLog).Methods("POST")
-	// Scenario creation endpoint
+	// Scenario management endpoints
+	api.HandleFunc("/scenarios", s.handleGetScenarios).Methods("GET")
 	api.HandleFunc("/scenarios", s.handleCreateScenario).Methods("POST")
+	api.HandleFunc("/scenario/{name}", s.handleGetScenario).Methods("GET")
+	api.HandleFunc("/scenario/run", s.handleRunScenario).Methods("POST")
+	api.HandleFunc("/scenario/save", s.handleSaveScenario).Methods("POST")
 
 	// Main page
 	s.router.HandleFunc("/", s.handleIndex).Methods("GET")
@@ -603,6 +607,8 @@ func (s *Server) handleGetPlatforms(w http.ResponseWriter, r *http.Request) {
 
 // handleGetPlatformTypes returns all available platform types from distributed files or configuration
 func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) {
+	logf("DEBUG: handleGetPlatformTypes called")
+
 	// First try to load platform types from distributed files
 	platformTypes, err := s.loadPlatformTypesFromFiles()
 	if err != nil || len(platformTypes) == 0 {
@@ -613,6 +619,18 @@ func (s *Server) handleGetPlatformTypes(w http.ResponseWriter, r *http.Request) 
 			logf("Failed to load platform types from config, using fallback: %v", err)
 			// Final fallback to hardcoded data
 			platformTypes = s.getFallbackPlatformTypes()
+		}
+	}
+
+	logf("DEBUG: Returning %d platform types", len(platformTypes))
+	if len(platformTypes) > 0 {
+		logf("DEBUG: First platform: %+v", platformTypes[0])
+
+		// Test JSON marshaling of first platform
+		if jsonBytes, err := json.Marshal(platformTypes[0]); err == nil {
+			logf("DEBUG: First platform JSON: %s", string(jsonBytes))
+		} else {
+			logf("DEBUG: JSON marshal error: %v", err)
 		}
 	}
 
@@ -630,6 +648,7 @@ type PlatformTypeInfo struct {
 	Class       string                 `json:"class"`
 	Category    string                 `json:"category"`
 	Domain      string                 `json:"domain"`
+	Affiliation string                 `json:"affiliation"`
 	Description string                 `json:"description"`
 	Performance map[string]interface{} `json:"performance"`
 }
@@ -647,12 +666,14 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) {
 
 	// Convert airborne types
 	for typeID, typeDef := range cfg.Platforms.AirborneTypes {
+		affiliation := s.determineAffiliationFromTypeID(typeID, typeDef.Category)
 		typeInfo := PlatformTypeInfo{
 			ID:          typeID,
 			Name:        typeDef.Name,
 			Class:       typeDef.Class,
 			Category:    typeDef.Category,
 			Domain:      "airborne",
+			Affiliation: affiliation,
 			Description: s.generateDescription(typeID),
 			Performance: map[string]interface{}{
 				"max_speed":    typeDef.MaxSpeed,
@@ -665,12 +686,14 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) {
 
 	// Convert maritime types
 	for typeID, typeDef := range cfg.Platforms.MaritimeTypes {
+		affiliation := s.determineAffiliationFromTypeID(typeID, typeDef.Category)
 		typeInfo := PlatformTypeInfo{
 			ID:          typeID,
 			Name:        typeDef.Name,
 			Class:       typeDef.Class,
 			Category:    typeDef.Category,
 			Domain:      "maritime",
+			Affiliation: affiliation,
 			Description: s.generateDescription(typeID),
 			Performance: map[string]interface{}{
 				"max_speed":    typeDef.MaxSpeed,
@@ -682,12 +705,14 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) {
 
 	// Convert land types
 	for typeID, typeDef := range cfg.Platforms.LandTypes {
+		affiliation := s.determineAffiliationFromTypeID(typeID, typeDef.Category)
 		typeInfo := PlatformTypeInfo{
 			ID:          typeID,
 			Name:        typeDef.Name,
 			Class:       typeDef.Class,
 			Category:    typeDef.Category,
 			Domain:      "land",
+			Affiliation: affiliation,
 			Description: s.generateDescription(typeID),
 			Performance: map[string]interface{}{
 				"max_speed":    typeDef.MaxSpeed,
@@ -699,12 +724,14 @@ func (s *Server) loadPlatformTypesFromConfig() ([]PlatformTypeInfo, error) {
 
 	// Convert space types
 	for typeID, typeDef := range cfg.Platforms.SpaceTypes {
+		affiliation := s.determineAffiliationFromTypeID(typeID, typeDef.Category)
 		typeInfo := PlatformTypeInfo{
 			ID:          typeID,
 			Name:        typeDef.Name,
 			Class:       typeDef.Class,
 			Category:    typeDef.Category,
 			Domain:      "space",
+			Affiliation: affiliation,
 			Description: s.generateDescription(typeID),
 			Performance: map[string]interface{}{
 				"orbital_velocity": typeDef.MaxSpeed,
@@ -825,12 +852,16 @@ func (s *Server) loadPlatformFromFile(filePath, domain, category string) (*Platf
 			Class:       typeDef.Class,
 			Category:    typeDef.Category,
 			Domain:      domain,
+			Affiliation: category, // category comes from directory structure: commercial or military
 			Description: s.generateDescription(typeID),
 			Performance: map[string]interface{}{
 				"max_speed":    typeDef.Performance.MaxSpeed,
 				"cruise_speed": typeDef.Performance.CruiseSpeed,
 			},
 		}
+
+		// Debug: log what we're setting
+		logf("DEBUG: Loading platform %s with affiliation: %s (from category: %s)", typeID, category, category)
 
 		// Add altitude for airborne and space platforms
 		if domain == "airborne" || domain == "space" {
@@ -874,6 +905,38 @@ func (s *Server) determineDomain(platformType string) string {
 	return "unknown"
 }
 
+// determineAffiliationFromTypeID determines affiliation based on platform type ID and category
+func (s *Server) determineAffiliationFromTypeID(typeID, category string) string {
+	typeIDLower := strings.ToLower(typeID)
+	categoryLower := strings.ToLower(category)
+
+	// Check for military indicators
+	militaryKeywords := []string{
+		"f16", "f-16", "f22", "f-22", "fighter", "destroyer", "tank", "abrams",
+		"arleigh_burke", "military", "missile", "combat", "hmmwv", "reaper", "mq-9",
+	}
+
+	for _, keyword := range militaryKeywords {
+		if strings.Contains(typeIDLower, keyword) || strings.Contains(categoryLower, keyword) {
+			return "military"
+		}
+	}
+
+	// Check for commercial indicators
+	commercialKeywords := []string{
+		"airbus", "boeing", "commercial", "container", "cargo", "tesla", "civilian",
+	}
+
+	for _, keyword := range commercialKeywords {
+		if strings.Contains(typeIDLower, keyword) || strings.Contains(categoryLower, keyword) {
+			return "commercial"
+		}
+	}
+
+	// Default to commercial for unknown types
+	return "commercial"
+}
+
 // generateDescription generates a description for a platform type
 func (s *Server) generateDescription(platformType string) string {
 	descriptions := map[string]string{
@@ -902,6 +965,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo {
 			Class:       "Airbus A320",
 			Category:    "commercial_aircraft",
 			Domain:      "airborne",
+			Affiliation: "commercial",
 			Description: "Short to medium-range commercial airliner",
 			Performance: map[string]interface{}{
 				"max_speed":    257.0,
@@ -915,6 +979,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo {
 			Class:       "Boeing 777-300ER",
 			Category:    "wide_body_airliner",
 			Domain:      "airborne",
+			Affiliation: "commercial",
 			Description: "Long-range wide-body commercial airliner",
 			Performance: map[string]interface{}{
 				"max_speed":    290.0,
@@ -928,6 +993,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo {
 			Class:       "F-16 Fighting Falcon",
 			Category:    "fighter_aircraft",
 			Domain:      "airborne",
+			Affiliation: "military",
 			Description: "Multi-role fighter aircraft",
 			Performance: map[string]interface{}{
 				"max_speed":    588.89,
@@ -941,6 +1007,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo {
 			Class:       "Container Ship",
 			Category:    "cargo_vessel",
 			Domain:      "maritime",
+			Affiliation: "commercial",
 			Description: "Large cargo container vessel",
 			Performance: map[string]interface{}{
 				"max_speed":    12.9,
@@ -953,6 +1020,7 @@ func (s *Server) getFallbackPlatformTypes() []PlatformTypeInfo {
 			Class:       "Arleigh Burke-class Destroyer",
 			Category:    "guided_missile_destroyer",
 			Domain:      "maritime",
+			Affiliation: "military",
 			Description: "US Navy guided missile destroyer",
 			Performance: map[string]interface{}{
 				"max_speed":    15.4,
@@ -971,6 +1039,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "Boeing 737-800",
 			Category:    "commercial_aircraft",
 			Domain:      "airborne",
+			Affiliation: "commercial",
 			Description: "Short to medium-range commercial airliner",
 			Performance: map[string]interface{}{
 				"max_speed":    257.0,
@@ -984,6 +1053,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "F-16 Fighting Falcon",
 			Category:    "fighter_aircraft",
 			Domain:      "airborne",
+			Affiliation: "military",
 			Description: "Multi-role fighter aircraft",
 			Performance: map[string]interface{}{
 				"max_speed":    588.89,
@@ -997,6 +1067,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "M1A2 Abrams",
 			Category:    "main_battle_tank",
 			Domain:      "land",
+			Affiliation: "military",
 			Description: "Main battle tank",
 			Performance: map[string]interface{}{
 				"max_speed":    18.0,
@@ -1009,6 +1080,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "Civilian Car",
 			Category:    "civilian_vehicle",
 			Domain:      "land",
+			Affiliation: "commercial",
 			Description: "Standard civilian automobile",
 			Performance: map[string]interface{}{
 				"max_speed":    36.1,
@@ -1021,6 +1093,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "Arleigh Burke-class Destroyer",
 			Category:    "guided_missile_destroyer",
 			Domain:      "maritime",
+			Affiliation: "military",
 			Description: "US Navy guided missile destroyer",
 			Performance: map[string]interface{}{
 				"max_speed":    15.4,
@@ -1033,6 +1106,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "Container Ship",
 			Category:    "cargo_vessel",
 			Domain:      "maritime",
+			Affiliation: "commercial",
 			Description: "Large cargo container vessel",
 			Performance: map[string]interface{}{
 				"max_speed":    12.9,
@@ -1045,6 +1119,7 @@ func (s *Server) getDefaultPlatformTypes() []PlatformTypeInfo {
 			Class:       "Starlink Satellite",
 			Category:    "communication_satellite",
 			Domain:      "space",
+			Affiliation: "commercial",
 			Description: "Low Earth orbit communication satellite",
 			Performance: map[string]interface{}{
 				"orbital_velocity": 7.66,
@@ -1572,6 +1647,312 @@ func (s *Server) handleCreateScenario(w http.ResponseWriter, r *http.Request) {
 		"scenario": scenario,
 	}); err != nil {
 		logWebError("Scenario creation response encoding", err)
+	}
+}
+
+// handleGetScenarios returns a list of available scenario files
+func (s *Server) handleGetScenarios(w http.ResponseWriter, r *http.Request) {
+	configDir := "data/configs"
+
+	// Try multiple possible paths for config directory
+	configPaths := []string{
+		configDir,
+		filepath.Join("..", configDir),
+		filepath.Join("..", "..", configDir),
+		"/Users/ryan/code/github.com/rhino11/trafficsim/data/configs",
+	}
+
+	var scenarios []map[string]interface{}
+
+	for _, configPath := range configPaths {
+		if _, err := os.Stat(configPath); err == nil {
+			files, err := os.ReadDir(configPath)
+			if err != nil {
+				logWebError("Reading config directory", err)
+				continue
+			}
+
+			for _, file := range files {
+				if file.IsDir() || !strings.HasSuffix(file.Name(), ".yaml") && !strings.HasSuffix(file.Name(), ".yml") {
+					continue
+				}
+
+				// Read the YAML file to extract metadata
+				filePath := filepath.Join(configPath, file.Name())
+				yamlData, err := os.ReadFile(filePath)
+				if err != nil {
+					logWebError("Reading scenario file", err)
+					continue
+				}
+
+				var scenarioData map[string]interface{}
+				if err := yaml.Unmarshal(yamlData, &scenarioData); err != nil {
+					logWebError("Parsing scenario YAML", err)
+					continue
+				}
+
+				// Extract metadata
+				displayName := file.Name()
+				description := "No description available"
+
+				if metadata, ok := scenarioData["metadata"].(map[string]interface{}); ok {
+					if name, ok := metadata["name"].(string); ok {
+						displayName = name
+					}
+					if desc, ok := metadata["description"].(string); ok {
+						description = desc
+					}
+				}
+
+				scenarios = append(scenarios, map[string]interface{}{
+					"filename":     file.Name(),
+					"display_name": displayName,
+					"description":  description,
+					"path":         filePath,
+				})
+			}
+			break // Use the first valid config directory found
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(scenarios); err != nil {
+		logWebError("Scenarios list encoding", err)
+		http.Error(w, "Error encoding scenarios list", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleGetScenario returns a specific scenario file content
+func (s *Server) handleGetScenario(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	scenarioName := vars["name"]
+
+	if scenarioName == "" {
+		http.Error(w, "Scenario name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate filename to prevent path traversal attacks
+	if strings.Contains(scenarioName, "..") || strings.Contains(scenarioName, "/") || strings.Contains(scenarioName, "\\") {
+		http.Error(w, "Invalid scenario name", http.StatusBadRequest)
+		return
+	}
+
+	configDir := "data/configs"
+	configPaths := []string{
+		configDir,
+		filepath.Join("..", configDir),
+		filepath.Join("..", "..", configDir),
+		"/Users/ryan/code/github.com/rhino11/trafficsim/data/configs",
+	}
+
+	var scenarioPath string
+	for _, configPath := range configPaths {
+		testPath := filepath.Join(configPath, scenarioName)
+		if _, err := os.Stat(testPath); err == nil {
+			scenarioPath = testPath
+			break
+		}
+	}
+
+	if scenarioPath == "" {
+		http.Error(w, "Scenario not found", http.StatusNotFound)
+		return
+	}
+
+	yamlData, err := os.ReadFile(scenarioPath)
+	if err != nil {
+		logWebError("Reading scenario file", err)
+		http.Error(w, "Error reading scenario file", http.StatusInternalServerError)
+		return
+	}
+
+	var scenarioData map[string]interface{}
+	if err := yaml.Unmarshal(yamlData, &scenarioData); err != nil {
+		logWebError("Parsing scenario YAML", err)
+		http.Error(w, "Error parsing scenario file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(scenarioData); err != nil {
+		logWebError("Scenario data encoding", err)
+		http.Error(w, "Error encoding scenario data", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleRunScenario starts a simulation with the provided scenario data
+func (s *Server) handleRunScenario(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Metadata  map[string]interface{}   `json:"metadata"`
+		Platforms []map[string]interface{} `json:"platforms"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Platforms) == 0 {
+		http.Error(w, "No platforms provided in scenario", http.StatusBadRequest)
+		return
+	}
+
+	// Create platforms from the request
+	var platforms []*models.UniversalPlatform
+	for _, platformConfig := range req.Platforms {
+		platform, err := models.CreatePlatformFromConfig(platformConfig)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to create platform: %v", err), http.StatusBadRequest)
+			return
+		}
+		platforms = append(platforms, platform)
+	}
+
+	// Stop current simulation if running
+	if s.simulation.IsRunning() {
+		s.simulation.Stop()
+	}
+
+	// Clear existing platforms and add new ones
+	// Get all current platforms and remove them
+	currentPlatforms := s.simulation.GetAllPlatforms()
+	for _, existingPlatform := range currentPlatforms {
+		if err := s.simulation.RemovePlatform(existingPlatform.GetID()); err != nil {
+			logWebError("Removing existing platform", err)
+			continue
+		}
+	}
+
+	// Add new platforms
+	for _, platform := range platforms {
+		if err := s.simulation.AddPlatform(platform); err != nil {
+			logWebError("Adding platform to simulation", err)
+			continue
+		}
+	}
+
+	// Start the simulation
+	if err := s.simulation.Start(); err != nil {
+		logWebError("Starting simulation", err)
+		http.Error(w, "Failed to start simulation", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate session ID for tracking
+	sessionID := fmt.Sprintf("scenario_%d", time.Now().Unix())
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":        "Scenario started successfully",
+		"session_id":     sessionID,
+		"platform_count": len(platforms),
+		"redirect_url":   "/", // Redirect to main simulation view
+	}); err != nil {
+		logWebError("Scenario run response encoding", err)
+	}
+}
+
+// handleSaveScenario saves a custom scenario to a YAML file
+func (s *Server) handleSaveScenario(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Metadata  map[string]interface{}   `json:"metadata"`
+		Platforms []map[string]interface{} `json:"platforms"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Platforms) == 0 {
+		http.Error(w, "No platforms provided in scenario", http.StatusBadRequest)
+		return
+	}
+
+	// Validate metadata
+	scenarioName, ok := req.Metadata["name"].(string)
+	if !ok || scenarioName == "" {
+		http.Error(w, "Scenario name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Generate filename from scenario name
+	filename := strings.ToLower(strings.ReplaceAll(scenarioName, " ", "_"))
+	filename = strings.ReplaceAll(filename, "-", "_")
+	if !strings.HasSuffix(filename, ".yaml") {
+		filename += ".yaml"
+	}
+
+	// Validate filename
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		http.Error(w, "Invalid scenario name", http.StatusBadRequest)
+		return
+	}
+
+	// Create scenario data structure
+	scenarioData := map[string]interface{}{
+		"metadata":  req.Metadata,
+		"platforms": req.Platforms,
+	}
+
+	// Convert to YAML
+	yamlData, err := yaml.Marshal(scenarioData)
+	if err != nil {
+		logWebError("Converting scenario to YAML", err)
+		http.Error(w, "Error converting scenario to YAML", http.StatusInternalServerError)
+		return
+	}
+
+	// Find config directory and save file
+	configDir := "data/configs"
+	configPaths := []string{
+		configDir,
+		filepath.Join("..", configDir),
+		filepath.Join("..", "..", configDir),
+		"/Users/ryan/code/github.com/rhino11/trafficsim/data/configs",
+	}
+
+	var saveDir string
+	for _, configPath := range configPaths {
+		if _, err := os.Stat(configPath); err == nil {
+			saveDir = configPath
+			break
+		}
+	}
+
+	if saveDir == "" {
+		http.Error(w, "Config directory not found", http.StatusInternalServerError)
+		return
+	}
+
+	savePath := filepath.Join(saveDir, filename)
+
+	// Check if file already exists
+	if _, err := os.Stat(savePath); err == nil {
+		// File exists, append timestamp to make unique
+		timestamp := time.Now().Format("20060102_150405")
+		base := strings.TrimSuffix(filename, ".yaml")
+		filename = fmt.Sprintf("%s_%s.yaml", base, timestamp)
+		savePath = filepath.Join(saveDir, filename)
+	}
+
+	// Write file
+	if err := os.WriteFile(savePath, yamlData, 0644); err != nil {
+		logWebError("Writing scenario file", err)
+		http.Error(w, "Error saving scenario file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Scenario saved successfully",
+		"filename": filename,
+		"path":     savePath,
+	}); err != nil {
+		logWebError("Scenario save response encoding", err)
 	}
 }
 

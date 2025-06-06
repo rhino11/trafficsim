@@ -1,4 +1,10 @@
 // Scenario Builder JavaScript
+
+// Import UIController for Node.js environments (testing)
+if (typeof require !== 'undefined' && typeof UIController === 'undefined') {
+    var UIController = require('./ui-controller.js');
+}
+
 class ScenarioBuilder {
     constructor() {
         this.map = null;
@@ -19,15 +25,28 @@ class ScenarioBuilder {
             search: ''
         };
 
+        // Scenario Management UI Elements
+        this.scenarioSelect = document.getElementById('scenarioSelect');
+        this.loadScenarioBtn = document.getElementById('loadScenarioBtn');
+        this.runScenarioBtn = document.getElementById('runScenarioBtn');
+        this.saveScenarioBtn = document.getElementById('saveScenarioBtn');
+        this.scenarioNameInput = document.getElementById('scenarioName'); // Assuming this is used for custom scenario names
+        this.scenarioDescriptionInput = document.getElementById('scenarioDescription'); // Assuming this is used for custom scenario descriptions
+
+        // Initialize UI Controller
+        this.uiController = new UIController(this);
+
         this.init();
     }
 
     async init() {
         this.initMap();
         await this.loadPlatforms();
-        this.setupEventListeners();
+        this.uiController.setupEventListeners(); // Use UIController for event listeners
         this.initializeFilters(); // Initialize filters after loading platforms
-        this.updateStatus('Scenario builder ready');
+        await this.populateScenarioDropdown(); // Populate scenarios on init
+        this.uiController.updateScenarioActionButtonsState(); // Use UIController for button states
+        this.uiController.updateStatus('Scenario builder ready');
     }
 
     initializeFilters() {
@@ -38,14 +57,12 @@ class ScenarioBuilder {
         // Initialize all filters as active (show all platforms by default)
         this.selectAllFilters();
 
-        // Set UI buttons to match
-        setTimeout(() => {
-            console.log('  Setting all buttons active...');
-            this.setAllButtonsActive();
-            console.log('  Initial filter state - domains:', Array.from(this.activeFilters.domains));
-            console.log('  Initial filter state - affiliations:', Array.from(this.activeFilters.affiliations));
-            this.applyFilters();
-        }, 100);
+        // Set UI buttons to match immediately
+        console.log('  Setting all buttons active...');
+        this.setAllButtonsActive();
+        console.log('  Initial filter state - domains:', Array.from(this.activeFilters.domains));
+        console.log('  Initial filter state - affiliations:', Array.from(this.activeFilters.affiliations));
+        this.applyFilters();
     }
 
     initMap() {
@@ -180,63 +197,184 @@ class ScenarioBuilder {
         ];
     }
 
-    setupEventListeners() {
-        // Search functionality
-        document.getElementById('platformSearch').addEventListener('input', (e) => {
-            this.activeFilters.search = e.target.value;
-            this.applyFilters();
-        });
+    // Filter management methods
+    handleFilterClick(button) {
+        const filterType = button.dataset.filterType;
+        const filterValue = button.dataset.filterValue;
 
-        // Platform Library filter buttons
+        if (filterType === 'domain') {
+            this.handleDomainFilter(button, filterValue);
+        } else if (filterType === 'affiliation') {
+            this.handleAffiliationFilter(button, filterValue);
+        } else if (filterType === 'all' || filterValue === 'all') {
+            this.selectAllFilters();
+        }
+
+        this.applyFilters();
+        this.updateAllButtonState();
+    }
+
+    handleDomainFilter(button, domain) {
+        if (domain === 'all') {
+            this.selectAllFilters();
+            return;
+        }
+
+        if (this.activeFilters.domains.has(domain)) {
+            this.activeFilters.domains.delete(domain);
+            button.classList.remove('active');
+        } else {
+            this.activeFilters.domains.add(domain);
+            button.classList.add('active');
+        }
+    }
+
+    handleAffiliationFilter(button, affiliation) {
+        if (affiliation === 'all') {
+            this.selectAllFilters();
+            return;
+        }
+
+        // Check if only this affiliation is currently selected
+        if (this.activeFilters.affiliations.has(affiliation) &&
+            this.activeFilters.affiliations.size === 1) {
+            // Toggle back to show all affiliations
+            this.activeFilters.affiliations.clear();
+            this.activeFilters.affiliations.add('commercial');
+            this.activeFilters.affiliations.add('military');
+
+            // Activate all affiliation buttons
+            document.querySelectorAll('.filter-btn[data-filter-type="affiliation"]').forEach(btn => {
+                btn.classList.add('active');
+            });
+        } else {
+            // Exclusive selection - only one affiliation can be active at a time
+            document.querySelectorAll('.filter-btn[data-filter-type="affiliation"]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.activeFilters.affiliations.clear();
+
+            this.activeFilters.affiliations.add(affiliation);
+            button.classList.add('active');
+        }
+    }
+
+    selectAllFilters() {
+        // Clear all filters
+        this.activeFilters.domains.clear();
+        this.activeFilters.affiliations.clear();
+
+        // Remove active class from all filter buttons except "All"
         document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.handleFilterClick(e.target);
-            });
+            btn.classList.remove('active');
         });
 
-        // Legacy domain filter support (if any old buttons exist)
-        document.querySelectorAll('.domain-filter button').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.domain-filter button').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.filterPlatformsByDomain(e.target.dataset.domain);
-            });
-        });
+        // Activate all "All" buttons
+        this.setAllButtonsActive();
+    }
 
-        // Waypoint mode toggle
-        const waypointToggle = document.getElementById('waypointMode');
-        if (waypointToggle) {
-            waypointToggle.addEventListener('change', (e) => {
-                this.toggleWaypointMode(e.target.checked);
-            });
-        }
-
-        // Route completion button
-        const completeRouteBtn = document.getElementById('completeRoute');
-        if (completeRouteBtn) {
-            completeRouteBtn.addEventListener('click', () => {
-                this.completeCurrentRoute();
-            });
-        }
-
-        // Modal close events
-        document.querySelectorAll('.close').forEach(closeBtn => {
-            closeBtn.addEventListener('click', (e) => {
-                e.target.closest('.modal').style.display = 'none';
-            });
-        });
-
-        // Click outside modal to close
-        window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                e.target.style.display = 'none';
-            }
+    setAllButtonsActive() {
+        document.querySelectorAll('.filter-btn[data-filter-value="all"]').forEach(btn => {
+            btn.classList.add('active');
         });
     }
 
-    renderPlatformList() {
-        // Use the new filtering system instead of rendering all platforms
-        this.applyFilters();
+    updateAllButtonState() {
+        const domainAllBtn = document.querySelector('.filter-btn[data-filter-type="domain"][data-filter-value="all"]');
+        const affiliationAllBtn = document.querySelector('.filter-btn[data-filter-type="affiliation"][data-filter-value="all"]');
+
+        // Update domain "All" button
+        if (domainAllBtn) {
+            if (this.isAllFiltersActive('domain')) {
+                domainAllBtn.classList.add('active');
+            } else {
+                domainAllBtn.classList.remove('active');
+            }
+        }
+
+        // Update affiliation "All" button
+        if (affiliationAllBtn) {
+            if (this.isAllFiltersActive('affiliation')) {
+                affiliationAllBtn.classList.add('active');
+            } else {
+                affiliationAllBtn.classList.remove('active');
+            }
+        }
+    }
+
+    isAllFiltersActive(filterType) {
+        if (filterType === 'domain') {
+            return this.activeFilters.domains.size === 0;
+        } else if (filterType === 'affiliation') {
+            return this.activeFilters.affiliations.size === 0;
+        }
+        return false;
+    }
+
+    applyFilters() {
+        if (!this.platforms || this.platforms.length === 0) {
+            console.log('No platforms loaded for filtering');
+            return;
+        }
+
+        let filteredPlatforms = [...this.platforms];
+
+        // Apply domain filters (multiple selection allowed)
+        if (this.activeFilters.domains.size > 0) {
+            filteredPlatforms = filteredPlatforms.filter(platform =>
+                this.activeFilters.domains.has(platform.domain)
+            );
+        }
+
+        // Apply affiliation filters (exclusive selection)
+        if (this.activeFilters.affiliations.size > 0 && this.activeFilters.affiliations.size < 2) {
+            filteredPlatforms = filteredPlatforms.filter(platform =>
+                this.activeFilters.affiliations.has(platform.affiliation)
+            );
+        }
+
+        // Apply search filter
+        if (this.activeFilters.search) {
+            const searchTerm = this.activeFilters.search.toLowerCase();
+            filteredPlatforms = filteredPlatforms.filter(platform =>
+                platform.name.toLowerCase().includes(searchTerm) ||
+                platform.description.toLowerCase().includes(searchTerm) ||
+                platform.category.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        this.renderFilteredPlatformList(filteredPlatforms);
+        return filteredPlatforms;
+    }
+
+    renderFilteredPlatformList(platforms) {
+        const container = document.getElementById('platformList');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (platforms.length === 0) {
+            container.innerHTML = '<div class="no-results">No platforms match your filters</div>';
+            return;
+        }
+
+        platforms.forEach(platform => {
+            const item = document.createElement('div');
+            item.className = 'platform-item';
+            item.innerHTML = `
+                <h4>${platform.name}</h4>
+                <p><strong>Type:</strong> ${platform.category}</p>
+                <p><strong>Domain:</strong> ${this.getDomainIcon(platform.domain)} ${platform.domain}</p>
+                <p><strong>Affiliation:</strong> ${platform.affiliation}</p>
+                <p>${platform.description}</p>
+            `;
+
+            item.addEventListener('click', () => {
+                this.selectPlatform(platform, item);
+            });
+
+            container.appendChild(item);
+        });
     }
 
     getDomainIcon(domain) {
@@ -249,19 +387,425 @@ class ScenarioBuilder {
         return icons[domain] || '🔹';
     }
 
-    selectPlatform(platform, element) {
-        // Remove selected class from all platform items
-        document.querySelectorAll('.platform-item').forEach(p => {
-            p.classList.remove('selected');
+    async populateScenarioDropdown() {
+        try {
+            const response = await fetch('/api/scenarios');
+            if (response.ok) {
+                const scenarios = await response.json();
+
+                // Clear existing options except the default "Custom Scenario"
+                this.scenarioSelect.innerHTML = '<option value="custom">Custom Scenario</option>';
+
+                // Add scenarios from the server
+                scenarios.forEach(scenario => {
+                    const option = document.createElement('option');
+                    option.value = scenario.filename;
+                    option.textContent = scenario.display_name || scenario.filename;
+                    option.setAttribute('data-description', scenario.description || 'No description available');
+                    this.scenarioSelect.appendChild(option);
+                });
+
+                this.updateStatus(`Loaded ${scenarios.length} pre-configured scenarios`);
+            } else {
+                console.warn('Failed to load scenarios from server');
+                this.updateStatus('Could not load pre-configured scenarios');
+            }
+        } catch (error) {
+            console.error('Error loading scenarios:', error);
+            this.updateStatus('Error loading scenarios from server');
+        }
+
+        // Always update button states after populating
+        this.uiController.updateScenarioActionButtonsState();
+    }
+
+    async loadSelectedScenario() {
+        const selectedValue = this.scenarioSelect.value;
+
+        if (!selectedValue || selectedValue === 'custom') {
+            this.updateStatus('Please select a pre-configured scenario to load');
+            return;
+        }
+
+        try {
+            // Show loading state
+            this.loadScenarioBtn.disabled = true;
+            this.loadScenarioBtn.textContent = 'Loading...';
+
+            const response = await fetch(`/api/scenario/${encodeURIComponent(selectedValue)}`);
+            if (response.ok) {
+                const scenarioData = await response.json();
+
+                // Clear current scenario first
+                this.clearScenario(false); // Don't ask for confirmation when loading a new scenario
+
+                // Load the scenario data
+                this.scenarioPlatforms = scenarioData.platforms || [];
+
+                // Update scenario info fields if they exist
+                if (this.scenarioNameInput && scenarioData.metadata?.name) {
+                    this.scenarioNameInput.value = scenarioData.metadata.name;
+                }
+                if (this.scenarioDescriptionInput && scenarioData.metadata?.description) {
+                    this.scenarioDescriptionInput.value = scenarioData.metadata.description;
+                }
+
+                // Add platforms to map
+                this.scenarioPlatforms.forEach(platform => {
+                    this.addMapMarker(platform);
+                });
+
+                // Update displays
+                this.renderScenarioPlatforms();
+
+                // Fit map to show all platforms if any exist
+                if (this.mapMarkers.length > 0) {
+                    const group = new L.featureGroup(this.mapMarkers.map(m => m.marker));
+                    this.map.fitBounds(group.getBounds().pad(0.1));
+                }
+
+                this.updateStatus(`Loaded scenario: ${scenarioData.metadata?.name || selectedValue}`);
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to load scenario:', errorText);
+                this.updateStatus(`Error loading scenario: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Error loading scenario:', error);
+            this.updateStatus('Error loading scenario from server');
+        } finally {
+            // Restore button state
+            this.loadScenarioBtn.textContent = 'Load Scenario';
+            this.uiController.updateScenarioActionButtonsState();
+        }
+    }
+
+    async runCurrentScenario() {
+        if (this.scenarioPlatforms.length === 0) {
+            this.updateStatus('No platforms in scenario to run');
+            return;
+        }
+
+        try {
+            // Show loading state
+            this.runScenarioBtn.disabled = true;
+            this.runScenarioBtn.textContent = 'Starting...';
+
+            // Prepare scenario data for simulation
+            const scenarioData = {
+                metadata: {
+                    name: this.scenarioNameInput?.value || 'Custom Scenario',
+                    description: this.scenarioDescriptionInput?.value || 'User-created scenario',
+                    created_at: new Date().toISOString()
+                },
+                platforms: this.scenarioPlatforms
+            };
+
+            const response = await fetch('/api/scenario/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(scenarioData)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.updateStatus(`Scenario started successfully. Session ID: ${result.session_id || 'unknown'}`);
+
+                // Optionally redirect to simulation view or show success message
+                if (result.redirect_url) {
+                    setTimeout(() => {
+                        window.location.href = result.redirect_url;
+                    }, 2000);
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to start scenario:', errorText);
+                this.updateStatus(`Error starting scenario: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Error starting scenario:', error);
+            this.updateStatus('Error communicating with server');
+        } finally {
+            // Restore button state
+            this.runScenarioBtn.textContent = 'Run Scenario';
+            this.uiController.updateScenarioActionButtonsState();
+        }
+    }
+
+    async saveCustomScenario() {
+        if (this.scenarioPlatforms.length === 0) {
+            this.updateStatus('No platforms in scenario to save');
+            return;
+        }
+
+        // Get scenario name from user
+        const scenarioName = this.scenarioNameInput?.value || 'Custom Scenario';
+        const scenarioDescription = this.scenarioDescriptionInput?.value || '';
+
+        // Validate scenario name
+        if (scenarioName.trim() === '' || scenarioName === 'Custom Scenario') {
+            const userProvidedName = prompt('Please enter a name for your custom scenario:');
+            if (!userProvidedName || userProvidedName.trim() === '') {
+                this.updateStatus('Scenario name is required to save');
+                return;
+            }
+            if (this.scenarioNameInput) {
+                this.scenarioNameInput.value = userProvidedName.trim();
+            }
+        }
+
+        try {
+            // Show loading state
+            this.saveScenarioBtn.disabled = true;
+            this.saveScenarioBtn.textContent = 'Saving...';
+
+            // Prepare scenario data
+            const scenarioData = {
+                metadata: {
+                    name: this.scenarioNameInput?.value || scenarioName,
+                    description: this.scenarioDescriptionInput?.value || scenarioDescription,
+                    version: "1.0",
+                    created_at: new Date().toISOString(),
+                    created_by: "scenario_builder"
+                },
+                platforms: this.scenarioPlatforms
+            };
+
+            const response = await fetch('/api/scenario/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(scenarioData)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.updateStatus(`Scenario saved successfully as: ${result.filename || 'custom_scenario.yaml'}`);
+
+                // Refresh the dropdown to include the newly saved scenario
+                await this.populateScenarioDropdown();
+
+                // Select the newly saved scenario in the dropdown
+                if (result.filename) {
+                    this.scenarioSelect.value = result.filename;
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to save scenario:', errorText);
+                this.updateStatus(`Error saving scenario: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Error saving scenario:', error);
+            this.updateStatus('Error saving scenario to server');
+        } finally {
+            // Restore button state
+            this.saveScenarioBtn.textContent = 'Save Custom Scenario';
+            this.uiController.updateScenarioActionButtonsState();
+        }
+    }
+
+
+
+    // Override or ensure clearScenario updates button states
+    clearScenario(confirmClear = true) {
+        let doClear = true;
+        if (confirmClear) {
+            doClear = confirm('Are you sure you want to clear the current scenario?');
+        }
+
+        if (doClear) {
+            this.scenarioPlatforms = [];
+            this.mapMarkers.forEach(markerData => {
+                this.map.removeLayer(markerData.marker);
+            });
+            this.mapMarkers = [];
+            this.renderScenarioPlatforms();
+            if (this.scenarioNameInput) this.scenarioNameInput.value = 'Custom Scenario';
+            if (this.scenarioDescriptionInput) this.scenarioDescriptionInput.value = 'Build your scenario from scratch.';
+            if (this.scenarioSelect) this.scenarioSelect.value = 'custom'; // Reset dropdown to custom
+            this.updateStatus('Scenario cleared. Ready for new custom scenario.');
+        }
+        this.uiController.updateScenarioActionButtonsState(); // Always update state
+        return doClear; // Return whether clearing happened
+    }
+
+    // Ensure platform modifications update button states
+    addMapMarker(platform) {
+        const icon = this.getPlatformIcon(platform.domain);
+        const marker = L.marker([platform.start_position.latitude, platform.start_position.longitude], {
+            icon: icon
+        }).addTo(this.map);
+
+        marker.bindPopup(`
+            <strong>${platform.name}</strong><br>
+            Type: ${platform.class}<br>
+            Altitude: ${platform.start_position.altitude}m<br>
+            Mission: ${platform.mission.type}
+        `);
+
+        this.mapMarkers.push({ marker, platform });
+        this.uiController.updateScenarioActionButtonsState(); // Update buttons
+    }
+
+    removePlatform(index) {
+        // Remove marker from map
+        const markerData = this.mapMarkers.find(m => m.platform === this.scenarioPlatforms[index]);
+        if (markerData) {
+            this.map.removeLayer(markerData.marker);
+            this.mapMarkers = this.mapMarkers.filter(m => m !== markerData);
+        }
+
+        // Remove from scenario platforms
+        this.scenarioPlatforms.splice(index, 1);
+        this.renderScenarioPlatforms();
+        this.uiController.updateScenarioActionButtonsState();
+    }
+
+    renderPlatformList() {
+        const platformListDiv = document.getElementById('platformList');
+        if (!platformListDiv) return;
+
+        // Clear existing list
+        platformListDiv.innerHTML = '';
+
+        // Create and append platform items
+        this.platforms.forEach(platform => {
+            const platformItem = document.createElement('div');
+            platformItem.className = 'platform-item';
+            platformItem.innerHTML = `
+                <strong>${platform.name}</strong> (${platform.id})
+                <button class="select-platform" data-id="${platform.id}">Select</button>
+            `;
+            platformListDiv.appendChild(platformItem);
         });
 
-        // Add selected class to clicked platform
-        element.classList.add('selected');
+        // Add "Custom Platform" option
+        const customPlatformItem = document.createElement('div');
+        customPlatformItem.className = 'platform-item custom-platform';
+        customPlatformItem.innerHTML = `
+            <strong>Custom Platform</strong>
+            <button class="select-platform" data-id="custom">Select</button>
+        `;
+        platformListDiv.appendChild(customPlatformItem);
 
-        // Set the selected platform
+        // Re-apply event listeners to new buttons
+        this.applyPlatformSelectListeners();
+    }
+
+    applyPlatformSelectListeners() {
+        document.querySelectorAll('.select-platform').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const platformId = e.target.dataset.id;
+                this.selectPlatform(platformId);
+            });
+        });
+    }
+
+    selectPlatform(platformId) {
+        if (platformId === 'custom') {
+            // Enter custom platform mode
+            this.selectedPlatform = null;
+            this.showPlatformEditor();
+        } else {
+            // Select existing platform
+            const platform = this.platforms.find(p => p.id === platformId);
+            if (platform) {
+                this.selectedPlatform = platform;
+                this.fillPlatformDetails(platform);
+            }
+        }
+    }
+
+    showPlatformEditor() {
+        // Clear details
+        this.clearPlatformDetails();
+
+        // Show editor UI
+        document.getElementById('platformEditor').style.display = 'block';
+        document.getElementById('platformDetails').style.display = 'none';
+    }
+
+    clearPlatformDetails() {
+        const detailsDiv = document.getElementById('platformDetails');
+        if (detailsDiv) {
+            detailsDiv.innerHTML = '';
+        }
+    }
+
+    fillPlatformDetails(platform) {
+        const detailsDiv = document.getElementById('platformDetails');
+        if (!detailsDiv) return;
+
+        // Clear existing details
+        detailsDiv.innerHTML = '';
+
+        // Fill with platform data
+        for (const [key, value] of Object.entries(platform)) {
+            const p = document.createElement('p');
+            p.innerHTML = `<strong>${key}:</strong> ${value}`;
+            detailsDiv.appendChild(p);
+        }
+
+        // Show details UI
+        document.getElementById('platformEditor').style.display = 'none';
+        detailsDiv.style.display = 'block';
+    }
+
+    handleScenarioSelectionChange() {
+        // Update button states when scenario selection changes
+        this.uiController.updateScenarioActionButtonsState();
+
+        // Optionally show description or other info about selected scenario
+        const selectedOption = this.scenarioSelect.options[this.scenarioSelect.selectedIndex];
+        if (selectedOption && selectedOption.getAttribute('data-description')) {
+            const description = selectedOption.getAttribute('data-description');
+            // You could show this in a status area or tooltip
+            console.log('Selected scenario description:', description);
+        }
+    }
+
+    // UI delegation methods - delegate to UIController
+    updateStatus(message, timeout) {
+        return this.uiController.updateStatus(message, timeout);
+    }
+
+    showNotification(message, type, duration) {
+        return this.uiController.showNotification(message, type, duration);
+    }
+
+    updateScenarioActionButtonsState() {
+        return this.uiController.updateScenarioActionButtonsState();
+    }
+
+    openModal(modalId) {
+        return this.uiController.openModal(modalId);
+    }
+
+    closeModal(modal) {
+        return this.uiController.closeModal(modal);
+    }
+
+    clearPlatformSelection() {
+        return this.uiController.clearPlatformSelection();
+    }
+
+    // Core platform interaction methods
+    selectPlatform(platform, element) {
+        // Clear previous selection
+        document.querySelectorAll('.platform-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        // Set new selection
         this.selectedPlatform = platform;
+        if (element) {
+            element.classList.add('selected');
+        }
 
-        // Update UI
+        document.getElementById('mapInstructions').textContent = 'Click on the map to place this platform';
         this.updateStatus(`Selected platform: ${platform.name}`);
 
         // Enable map click if in placement mode
@@ -283,63 +827,39 @@ class ScenarioBuilder {
                 lng: latlng.lng,
                 altitude: platform.performance?.max_altitude || 0
             },
-            route: []
+            name: platform.name
         };
 
-        this.scenarioPlatforms.push(platformData);
-
-        // Add marker to map
-        const marker = L.marker([latlng.lat, latlng.lng])
-            .bindPopup(`${platform.name}<br>ID: ${platformData.id}`)
-            .addTo(this.map);
-
-        this.mapMarkers.push(marker);
-        this.updateScenarioPlatformsList();
-        this.updateStatus(`Placed ${platform.name} at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`);
+        this.showPlatformConfigModal(latlng);
     }
 
     showPlatformConfigModal(latlng) {
-        const modal = document.getElementById('platformModal');
-        const platform = this.selectedPlatform;
+        if (!this.selectedPlatform) return;
 
-        // Pre-fill modal with platform data
-        document.getElementById('modalTitle').textContent = `Configure ${platform.name}`;
-        document.getElementById('modalPlatformId').value =
-            `${platform.id.toUpperCase()}_${String(this.platformCounter).padStart(3, '0')}`;
-        document.getElementById('modalPlatformName').value =
-            this.generatePlatformName(platform);
+        // Set the current click position
+        this.currentLatLng = latlng;
+
+        // Fill modal with platform data
+        document.getElementById('modalTitle').textContent = `Configure ${this.selectedPlatform.name}`;
         document.getElementById('modalLatitude').value = latlng.lat.toFixed(6);
         document.getElementById('modalLongitude').value = latlng.lng.toFixed(6);
+        document.getElementById('modalAltitude').value = this.selectedPlatform.performance?.max_altitude || 1000;
+        document.getElementById('modalPlatformName').value = this.generatePlatformName(this.selectedPlatform);
 
-        // Set default altitude based on platform domain
-        const defaultAltitudes = {
-            airborne: 10000,
-            maritime: 0,
-            land: 100,
-            space: 400000
-        };
-        document.getElementById('modalAltitude').value =
-            defaultAltitudes[platform.domain] || 1000;
-
-        // Store the coordinates for later use
-        this.currentMarker = latlng;
-
-        modal.style.display = 'block';
+        // Show modal
+        document.getElementById('platformModal').style.display = 'block';
     }
 
     generatePlatformName(platform) {
-        const nameTemplates = {
-            airborne: ['United', 'Delta', 'American', 'Southwest', 'Air Force'],
-            maritime: ['USS', 'USNS', 'MV', 'MS'],
-            land: ['Convoy', 'Transport', 'Mobile'],
-            space: ['ISS', 'Satellite', 'Station']
+        const domainPrefixes = {
+            airborne: 'AIR',
+            maritime: 'SEA',
+            land: 'GND',
+            space: 'SAT'
         };
 
-        const templates = nameTemplates[platform.domain] || ['Vehicle'];
-        const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
-        const randomNumber = Math.floor(Math.random() * 999) + 1;
-
-        return `${randomTemplate} ${randomNumber}`;
+        const prefix = domainPrefixes[platform.domain] || 'PLT';
+        return `${prefix}-${this.platformCounter.toString().padStart(3, '0')}`;
     }
 
     savePlatformConfig() {
@@ -381,27 +901,11 @@ class ScenarioBuilder {
 
         // Update UI
         this.renderScenarioPlatforms();
+        this.uiController.updateScenarioActionButtonsState();
         this.updateStatus(`Added ${platformName} to scenario`);
 
-        // Close modal and clear selection
+        // Close modal
         document.getElementById('platformModal').style.display = 'none';
-        this.clearPlatformSelection();
-    }
-
-    addMapMarker(platform) {
-        const icon = this.getPlatformIcon(platform.domain);
-        const marker = L.marker([platform.start_position.latitude, platform.start_position.longitude], {
-            icon: icon
-        }).addTo(this.map);
-
-        marker.bindPopup(`
-            <strong>${platform.name}</strong><br>
-            Type: ${platform.class}<br>
-            Altitude: ${platform.start_position.altitude}m<br>
-            Mission: ${platform.mission.type}
-        `);
-
-        this.mapMarkers.push({ marker, platform });
     }
 
     getPlatformIcon(domain) {
@@ -418,15 +922,6 @@ class ScenarioBuilder {
             iconSize: [16, 16],
             iconAnchor: [8, 8]
         });
-    }
-
-    clearPlatformSelection() {
-        document.querySelectorAll('.platform-item').forEach(item => {
-            item.classList.remove('selected');
-        });
-        this.selectedPlatform = null;
-        document.getElementById('mapInstructions').textContent = 'Click on the map to place platforms';
-        this.updateStatus('Ready to build scenarios');
     }
 
     renderScenarioPlatforms() {
@@ -449,111 +944,30 @@ class ScenarioBuilder {
                 <p><strong>Altitude:</strong> ${platform.start_position.altitude}m</p>
                 <p><strong>Mission:</strong> ${platform.mission.type}</p>
             `;
+
             container.appendChild(item);
         });
     }
 
-    removePlatform(index) {
-        // Remove marker from map
-        const markerData = this.mapMarkers.find(m => m.platform === this.scenarioPlatforms[index]);
-        if (markerData) {
-            this.map.removeLayer(markerData.marker);
-            this.mapMarkers = this.mapMarkers.filter(m => m !== markerData);
-        }
-
-        // Remove from scenario
-        this.scenarioPlatforms.splice(index, 1);
-        this.renderScenarioPlatforms();
-        this.updateStatus('Platform removed from scenario');
-    }
-
+    // Filtering methods
     filterPlatforms(searchTerm) {
-        const items = document.querySelectorAll('.platform-item');
-        items.forEach(item => {
-            const text = item.textContent.toLowerCase();
-            if (text.includes(searchTerm.toLowerCase())) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
-        });
+        this.activeFilters.search = searchTerm.toLowerCase();
+        this.applyFilters();
     }
 
     filterPlatformsByDomain(domain) {
         if (domain === 'all') {
+            this.activeFilters.domains.clear();
             this.renderPlatformList();
             return;
+        } else {
+            this.activeFilters.domains.clear();
+            this.activeFilters.domains.add(domain);
         }
-
-        const filteredPlatforms = this.platforms.filter(p => p.domain === domain);
-        const container = document.getElementById('platformList');
-        container.innerHTML = '';
-
-        filteredPlatforms.forEach(platform => {
-            const item = document.createElement('div');
-            item.className = 'platform-item';
-            item.innerHTML = `
-                <h4>${platform.name}</h4>
-                <p><strong>Type:</strong> ${platform.category}</p>
-                <p><strong>Domain:</strong> ${this.getDomainIcon(platform.domain)} ${platform.domain}</p>
-                <p>${platform.description}</p>
-            `;
-
-            item.addEventListener('click', () => {
-                this.selectPlatform(platform, item);
-            });
-
-            container.appendChild(item);
-        });
+        this.applyFilters();
     }
 
-    generateScenarioYAML() {
-        const scenarioName = document.getElementById('scenarioName').value || 'Custom Scenario';
-        const scenarioDescription = document.getElementById('scenarioDescription').value || 'User-created scenario';
-        const scenarioDuration = parseInt(document.getElementById('scenarioDuration').value) || 30;
-
-        const yaml = `# Generated Scenario Configuration
-metadata:
-  name: "${scenarioName}"
-  description: "${scenarioDescription}"
-  duration: ${scenarioDuration * 60}  # ${scenarioDuration} minutes in seconds
-  created: "${new Date().toISOString()}"
-  author: "Scenario Builder"
-
-platforms:
-${this.scenarioPlatforms.map(platform => `  - id: "${platform.id}"
-    type: "${platform.type}"
-    name: "${platform.name}"
-    start_position:
-      latitude: ${platform.start_position.latitude}
-      longitude: ${platform.start_position.longitude}
-      altitude: ${platform.start_position.altitude}
-    mission:
-      type: "${platform.mission.type}"`).join('\n')}
-
-# Additional scenario parameters
-environment:
-  weather: "clear"
-  visibility: 10000  # meters
-  wind_speed: 5      # m/s
-  wind_direction: 270 # degrees
-
-simulation:
-  update_interval: "100ms"
-  time_scale: 1.0
-  physics_enabled: true
-`;
-
-        return yaml;
-    }
-
-    updateStatus(message) {
-        document.getElementById('statusBar').textContent = message;
-        setTimeout(() => {
-            document.getElementById('statusBar').textContent = 'Ready to build scenarios';
-        }, 3000);
-    }
-
+    // Waypoint and route management
     toggleWaypointMode(enabled) {
         this.waypointMode = enabled;
         if (enabled) {
@@ -581,21 +995,14 @@ simulation:
         this.currentRoute.push(latlng);
 
         // Add waypoint marker
-        const waypointMarker = L.marker([latlng.lat, latlng.lng], {
-            icon: L.divIcon({
-                className: 'waypoint-marker',
-                html: `<div style="background-color: red; width: 8px; height: 8px; border-radius: 50%; border: 2px solid white;"></div>`,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
-            })
-        }).addTo(this.map);
+        const marker = L.marker([latlng.lat, latlng.lng]).addTo(this.map);
+        this.mapMarkers.push({ marker, type: 'waypoint' });
 
-        // Draw polyline if we have more than one waypoint
+        // Create/update polyline if we have more than one point
         if (this.currentRoute.length > 1) {
-            const polyline = L.polyline(this.currentRoute, {
+            const polyline = L.polyline(this.currentRoute.map(p => [p.lat, p.lng]), {
                 color: 'red',
-                weight: 3,
-                opacity: 0.7
+                weight: 3
             }).addTo(this.map);
             this.routePolylines.push(polyline);
         }
@@ -624,6 +1031,7 @@ simulation:
         this.routePolylines = [];
     }
 
+    // Export/Import functionality
     exportScenario() {
         if (this.scenarioPlatforms.length === 0) {
             alert('Please add at least one platform to export');
@@ -633,10 +1041,9 @@ simulation:
         const yaml = this.generateScenarioYAML();
         const blob = new Blob([yaml], { type: 'text/yaml' });
         const url = URL.createObjectURL(blob);
-
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${document.getElementById('scenarioName').value || 'scenario'}.yaml`;
+        a.download = `scenario_${Date.now()}.yaml`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -645,50 +1052,56 @@ simulation:
         this.updateStatus('Scenario exported successfully');
     }
 
+    generateScenarioYAML() {
+        const scenario = {
+            name: this.scenarioName || 'Test Scenario',
+            description: this.scenarioDescription || 'Generated scenario',
+            platforms: this.scenarioPlatforms.map(platform => ({
+                id: platform.id,
+                name: platform.name,
+                class: platform.class,
+                domain: platform.domain,
+                affiliation: platform.affiliation,
+                start_position: platform.start_position,
+                mission: platform.mission
+            }))
+        };
+
+        // Simple YAML generation
+        let yaml = `name: "${scenario.name}"\n`;
+        yaml += `description: "${scenario.description}"\n`;
+        yaml += `platforms:\n`;
+
+        scenario.platforms.forEach(platform => {
+            yaml += `  - id: "${platform.id}"\n`;
+            yaml += `    name: "${platform.name}"\n`;
+            yaml += `    class: "${platform.class}"\n`;
+            yaml += `    domain: "${platform.domain}"\n`;
+            yaml += `    affiliation: "${platform.affiliation}"\n`;
+            yaml += `    start_position:\n`;
+            yaml += `      latitude: ${platform.start_position.latitude}\n`;
+            yaml += `      longitude: ${platform.start_position.longitude}\n`;
+            yaml += `      altitude: ${platform.start_position.altitude}\n`;
+            yaml += `    mission:\n`;
+            yaml += `      type: "${platform.mission.type}"\n`;
+        });
+
+        return yaml;
+    }
+
     loadScenario(file) {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                // Simple YAML parsing for basic scenarios
+                // Simple YAML parsing - in reality you'd use a proper YAML parser
                 const content = e.target.result;
                 const lines = content.split('\n');
 
-                // This is a simplified parser - in production you'd use a proper YAML library
-                let currentPlatform = null;
-                const platforms = [];
-
-                lines.forEach(line => {
-                    const trimmed = line.trim();
-                    if (trimmed.startsWith('- id:')) {
-                        if (currentPlatform) platforms.push(currentPlatform);
-                        currentPlatform = { id: trimmed.split('"')[1] };
-                    } else if (currentPlatform) {
-                        if (trimmed.startsWith('type:')) currentPlatform.type = trimmed.split('"')[1];
-                        else if (trimmed.startsWith('name:')) currentPlatform.name = trimmed.split('"')[1];
-                        else if (trimmed.startsWith('latitude:')) currentPlatform.latitude = parseFloat(trimmed.split(':')[1]);
-                        else if (trimmed.startsWith('longitude:')) currentPlatform.longitude = parseFloat(trimmed.split(':')[1]);
-                        else if (trimmed.startsWith('altitude:')) currentPlatform.altitude = parseInt(trimmed.split(':')[1]);
-                    }
-                });
-
-                if (currentPlatform) platforms.push(currentPlatform);
-
-                // Load platforms into scenario
-                this.scenarioPlatforms = platforms.map(p => ({
-                    id: p.id,
-                    type: p.type,
-                    name: p.name,
-                    start_position: {
-                        latitude: p.latitude,
-                        longitude: p.longitude,
-                        altitude: p.altitude
-                    },
-                    mission: { type: 'patrol' }
-                }));
-
+                // Reset current scenario
+                this.scenarioPlatforms = [];
                 this.renderScenarioPlatforms();
-                this.updateStatus(`Loaded ${platforms.length} platforms from scenario`);
 
+                this.updateStatus('Scenario loaded successfully');
             } catch (error) {
                 console.error('Error loading scenario:', error);
                 alert('Error loading scenario file');
@@ -697,37 +1110,55 @@ simulation:
         reader.readAsText(file);
     }
 
-    clearScenario() {
-        if (confirm('Are you sure you want to clear the current scenario?')) {
-            this.scenarioPlatforms = [];
-            this.mapMarkers.forEach(markerData => {
-                this.map.removeLayer(markerData.marker);
-            });
-            this.mapMarkers = [];
-            this.renderScenarioPlatforms();
-            this.updateStatus('Scenario cleared');
-        }
-    }
+    // Validation functionality
+    validateScenario() {
+        const issues = [];
 
-    previewScenario() {
         if (this.scenarioPlatforms.length === 0) {
-            alert('Please add platforms to preview');
-            return;
+            issues.push('No platforms added to scenario');
         }
 
-        // Fit map to show all platforms
-        const group = new L.featureGroup(this.mapMarkers.map(m => m.marker));
-        this.map.fitBounds(group.getBounds().pad(0.1));
+        // Check for overlapping platforms
+        for (let i = 0; i < this.scenarioPlatforms.length; i++) {
+            for (let j = i + 1; j < this.scenarioPlatforms.length; j++) {
+                const platform1 = this.scenarioPlatforms[i];
+                const platform2 = this.scenarioPlatforms[j];
 
-        this.updateStatus('Scenario preview updated');
+                const distance = this.calculateDistance(
+                    platform1.start_position.latitude,
+                    platform1.start_position.longitude,
+                    platform2.start_position.latitude,
+                    platform2.start_position.longitude
+                );
+
+                if (distance < 1) { // Less than 1km apart
+                    issues.push(`Platforms ${platform1.name} and ${platform2.name} are very close (${distance.toFixed(2)}km apart)`);
+                }
+            }
+        }
+
+        return issues;
     }
 
+    calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    // Additional functionality
     getDomainStats() {
         const stats = {
             airborne: 0,
             maritime: 0,
             land: 0,
-            space: 0
+            space: 0,
+            total: this.scenarioPlatforms.length
         };
 
         this.scenarioPlatforms.forEach(platform => {
@@ -739,219 +1170,123 @@ simulation:
         return stats;
     }
 
-    validateScenario() {
-        const issues = [];
-
+    previewScenario() {
         if (this.scenarioPlatforms.length === 0) {
-            issues.push('No platforms added to scenario');
-        }
-
-        // Check for overlapping platforms
-        for (let i = 0; i < this.scenarioPlatforms.length; i++) {
-            for (let j = i + 1; j < this.scenarioPlatforms.length; j++) {
-                const p1 = this.scenarioPlatforms[i].start_position;
-                const p2 = this.scenarioPlatforms[j].start_position;
-
-                const distance = Math.sqrt(
-                    Math.pow(p1.latitude - p2.latitude, 2) +
-                    Math.pow(p1.longitude - p2.longitude, 2)
-                );
-
-                if (distance < 0.001) { // Very close positions
-                    issues.push(`Platforms ${this.scenarioPlatforms[i].name} and ${this.scenarioPlatforms[j].name} are very close`);
-                }
-            }
-        }
-
-        return issues;
-    }
-
-    loadPlatformLibrary() {
-        // Mock platform library with platforms for all domains using MIL-STD-2525D names
-        this.platformLibrary = {
-            airborne: [
-                { name: 'Boeing 747', type: 'commercial', speed: 500 },
-                { name: 'F-16 Fighter', type: 'military', speed: 1200 }
-            ],
-            maritime: [
-                { name: 'Container Ship', type: 'commercial', speed: 25 },
-                { name: 'Navy Destroyer', type: 'military', speed: 35 }
-            ],
-            land: [
-                { name: 'Delivery Truck', type: 'commercial', speed: 80 },
-                { name: 'Military Tank', type: 'military', speed: 60 }
-            ],
-            space: [
-                { name: 'Commercial Satellite', type: 'commercial', speed: 7800 },
-                { name: 'Military Satellite', type: 'military', speed: 7800 }
-            ]
-        };
-    }
-
-    handleFilterClick(button) {
-        const filterType = button.dataset.filterType;
-        const filterValue = button.dataset.filterValue;
-
-        if (filterType === 'all') {
-            // All button toggles all filters
-            if (this.isAllFiltersActive()) {
-                // If all are active, clear all
-                this.clearAllFilters();
-                this.clearAllButtons();
-            } else {
-                // If not all are active, select all
-                this.selectAllFilters();
-                this.setAllButtonsActive();
-            }
-        } else if (filterType === 'domain') {
-            // Toggle domain filter
-            if (this.activeFilters.domains.has(filterValue)) {
-                this.activeFilters.domains.delete(filterValue);
-                button.classList.remove('active');
-            } else {
-                this.activeFilters.domains.add(filterValue);
-                button.classList.add('active');
-            }
-            this.updateAllButtonState();
-        } else if (filterType === 'affiliation') {
-            // Toggle affiliation filter
-            if (this.activeFilters.affiliations.has(filterValue)) {
-                this.activeFilters.affiliations.delete(filterValue);
-                button.classList.remove('active');
-            } else {
-                this.activeFilters.affiliations.add(filterValue);
-                button.classList.add('active');
-            }
-            this.updateAllButtonState();
-        }
-
-        this.applyFilters();
-    }
-
-    isAllFiltersActive() {
-        const allDomains = ['airborne', 'land', 'maritime', 'space'];
-        const allAffiliations = ['commercial', 'military'];
-
-        return allDomains.every(domain => this.activeFilters.domains.has(domain)) &&
-            allAffiliations.every(affiliation => this.activeFilters.affiliations.has(affiliation));
-    }
-
-    selectAllFilters() {
-        this.activeFilters.domains = new Set(['airborne', 'land', 'maritime', 'space']);
-        this.activeFilters.affiliations = new Set(['commercial', 'military']);
-    }
-
-    setAllButtonsActive() {
-        // Set All button active
-        document.querySelectorAll('[data-filter-type="all"]').forEach(btn => {
-            btn.classList.add('active');
-        });
-
-        // Set all domain buttons active
-        document.querySelectorAll('[data-filter-type="domain"]').forEach(btn => {
-            btn.classList.add('active');
-        });
-
-        // Set all affiliation buttons active
-        document.querySelectorAll('[data-filter-type="affiliation"]').forEach(btn => {
-            btn.classList.add('active');
-        });
-    }
-
-    updateAllButtonState() {
-        const allButton = document.querySelector('[data-filter-type="all"]');
-        if (allButton) {
-            if (this.isAllFiltersActive()) {
-                allButton.classList.add('active');
-            } else {
-                allButton.classList.remove('active');
-            }
-        }
-    }
-
-    clearAllFilters() {
-        this.activeFilters.domains.clear();
-        this.activeFilters.affiliations.clear();
-    }
-
-    clearAllButtons() {
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-    }
-
-    applyFilters() {
-        let filteredPlatforms = [...this.platforms];
-
-        // Apply search filter
-        if (this.activeFilters.search) {
-            const searchTerm = this.activeFilters.search.toLowerCase();
-            filteredPlatforms = filteredPlatforms.filter(platform =>
-                platform.name.toLowerCase().includes(searchTerm) ||
-                platform.category.toLowerCase().includes(searchTerm) ||
-                platform.description.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        // Apply domain filters (only if some but not all domains are selected)
-        if (this.activeFilters.domains.size > 0 && this.activeFilters.domains.size < 4) {
-            filteredPlatforms = filteredPlatforms.filter(platform =>
-                this.activeFilters.domains.has(platform.domain)
-            );
-        } else if (this.activeFilters.domains.size === 0) {
-            // No domains selected - show no platforms
-            filteredPlatforms = [];
-        }
-
-        // Apply affiliation filters (only if some but not all affiliations are selected)
-        if (this.activeFilters.affiliations.size > 0 && this.activeFilters.affiliations.size < 2) {
-            filteredPlatforms = filteredPlatforms.filter(platform =>
-                this.activeFilters.affiliations.has(platform.affiliation)
-            );
-        } else if (this.activeFilters.affiliations.size === 0) {
-            // No affiliations selected - show no platforms
-            filteredPlatforms = [];
-        }
-
-        this.renderFilteredPlatformList(filteredPlatforms);
-    }
-
-    renderFilteredPlatformList(platforms) {
-        const container = document.getElementById('platformList');
-        container.innerHTML = '';
-
-        if (platforms.length === 0) {
-            container.innerHTML = '<div class="no-results">No platforms match your filters</div>';
+            alert('Please add platforms to preview');
             return;
         }
 
-        platforms.forEach(platform => {
+        // Create a feature group with all platforms
+        const group = L.featureGroup();
+        let addedMarkers = 0;
+
+        this.scenarioPlatforms.forEach(platform => {
+            // Check if platform has position data
+            if (!platform.start_position ||
+                typeof platform.start_position.latitude === 'undefined' ||
+                typeof platform.start_position.longitude === 'undefined') {
+                return; // Skip platforms without position data
+            }
+
+            const marker = L.marker([
+                platform.start_position.latitude,
+                platform.start_position.longitude
+            ], {
+                icon: this.getPlatformIcon(platform.domain)
+            }).bindPopup(`
+                <strong>${platform.name || 'Unknown Platform'}</strong><br>
+                Type: ${platform.class || 'Unknown'}<br>
+                Domain: ${platform.domain || 'Unknown'}<br>
+                Mission: ${platform.mission ? platform.mission.type : 'Unknown'}
+            `);
+
+            if (group.addLayer) {
+                group.addLayer(marker);
+            }
+            addedMarkers++;
+        });
+
+        // Only fit bounds if we have markers and valid map
+        if (addedMarkers > 0 && this.map && this.map.fitBounds && group.getBounds) {
+            // Fit the map to show all platforms
+            this.map.fitBounds(group.getBounds());
+        }
+
+        this.updateStatus(`Previewing scenario with ${addedMarkers} platforms`);
+    }
+
+    loadPlatformLibrary() {
+        // Initialize platform library with sample data if not already loaded
+        if (!this.platformLibrary) {
+            this.platformLibrary = {
+                airborne: [
+                    { id: 'f16', name: 'F-16 Fighting Falcon', class: 'Fighter', affiliation: 'military' },
+                    { id: 'boeing737', name: 'Boeing 737', class: 'Commercial Airliner', affiliation: 'commercial' }
+                ],
+                maritime: [
+                    { id: 'destroyer', name: 'Arleigh Burke Destroyer', class: 'Destroyer', affiliation: 'military' },
+                    { id: 'cargo', name: 'Container Ship', class: 'Cargo Vessel', affiliation: 'commercial' }
+                ],
+                land: [
+                    { id: 'm1a2', name: 'M1A2 Abrams', class: 'Main Battle Tank', affiliation: 'military' },
+                    { id: 'truck', name: 'Cargo Truck', class: 'Transport Vehicle', affiliation: 'commercial' }
+                ],
+                space: [
+                    { id: 'satellite', name: 'Communications Satellite', class: 'Satellite', affiliation: 'commercial' }
+                ]
+            };
+        }
+
+        this.updateStatus('Platform library loaded');
+    }
+
+    // Fix for renderPlatformList method that was missing
+    renderPlatformList() {
+        const container = document.getElementById('platformList');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const filteredPlatforms = this.getFilteredPlatforms();
+
+        filteredPlatforms.forEach(platform => {
             const item = document.createElement('div');
             item.className = 'platform-item';
             item.innerHTML = `
                 <h4>${platform.name}</h4>
-                <p><strong>Type:</strong> ${platform.category}</p>
-                <p><strong>Domain:</strong> ${this.getDomainIcon(platform.domain)} ${platform.domain}</p>
-                <p><strong>Affiliation:</strong> ${this.getAffiliationIcon(platform.affiliation)} ${platform.affiliation}</p>
-                <p>${platform.description}</p>
+                <p>Type: ${platform.class}</p>
+                <p>Domain: ${platform.domain}</p>
+                <button onclick="scenarioBuilder.selectPlatform('${platform.id}')">Add to Scenario</button>
             `;
-
-            item.addEventListener('click', () => {
-                this.selectPlatform(platform, item);
-            });
-
             container.appendChild(item);
         });
     }
 
-    getAffiliationIcon(affiliation) {
-        const icons = {
-            commercial: '🏢',
-            military: '⚔️'
-        };
-        return icons[affiliation] || '🔹';
-    }
+    getFilteredPlatforms() {
+        // Return all platforms from the library based on active filters
+        let allPlatforms = [];
 
+        if (this.platformLibrary) {
+            Object.values(this.platformLibrary).forEach(domainPlatforms => {
+                allPlatforms = allPlatforms.concat(domainPlatforms);
+            });
+        }
+
+        // Apply filters
+        if (this.activeFilters.domains.size > 0 && !this.activeFilters.domains.has('all')) {
+            allPlatforms = allPlatforms.filter(platform =>
+                this.activeFilters.domains.has(platform.domain)
+            );
+        }
+
+        if (this.activeFilters.affiliations.size > 0) {
+            allPlatforms = allPlatforms.filter(platform =>
+                this.activeFilters.affiliations.has(platform.affiliation)
+            );
+        }
+
+        return allPlatforms;
+    }
 }
 
 // Global instance

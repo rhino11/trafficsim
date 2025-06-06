@@ -578,7 +578,13 @@ describe('ScenarioBuilder', () => {
         });
 
         test('should preview scenario with platforms', () => {
-            scenarioBuilder.scenarioPlatforms = [{ name: 'Test' }];
+            scenarioBuilder.scenarioPlatforms = [{
+                name: 'Test',
+                start_position: { latitude: 40.0, longitude: -100.0 },
+                domain: 'airborne',
+                class: 'Fighter',
+                mission: { type: 'patrol' }
+            }];
             scenarioBuilder.mapMarkers = [{ marker: {} }];
             scenarioBuilder.map = { fitBounds: jest.fn() };
 
